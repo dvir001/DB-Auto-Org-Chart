@@ -1,6 +1,6 @@
 services:
   orgchart:
-    build: .
+    image: ghcr.io/dvir001/db-auto-org-chart:latest
     container_name: OrgChart
     restart: unless-stopped
     ports:

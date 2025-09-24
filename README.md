@@ -82,8 +82,22 @@ For the Azure credentials, follow the steps in the "Azure AD setup" section. To 
 
 ## Docker / container deployment
 
-The supplied `Dockerfile` builds a production image that runs as an unprivileged `app` user. Runtime dependencies are installed during the image build so no `pip install` happens on container start.
+The project ships with a Compose stack that pulls the published image `ghcr.io/dvir001/db-auto-org-chart:latest`, mounts a persistent volume for application data, and loads configuration from `.env`.
 
-```bash
-docker compose up --build -d
-```
+1. Copy the template and fill in your secrets:
+  ```bash
+  cp .env.template .env
+  # edit .env with your tenant/client IDs, secrets, and admin password
+  ```
+
+2. Start (or update) the service:
+  ```bash
+  docker compose pull
+  docker compose up -d
+  ```
+
+  The container exposes port `5000` by default—adjust the `ports` in `docker-compose.yml` if you need a different host port.
+
+3. Persistent data lives in the named volume `orgchart_data`, which retains cached employee hierarchies and settings between restarts. Remove that volume if you want a clean slate.
+
+To deploy on a new host, drop `docker-compose.yml` and your populated `.env` into a directory, then run the commands above, the stack will pull the image, provision the named volume, and start the app with no other files required.
