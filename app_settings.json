@@ -22,5 +22,7 @@
   "topUserEmail": "",
   "chartTitle": "DB Auto Org Chart",
   "highlightNewEmployees": true,
-  "newEmployeeMonths": 3
+  "newEmployeeMonths": 3,
+  "multiLineChildrenEnabled": true,
+  "multiLineChildrenThreshold": 20
 }

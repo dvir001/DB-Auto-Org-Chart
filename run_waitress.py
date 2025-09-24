@@ -4,7 +4,7 @@ This is a production-ready alternative to Gunicorn for Windows systems.
 """
 
 from waitress import serve
-from app import app, start_scheduler
+from app import app
 import logging
 import sys
 
@@ -15,8 +15,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 if __name__ == '__main__':
-    start_scheduler()
-    
     host = '0.0.0.0'
     port = 5000
     threads = 6  # Number of threads to handle requests

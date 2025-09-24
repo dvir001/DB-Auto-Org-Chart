@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login - {{ chart_title }}</title>
+    {% if favicon_path %}
+    <link rel="icon" type="image/x-icon" href="{{ favicon_path }}">
+    {% endif %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='login.css') }}">
+</head>
+<body>
+    <div class="login-container">
+        <a class="back-btn" href="/">← Back to Main Page</a>
+        <h2 class="login-title">Admin Login</h2>
+        <p class="login-description">Enter admin password to access configuration</p>
+        <form id="loginForm" class="login-form" data-next="{{ next_page }}">
+            <div class="form-field">
+                <label class="field-label" for="password">Password</label>
+                <input class="password-input" type="password" id="password" name="password" placeholder="Enter admin password" autocomplete="current-password" required autofocus>
+            </div>
+            <button class="login-btn" type="submit">Login</button>
+        </form>
+        <div class="error" id="error" role="alert" aria-live="polite"></div>
+    </div>
+    <script src="{{ url_for('static', filename='login.js') }}" defer></script>
+</body>
+</html>

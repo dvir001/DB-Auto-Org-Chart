@@ -1,0 +1,453 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #f5f5f5;
+    margin: 0;
+    padding: 0;
+}
+
+:root {
+    --header-preview-primary: #0078d4;
+    --header-preview-secondary: #0b559f;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.header {
+    background: linear-gradient(135deg, #0078d4 0%, #0b559f 100%);
+    color: white;
+    padding: 30px;
+    border-radius: 8px;
+    margin-bottom: 30px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.header h1 {
+    font-size: 2.5em;
+    margin-bottom: 10px;
+    font-weight: 300;
+}
+
+.header p {
+    opacity: 0.9;
+    font-size: 1.1em;
+}
+
+.config-section {
+    background: white;
+    border-radius: 8px;
+    padding: 30px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.config-section h2 {
+    color: #333;
+    margin-bottom: 25px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #e0e0e0;
+}
+
+.config-group {
+    margin-bottom: 30px;
+    padding: 20px;
+    background: #fafafa;
+    border-radius: 6px;
+    border: 1px solid #e8e8e8;
+}
+
+.config-item {
+    margin-bottom: 20px;
+}
+
+.config-item:last-child {
+    margin-bottom: 0;
+}
+
+.config-label {
+    display: block;
+    color: #555;
+    font-weight: 500;
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.config-description {
+    color: #888;
+    font-size: 12px;
+    margin-bottom: 10px;
+}
+
+.config-controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+input[type="text"],
+input[type="color"],
+input[type="number"],
+input[type="time"],
+select {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+input[type="time"]:focus,
+select:focus {
+    outline: none;
+    border-color: #0078d4;
+    box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.1);
+}
+
+input[type="color"] {
+    width: 60px;
+    height: 36px;
+    cursor: pointer;
+    padding: 4px;
+}
+
+input[type="file"] {
+    display: none;
+}
+
+#chartTitle {
+    width: 300px;
+}
+
+input[id$="ColorHex"] {
+    width: 100px;
+}
+
+.file-upload-label {
+    display: inline-block;
+    padding: 8px 16px;
+    background: #0078d4;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    margin-right: 10px;
+    min-width: 140px;
+    text-align: center;
+}
+
+.file-upload-label:hover {
+    background: #0b559f;
+}
+
+#logoUpload {
+    display: none;
+}
+
+.btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    font-weight: 500;
+}
+
+.btn-primary {
+    background: #0078d4;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #0b559f;
+}
+
+.btn-secondary {
+    background: #f0f0f0;
+    color: #333;
+    border: 1px solid #ddd;
+}
+
+.btn-secondary:hover {
+    background: #e0e0e0;
+}
+
+.btn-danger {
+    background: #dc3545;
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #c82333;
+}
+
+.btn-warning {
+    background: #ffc107;
+    color: #212529;
+}
+
+.btn-warning:hover {
+    background: #e0a800;
+}
+
+.btn-success {
+    background: #28a745;
+    color: white;
+}
+
+.btn-success:hover {
+    background: #218838;
+}
+
+/* Drag-and-drop upload zone styling */
+.upload-dropzone {
+    margin-top: 10px;
+    padding: 12px;
+    border: 2px dashed #ddd;
+    border-radius: 6px;
+    background: #fafafa;
+    color: #666;
+    text-align: center;
+    font-size: 13px;
+}
+
+.upload-dropzone.dragover {
+    border-color: #0078d4;
+    background: #f0f7ff;
+    color: #005a9e;
+}
+
+.upload-status {
+    display: inline-block;
+    margin-left: 10px;
+    color: #666;
+    font-size: 12px;
+}
+
+.current-logo {
+    display: inline-block;
+    margin-left: 15px;
+}
+
+.current-logo img {
+    height: 40px;
+    max-width: 200px;
+    object-fit: contain;
+    vertical-align: middle;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 4px;
+    background: white;
+}
+
+.preview-section {
+    margin-top: 15px;
+    padding: 15px;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+}
+
+.preview-header {
+    padding: 15px;
+    color: white;
+    border-radius: 4px;
+    transition: background 0.3s ease;
+}
+
+#headerPreview {
+    background: linear-gradient(
+        135deg,
+        var(--header-preview-primary, #0078d4) 0%,
+        var(--header-preview-secondary, #0b559f) 100%
+    );
+}
+
+.status-message {
+    padding: 10px 15px;
+    border-radius: 4px;
+    margin-top: 20px;
+    display: none;
+}
+
+.status-message.success {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+    display: block;
+}
+
+.status-message.error {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+    display: block;
+}
+
+.status-message.info {
+    background: #d1ecf1;
+    color: #0c5460;
+    border: 1px solid #bee5eb;
+    display: block;
+}
+
+.status-message.warning {
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+    display: block;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 15px;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 2px solid #e0e0e0;
+}
+
+.nav-link {
+    display: inline-block;
+    margin-bottom: 20px;
+    color: #0078d4;
+    text-decoration: none;
+    font-size: 14px;
+    transition: color 0.3s ease;
+}
+
+.nav-link:hover {
+    color: #0b559f;
+    text-decoration: underline;
+}
+
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+}
+
+.node-color-grid {
+    display: grid;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.node-color-label {
+    width: 80px;
+    display: inline-block;
+}
+
+.section-heading {
+    margin-top: 40px;
+}
+
+.inline-time-picker {
+    display: inline-flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.time-select {
+    width: 70px;
+}
+
+.config-controls--spaced {
+    margin-top: 10px;
+}
+
+.label-prefix {
+    margin-right: 10px;
+}
+
+.text-input-wide {
+    min-width: 360px;
+}
+
+.number-input-small {
+    width: 90px;
+}
+
+.select-inline {
+    margin-left: 10px;
+}
+
+.update-status {
+    margin-left: 15px;
+    color: #666;
+}
+
+/* Consistent spacing between toggle and its text label */
+.config-controls .toggle-switch + span {
+    margin-left: 8px;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 24px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked + .slider {
+    background-color: #0078d4;
+}
+
+input:checked + .slider:before {
+    transform: translateX(26px);
+}
+
+@media (max-width: 768px) {
+    .container {
+        padding: 10px;
+    }
+
+    .config-controls {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .action-buttons {
+        flex-direction: column;
+    }
+
+    .btn {
+        width: 100%;
+    }
+}

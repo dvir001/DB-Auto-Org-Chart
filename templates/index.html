@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DB AutoOrgChart</title>
+    <title></title>
     <script src="/static/d3.min.js"></script>
     <script src="/static/jspdf.umd.min.js"></script>
     <link rel="stylesheet" href="/static/styles.css">
@@ -12,11 +12,14 @@
 <body>
     <div class="container">
         <div class="header">
-            <div class="header-content">
-                <img src="/static/icon.png" alt="Logo" class="header-logo" onerror="this.style.display='none'">
+            <div class="header-content loading">
+                <img alt="Logo" class="header-logo loading" data-default-src="/static/icon.png" data-hide-on-error="true">
                 <div class="header-text">
                     <h1>Organization Chart</h1>
                     <p>Updates daily @ 8:00 PM</p>
+                </div>
+                <div class="header-actions">
+                    <button id="configBtn" class="logout-btn is-hidden" type="button">Configure</button>
                 </div>
             </div>
         </div>
@@ -27,30 +30,47 @@
                 <input type="text" class="search-input" id="searchInput" placeholder="Search for employees by name, title, or department...">
                 <div class="search-results" id="searchResults"></div>
             </div>
+            <div class="top-user-controls">
+                <label for="topUserSearch" class="top-user-label">Top-Level User:</label>
+                <div class="search-wrapper top-user-search-wrapper">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="topUserSearch" class="search-input" placeholder="Search for top-level user or leave empty for auto-detect...">
+                    <div class="search-results top-user-results" id="topUserResults"></div>
+                </div>
+                <button id="saveTopUserBtn" class="save-btn" type="button">Save</button>
+                <button id="resetTopUserBtn" class="reset-btn" type="button">Reset</button>
+            </div>
         </div>
         
         <div class="main-content">
             <div class="org-chart-container" id="orgChart">
                 <div class="layout-toggle">
-                    <button class="layout-btn active" onclick="setLayoutOrientation('vertical')">
+                    <button class="layout-btn active" data-layout="vertical" type="button">
                         <span class="layout-icon">↓</span>
                         Vertical
                     </button>
-                    <button class="layout-btn" onclick="setLayoutOrientation('horizontal')">
+                    <button class="layout-btn" data-layout="horizontal" type="button">
                         <span class="layout-icon">→</span>
                         Horizontal
                     </button>
+                    <button id="compactToggleBtn" class="layout-btn" type="button" title="Toggle compact layout for large teams">
+                        <span class="layout-icon">▦</span>
+                        Compact Large Teams
+                    </button>
                 </div>
                 <div class="controls">
-                    <button class="control-btn" onclick="zoomIn()">+</button>
-                    <button class="control-btn" onclick="zoomOut()">-</button>
-                    <button class="control-btn" onclick="resetZoom()">Reset Zoom</button>
-                    <button class="control-btn" onclick="fitToScreen()">Fit to Screen</button>
-                    <button class="control-btn" onclick="expandAll()">Expand All</button>
-                    <button class="control-btn" onclick="collapseAll()">Collapse All</button>
-                    <button class="control-btn" onclick="exportToImage('svg', false)" style="background: #28a745; color: white; border-color: #28a745;"> Export Visible (SVG)</button>
-                    <button class="control-btn" onclick="exportToImage('png', false)" style="background: #17a2b8; color: white; border-color: #17a2b8;"> Export Visible (PNG)</button>
-                    <!-- <button class="control-btn" onclick="printChart()">Print</button> -->
+                    <button class="control-btn" data-control="zoom-in" type="button">+</button>
+                    <button class="control-btn" data-control="zoom-out" type="button">-</button>
+                    <button class="control-btn" data-control="reset-zoom" type="button">Reset Zoom</button>
+                    <button class="control-btn" data-control="fit" type="button">Fit to Screen</button>
+                    <button class="control-btn" data-control="expand" type="button">Expand All</button>
+                    <button class="control-btn" data-control="collapse" type="button">Collapse All</button>
+                    <button class="control-btn" data-control="reset-hidden" type="button" title="Show all previously hidden subtrees">Reset Hidden</button>
+                    <button class="control-btn" data-control="print" type="button">Print</button>
+                    <button class="control-btn control-btn--violet" data-control="export-visible-svg" type="button"> Export Visible (SVG)</button>
+                    <button class="control-btn control-btn--teal" data-control="export-visible-png" type="button"> Export Visible (PNG)</button>
+                    <button class="control-btn control-btn--crimson" data-control="export-visible-pdf" type="button"> Export Visible (PDF)</button>
+                    <button class="control-btn control-btn--green" data-control="export-xlsx" type="button"> Export to XLSX</button>
                 </div>
                 <div class="loading">
                     <div class="spinner"></div>
@@ -60,7 +80,7 @@
             
             <div class="employee-detail" id="employeeDetail">
                 <div class="detail-header">
-                    <button class="close-btn" onclick="closeEmployeeDetail()">×</button>
+                    <button class="close-btn" id="employeeDetailCloseBtn" type="button">×</button>
                     <div id="employeeDetailContent"></div>
                 </div>
                 <div class="employee-info" id="employeeInfo"></div>
@@ -68,6 +88,6 @@
         </div>
     </div>
 
-    <script src="/static/app.js"></script>
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>
