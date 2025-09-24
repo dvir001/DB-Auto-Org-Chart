@@ -35,12 +35,24 @@ body {
     display: flex;
     align-items: center;
     gap: 20px;
+    max-height: 240px;
+    z-index: 1000;
+}
+
+/* Hide header content until settings are loaded to prevent flash of default content */
+.header-content.loading {
+    visibility: hidden;
 }
 
 .header-logo {
     height: 40px;
     max-width: 200px;
     object-fit: contain;
+}
+
+/* Hide logo specifically until settings are loaded */
+.header-logo.loading {
+    visibility: hidden;
 }
 
 .header-text h1 {
@@ -74,6 +86,27 @@ body {
     border-color: white;
 }
 
+.logout-btn {
+    color: white;
+    background: transparent;
+    text-decoration: none;
+    padding: 8px 16px;
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 4px;
+    transition: all 0.3s ease;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.logout-btn:hover {
+    background: rgba(255,255,255,0.1);
+    border-color: white;
+}
+
+.is-hidden {
+    display: none !important;
+}
+
 .search-bar {
     padding: 15px 30px;
     background: white;
@@ -82,10 +115,15 @@ body {
     top: 0;
     z-index: 100;
     box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    display: flex;
+    align-items: center;
+    gap: 30px;
+    flex-wrap: wrap;
 }
 
 .search-wrapper {
     position: relative;
+    flex: 1 1 320px;
     max-width: 600px;
 }
 
@@ -112,6 +150,91 @@ body {
     color: #888;
 }
 
+.top-user-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1 1 320px;
+    flex-wrap: wrap;
+}
+
+.top-user-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: #333;
+    white-space: nowrap;
+}
+
+.top-user-search-wrapper {
+    position: relative;
+    flex: 1 1 320px;
+    min-width: 260px;
+    max-width: 600px;
+}
+
+.top-user-search-wrapper .search-input {
+    width: 100%;
+}
+
+.top-user-results {
+    z-index: 1000;
+    max-height: 240px;
+}
+
+.top-user-result-item {
+    font-size: 13px;
+}
+
+.top-user-result-name {
+    font-weight: 500;
+    color: #333;
+}
+
+.top-user-result-details {
+    color: #666;
+    font-size: 12px;
+}
+
+.save-btn {
+    padding: 8px 12px;
+    border: 1px solid #28a745;
+    border-radius: 4px;
+    background: #28a745;
+    color: white;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+}
+
+.save-btn:hover {
+    background: #218838;
+    border-color: #218838;
+}
+
+.save-btn:disabled {
+    background: #6c757d;
+    border-color: #6c757d;
+    cursor: not-allowed;
+}
+
+.reset-btn {
+    padding: 8px 12px;
+    border: 1px solid #dc3545;
+    border-radius: 4px;
+    background: #dc3545;
+    color: white;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+}
+
+.reset-btn:hover {
+    background: #c82333;
+    border-color: #c82333;
+}
+
 .main-content {
     display: flex;
     min-height: calc(100vh - 140px);
@@ -120,7 +243,8 @@ body {
 .org-chart-container {
     flex: 1;
     padding: 20px;
-    overflow: auto;
+    /* Allow panning/zoom without visible scrollbars on the chart area */
+    overflow: hidden;
     position: relative;
     min-width: 0;
 }
@@ -130,6 +254,10 @@ body {
     height: 100%;
     min-height: calc(100vh - 180px);
 }
+
+/* Hide scrollbars in org chart only (keep others for side panels, menus) */
+.org-chart-container::-webkit-scrollbar { display: none; }
+.org-chart-container { -ms-overflow-style: none; scrollbar-width: none; }
 
 .layout-toggle {
     position: absolute;
@@ -168,6 +296,11 @@ body {
 .layout-btn.active {
     background: #0078d4;
     color: white;
+}
+
+/* Ensure the third button separates nicely on narrow screens */
+.layout-toggle .layout-btn + .layout-btn {
+    border-left: 1px solid #eee;
 }
 
 .layout-icon {
@@ -212,6 +345,76 @@ body {
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
+.control-btn--violet {
+    background: #6f42c1;
+    border-color: #6f42c1;
+    color: #ffffff;
+}
+
+.control-btn--violet:hover {
+    background: #59339d;
+    border-color: #59339d;
+    color: #ffffff;
+}
+
+.control-btn--teal {
+    background: #17a2b8;
+    border-color: #17a2b8;
+    color: #ffffff;
+}
+
+.control-btn--teal:hover {
+    background: #13899a;
+    border-color: #13899a;
+    color: #ffffff;
+}
+
+.control-btn--crimson {
+    background: #dc3545;
+    border-color: #dc3545;
+    color: #ffffff;
+}
+
+.control-btn--crimson:hover {
+    background: #b02a37;
+    border-color: #b02a37;
+    color: #ffffff;
+}
+
+.control-btn--green {
+    background: #28a745;
+    border-color: #28a745;
+    color: #ffffff;
+}
+
+.control-btn--green:hover {
+    background: #218838;
+    border-color: #218838;
+    color: #ffffff;
+}
+
+/* Multi-line bus link styling */
+.bus-link {
+    stroke: #444;
+    stroke-width: 2px;
+    fill: none;
+}
+
+/* Hidden subtree styling */
+.node.hidden-subtree .node-rect {
+    fill: #dddddd !important;
+    stroke: #bbbbbb !important;
+    opacity: 0.6;
+}
+.node.hidden-subtree text { opacity: 0.5; }
+.hide-toggle {
+    cursor: pointer;
+    font-size: 12px;
+    fill: #666;
+    stroke: none;
+}
+.hide-toggle:hover { fill: #000; }
+
 .employee-detail {
     width: 350px;
     background: #fafafa;
@@ -230,6 +433,26 @@ body {
 @media (max-width: 768px) {
     .search-bar {
         padding: 10px 15px;
+        flex-direction: column;
+        gap: 15px;
+        align-items: stretch;
+    }
+    
+    .top-user-controls {
+        min-width: auto;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    
+    .top-user-search-wrapper {
+        min-width: 200px;
+        flex: 1;
+    }
+    
+    .save-btn, .reset-btn {
+        flex-shrink: 0;
+        font-size: 12px;
+        padding: 6px 10px;
     }
 
     .employee-detail {
@@ -302,6 +525,36 @@ body {
     background: #f0f0f0;
 }
 
+.employee-avatar-container {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin: 0 auto 15px;
+    position: relative;
+}
+
+.employee-avatar-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+.employee-avatar-fallback {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #0078d4 0%, #0b559f 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 24px;
+    font-weight: 500;
+}
+
+/* Legacy support for old employee-avatar class */
 .employee-avatar {
     width: 70px;
     height: 70px;
@@ -361,6 +614,96 @@ body {
     text-decoration: underline;
 }
 
+.manager-section {
+    margin-top: 25px;
+    padding-top: 20px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.manager-section h3 {
+    color: #333;
+    margin-bottom: 15px;
+    font-size: 16px;
+}
+
+.manager-item {
+    padding: 12px;
+    background: white;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 1px solid #e8e8e8;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.manager-item:hover {
+    background: #f8f8f8;
+    border-color: #0078d4;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.manager-avatar-container {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    position: relative;
+}
+
+.manager-avatar-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+.manager-avatar-fallback {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #0078d4;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+/* Legacy support for old manager-avatar class */
+.manager-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #0078d4;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.manager-details {
+    flex: 1;
+}
+
+.manager-name {
+    font-weight: 500;
+    color: #333;
+    margin-bottom: 2px;
+}
+
+.manager-title {
+    font-size: 12px;
+    color: #666;
+}
+
 .direct-reports {
     margin-top: 25px;
     padding-top: 20px;
@@ -374,29 +717,74 @@ body {
 }
 
 .report-item {
-    padding: 10px;
+    padding: 12px;
     background: white;
-    border-radius: 4px;
+    border-radius: 6px;
     margin-bottom: 8px;
     cursor: pointer;
     transition: all 0.3s ease;
     border: 1px solid #e8e8e8;
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 
 .report-item:hover {
     background: #f8f8f8;
     border-color: #0078d4;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.report-avatar-container {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    position: relative;
+}
+
+.report-avatar-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+.report-avatar-fallback {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #0078d4;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 12px;
+}
+
+.report-details {
+    flex: 1;
+    min-width: 0;
 }
 
 .report-name {
     font-weight: 500;
     color: #333;
     margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .report-title {
     font-size: 12px;
     color: #666;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* D3 Org Chart Styles */
@@ -465,6 +853,7 @@ body {
 .node-title {
     font-size: 11px;
     fill: #555;
+    line-height: 1.2;
 }
 
 .node-department {
@@ -477,6 +866,7 @@ body {
     fill: none;
     stroke: #999;
     stroke-width: 2px;
+    pointer-events: none;
 }
 
 .expand-btn {
@@ -529,10 +919,11 @@ body {
     border: 1px solid #ddd;
     border-top: none;
     border-radius: 0 0 4px 4px;
-    max-height: 300px;
+    max-height: 240px;
     overflow-y: auto;
     display: none;
     box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    z-index: 1000;
 }
 
 .search-results.active {
@@ -540,15 +931,18 @@ body {
 }
 
 .search-result-item {
-    padding: 10px 15px;
+    padding: 8px 12px;
     cursor: pointer;
     border-bottom: 1px solid #f0f0f0;
+    font-size: 13px;
+    transition: background-color 0.2s ease;
 }
-
 .search-result-item:hover {
-    background: #f8f8f8;
+    background: #f8f9fa;
 }
-
+.search-result-item:last-child {
+    border-bottom: none;
+}
 .search-result-name {
     font-weight: 500;
     color: #333;

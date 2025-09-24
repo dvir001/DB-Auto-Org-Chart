@@ -19,8 +19,35 @@ max_requests_jitter = 50
 # Preload the application before forking worker processes
 preload_app = True
 
-# Logging
-accesslog = '-'
+# Logging - Option to filter access logs
+import logging
+
+class AccessLogFilter(logging.Filter):
+    def filter(self, record):
+        # Filter out noisy requests to reduce log spam
+        if hasattr(record, 'getMessage'):
+            message = record.getMessage()
+            
+            # Filter out photo requests (both 200 and 304 responses)
+            if '/api/photo/' in message and ('304' in message or '200' in message):
+                return False
+                
+            # Filter out static file requests with 304 responses (cached)
+            if '/static/' in message and '304' in message:
+                return False
+                
+            # Filter out health check requests (Docker health checks with curl)
+            if '"GET / HTTP/1.1" 200' in message and 'curl/' in message:
+                return False
+                
+        return True
+
+# Apply custom filter to reduce access log spam
+def when_ready(server):
+    access_logger = logging.getLogger('gunicorn.access')
+    access_logger.addFilter(AccessLogFilter())
+
+accesslog = '-'  # Enable access logging with filtering
 errorlog = '-'
 loglevel = 'info'
 access_log_format = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s"'
