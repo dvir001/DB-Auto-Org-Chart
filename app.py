@@ -208,7 +208,7 @@ DEFAULT_SETTINGS = {
         'department': 'show',
         'email': 'show',
         'phone': 'show',
-        'hireDate': 'show',
+        'hireDate': 'admin',
         'country': 'show',
         'state': 'show',
         'city': 'show',
