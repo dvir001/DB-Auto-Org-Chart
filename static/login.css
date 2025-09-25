@@ -76,10 +76,12 @@ body {
 
 .password-input {
     width: 100%;
-    padding: 12px;
+    padding: 12px 14px;
     font-size: 16px;
     border: 1px solid #d0d7de;
     border-radius: 6px;
+    box-sizing: border-box;
+    min-height: 48px;
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -91,7 +93,8 @@ body {
 
 .login-btn {
     width: 100%;
-    padding: 12px;
+    padding: 12px 14px;
+    min-height: 48px;
     font-size: 16px;
     font-weight: 600;
     text-align: center;
@@ -100,6 +103,11 @@ body {
     color: #ffffff;
     background: linear-gradient(135deg, #0078d4, #106ebe);
     cursor: pointer;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1.1;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
