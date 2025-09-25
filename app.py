@@ -1067,7 +1067,7 @@ def set_top_user():
 @require_auth
 @limiter.limit("20 per minute")
 def set_multiline_enabled():
-    """Public endpoint to toggle multi-line children layout (Compact Large Teams)."""
+    """Public endpoint to toggle multi-line children layout (Compact Teams)."""
     try:
         data = request.json or {}
         if 'multiLineChildrenEnabled' not in data:

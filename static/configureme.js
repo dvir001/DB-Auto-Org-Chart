@@ -117,10 +117,6 @@ function applySettings(settings) {
         document.getElementById('showEmployeeCount').checked = settings.showEmployeeCount;
     }
 
-    if (settings.showProfileImages !== undefined) {
-        document.getElementById('showProfileImages').checked = settings.showProfileImages;
-    }
-
     if (settings.highlightNewEmployees !== undefined) {
         document.getElementById('highlightNewEmployees').checked = settings.highlightNewEmployees;
     }
@@ -459,8 +455,7 @@ async function resetAllSettings() {
         document.getElementById('searchAutoExpand').checked = true;
         document.getElementById('searchHighlight').checked = true;
         document.getElementById('showDepartments').checked = true;
-        document.getElementById('showEmployeeCount').checked = true;
-        document.getElementById('showProfileImages').checked = true;
+    document.getElementById('showEmployeeCount').checked = true;
         document.getElementById('highlightNewEmployees').checked = true;
         document.getElementById('newEmployeeMonths').value = '3';
         document.getElementById('hideDisabledUsers').checked = true;
@@ -526,8 +521,7 @@ async function saveAllSettings() {
         searchAutoExpand: document.getElementById('searchAutoExpand').checked,
         searchHighlight: document.getElementById('searchHighlight').checked,
         showDepartments: document.getElementById('showDepartments').checked,
-        showEmployeeCount: document.getElementById('showEmployeeCount').checked,
-        showProfileImages: document.getElementById('showProfileImages').checked,
+    showEmployeeCount: document.getElementById('showEmployeeCount').checked,
         highlightNewEmployees: document.getElementById('highlightNewEmployees').checked,
         newEmployeeMonths: parseInt(document.getElementById('newEmployeeMonths').value, 10),
         hideDisabledUsers: document.getElementById('hideDisabledUsers').checked,

@@ -13,6 +13,9 @@ const hiddenNodeIds = new Set(JSON.parse(localStorage.getItem('hiddenNodeIds') |
 let isAuthenticated = false;
 const COMPACT_PREFERENCE_KEY = 'orgChart.compactLargeTeams';
 let userCompactPreference = null;
+const PROFILE_IMAGE_PREFERENCE_KEY = 'orgChart.showProfileImages';
+let userProfileImagesPreference = null;
+let serverShowProfileImages = null;
 
 function loadStoredCompactPreference() {
     userCompactPreference = null;
@@ -51,6 +54,49 @@ function getEffectiveCompactEnabled() {
     const serverEnabled = !appSettings || appSettings.multiLineChildrenEnabled !== false;
     if (!isAuthenticated && userCompactPreference !== null) {
         return userCompactPreference;
+    }
+    return serverEnabled;
+}
+
+function loadStoredProfileImagePreference() {
+    userProfileImagesPreference = null;
+    try {
+        const stored = localStorage.getItem(PROFILE_IMAGE_PREFERENCE_KEY);
+        if (stored === 'true') {
+            userProfileImagesPreference = true;
+        } else if (stored === 'false') {
+            userProfileImagesPreference = false;
+        }
+    } catch (error) {
+        console.warn('Unable to access profile image preference storage:', error);
+        userProfileImagesPreference = null;
+    }
+}
+
+function storeProfileImagePreference(value) {
+    userProfileImagesPreference = value;
+    try {
+        localStorage.setItem(PROFILE_IMAGE_PREFERENCE_KEY, String(value));
+    } catch (error) {
+        console.warn('Unable to persist profile image preference:', error);
+    }
+}
+
+function clearProfileImagePreference() {
+    userProfileImagesPreference = null;
+    try {
+        localStorage.removeItem(PROFILE_IMAGE_PREFERENCE_KEY);
+    } catch (error) {
+        console.warn('Unable to clear profile image preference storage:', error);
+    }
+}
+
+function getEffectiveProfileImagesEnabled() {
+    const serverEnabled = (serverShowProfileImages != null)
+        ? serverShowProfileImages
+        : (!appSettings || appSettings.showProfileImages !== false);
+    if (userProfileImagesPreference !== null) {
+        return userProfileImagesPreference;
     }
     return serverEnabled;
 }
@@ -184,9 +230,66 @@ function calculateFontSize(text, baseSize, maxLength, minSize = 9) {
     return Math.max(baseSize * 0.75, minSize); // Smaller for long text
 }
 
+function getLabelOffsetX() {
+    return appSettings.showProfileImages !== false ? -nodeWidth / 2 + 50 : 0;
+}
+
+function getLabelAnchor() {
+    return appSettings.showProfileImages !== false ? 'start' : 'middle';
+}
+
+function getNameFontSizePx(name) {
+    const maxLength = appSettings.showProfileImages !== false ? 25 : 30;
+    return calculateFontSize(name, 14, maxLength) + 'px';
+}
+
+function getTitleFontSizePx(title) {
+    const maxLength = appSettings.showProfileImages !== false ? 25 : 30;
+    return calculateFontSize(title, 11, maxLength, 8) + 'px';
+}
+
+function getDepartmentFontSizePx(dept) {
+    const maxLength = appSettings.showProfileImages !== false ? 25 : 35;
+    return calculateFontSize(dept, 9, maxLength, 7) + 'px';
+}
+
+function getTrimmedTitle(title = '') {
+    const charLimit = appSettings.showProfileImages !== false ? 45 : 50;
+    return title.length > charLimit ? title.substring(0, charLimit) + '...' : title;
+}
+
 // Security: Safely set innerHTML with escaped content
 function safeInnerHTML(element, htmlContent) {
     element.innerHTML = htmlContent;
+}
+
+function applyProfileImageAttributes(selection) {
+    selection
+        .attr('class', 'profile-image')
+        .attr('xlink:href', userIconUrl)
+        .attr('x', -nodeWidth / 2 + 8)
+        .attr('y', -18)
+        .attr('width', 36)
+        .attr('height', 36)
+        .attr('clip-path', 'circle(18px at 18px 18px)')
+        .attr('preserveAspectRatio', 'xMidYMid slice')
+        .each(function(d) {
+            if (d.data.photoUrl && d.data.photoUrl.includes('/api/photo/')) {
+                const element = d3.select(this);
+                const img = new Image();
+
+                img.onload = function() {
+                    element.attr('xlink:href', d.data.photoUrl);
+                    console.log(`Photo loaded for ${d.data.name}`);
+                };
+
+                img.onerror = function() {
+                    console.log(`Photo failed for ${d.data.name}, keeping default icon`);
+                };
+
+                img.src = d.data.photoUrl;
+            }
+        });
 }
 
 async function loadSettings() {
@@ -194,6 +297,7 @@ async function loadSettings() {
         const response = await fetch(`${API_BASE_URL}/api/settings`);
         if (response.ok) {
             appSettings = await response.json();
+            serverShowProfileImages = appSettings.showProfileImages !== false;
             applySettings();
         } else {
             // If settings fail to load, still show header content with defaults
@@ -279,6 +383,11 @@ function setupStaticEventListeners() {
     const compactBtn = document.getElementById('compactToggleBtn');
     if (compactBtn) {
         compactBtn.addEventListener('click', toggleCompactLargeTeams);
+    }
+
+    const profileBtn = document.getElementById('profileImageToggleBtn');
+    if (profileBtn) {
+        profileBtn.addEventListener('click', toggleProfileImages);
     }
 
     const closeDetailBtn = document.getElementById('employeeDetailCloseBtn');
@@ -400,7 +509,7 @@ function applySettings() {
         headerContent.classList.remove('loading');
     }
 
-    // Reflect Compact Large Teams toggle state
+    // Reflect Compact Teams toggle state
     try {
         const btn = document.getElementById('compactToggleBtn');
         if (btn && appSettings) {
@@ -413,9 +522,18 @@ function applySettings() {
                 ? appSettings.multiLineChildrenThreshold
                 : 20;
             btn.innerHTML = '<span class="layout-icon">▦</span> ' +
-                'Compact Large Teams (' + threshold + ')';
+                'Compact Teams (' + threshold + ')';
         }
     } catch (e) { /* no-op */ }
+
+    const showProfileImages = getEffectiveProfileImagesEnabled();
+    appSettings.showProfileImages = showProfileImages;
+    const profileBtn = document.getElementById('profileImageToggleBtn');
+    if (profileBtn) {
+        profileBtn.classList.toggle('active', showProfileImages);
+        profileBtn.setAttribute('aria-pressed', String(showProfileImages));
+        profileBtn.title = showProfileImages ? 'Hide profile images' : 'Show profile images';
+    }
 
     updateAuthDependentUI();
 }
@@ -464,6 +582,14 @@ function updateAuthDependentUI() {
             ? 'Toggle compact layout for large teams'
             : 'Toggle compact layout for your view (not saved globally)';
     }
+
+    const profileBtn = document.getElementById('profileImageToggleBtn');
+    if (profileBtn) {
+        const showImages = getEffectiveProfileImagesEnabled();
+        profileBtn.classList.toggle('active', showImages);
+        profileBtn.setAttribute('aria-pressed', String(showImages));
+        profileBtn.title = showImages ? 'Hide profile images' : 'Show profile images';
+    }
 }
 
 async function checkAuthentication() {
@@ -485,6 +611,7 @@ async function init() {
     } else {
         loadStoredCompactPreference();
     }
+    loadStoredProfileImagePreference();
     updateAuthDependentUI();
     await loadSettings();
     
@@ -511,7 +638,7 @@ async function init() {
     }
 }
 
-// Toggle Compact Large Teams from main page
+// Toggle Compact Teams from main page
 async function toggleCompactLargeTeams() {
     const btn = document.getElementById('compactToggleBtn');
     const previousValue = getEffectiveCompactEnabled();
@@ -557,7 +684,7 @@ async function toggleCompactLargeTeams() {
             return;
         }
         if (!res.ok) {
-            throw new Error('Failed to save Compact Large Teams');
+            throw new Error('Failed to save Compact Teams');
         }
 
         clearCompactPreferenceStorage();
@@ -571,7 +698,7 @@ async function toggleCompactLargeTeams() {
             fitToScreen();
         }
     } catch (err) {
-        console.error('Error toggling Compact Large Teams:', err);
+    console.error('Error toggling Compact Teams:', err);
         if (btn) {
             btn.classList.toggle('active', previousValue);
             btn.disabled = false;
@@ -579,6 +706,36 @@ async function toggleCompactLargeTeams() {
         appSettings.multiLineChildrenEnabled = previousValue;
         updateAuthDependentUI();
     }
+}
+
+function toggleProfileImages() {
+    const btn = document.getElementById('profileImageToggleBtn');
+    const currentValue = getEffectiveProfileImagesEnabled();
+    const newValue = !currentValue;
+
+    if (!appSettings) {
+        appSettings = {};
+    }
+
+    appSettings.showProfileImages = newValue;
+
+    if (serverShowProfileImages != null && newValue === serverShowProfileImages) {
+        clearProfileImagePreference();
+    } else {
+        storeProfileImagePreference(newValue);
+    }
+
+    if (btn) {
+        btn.classList.toggle('active', newValue);
+        btn.setAttribute('aria-pressed', String(newValue));
+        btn.title = newValue ? 'Hide profile images' : 'Show profile images';
+    }
+
+    if (root) {
+        update(root);
+    }
+
+    updateAuthDependentUI();
 }
 
 function preloadEmployeeImages(employees) {
@@ -1077,81 +1234,33 @@ function update(source) {
         .style('stroke-width', '2px');
 
     if (appSettings.showProfileImages !== false) {
-        nodeEnter.append('image')
-            .attr('xlink:href', d => {
-                // Always start with default user icon, then try to load employee photo
-                return userIconUrl;
-            })
-            .attr('x', -nodeWidth/2 + 8)
-            .attr('y', -18)
-            .attr('width', 36)
-            .attr('height', 36)
-            .attr('clip-path', 'circle(18px at 18px 18px)')
-            .attr('preserveAspectRatio', 'xMidYMid slice')
-            .each(function(d) {
-                // Try to load the actual employee photo after setting default
-                if (d.data.photoUrl && d.data.photoUrl.includes('/api/photo/')) {
-                    const element = d3.select(this);
-                    const img = new Image();
-                    
-                    img.onload = function() {
-                        // Successfully loaded, update the src
-                        element.attr('xlink:href', d.data.photoUrl);
-                        console.log(`Photo loaded for ${d.data.name}`);
-                    };
-                    
-                    img.onerror = function() {
-                        // Failed to load, keep default icon
-                        console.log(`Photo failed for ${d.data.name}, keeping default icon`);
-                    };
-                    
-                    // Start loading the employee photo
-                    img.src = d.data.photoUrl;
-                }
-            });
+        applyProfileImageAttributes(nodeEnter.append('image'));
     }
 
     nodeEnter.append('text')
         .attr('class', 'node-text')
-        .attr('x', appSettings.showProfileImages !== false ? -nodeWidth/2 + 50 : 0)
+        .attr('x', getLabelOffsetX())
         .attr('y', -10)
-        .attr('text-anchor', appSettings.showProfileImages !== false ? 'start' : 'middle')
+        .attr('text-anchor', getLabelAnchor())
         .style('font-weight', 'bold')
-        .style('font-size', d => {
-            const name = d.data.name;
-            const maxLength = appSettings.showProfileImages !== false ? 25 : 30;
-            return calculateFontSize(name, 14, maxLength) + 'px';
-        })
+        .style('font-size', d => getNameFontSizePx(d.data.name))
         .text(d => d.data.name);
 
     nodeEnter.append('text')
         .attr('class', 'node-title')
-        .attr('x', appSettings.showProfileImages !== false ? -nodeWidth/2 + 50 : 0)
+        .attr('x', getLabelOffsetX())
         .attr('y', 5)
-        .attr('text-anchor', appSettings.showProfileImages !== false ? 'start' : 'middle')
-        .style('font-size', d => {
-            const title = d.data.title;
-            const maxLength = appSettings.showProfileImages !== false ? 25 : 30;
-            return calculateFontSize(title, 11, maxLength, 8) + 'px';
-        })
-        .text(d => {
-            const title = d.data.title || '';
-            // Use reasonable limit for horizontal layout to prevent overflow
-            const charLimit = appSettings.showProfileImages !== false ? 45 : 50;
-            return title.length > charLimit ? title.substring(0, charLimit) + '...' : title;
-        });
+        .attr('text-anchor', getLabelAnchor())
+        .style('font-size', d => getTitleFontSizePx(d.data.title || ''))
+        .text(d => getTrimmedTitle(d.data.title || ''));
 
     if (appSettings.showDepartments !== false) {
         nodeEnter.append('text')
             .attr('class', 'node-department')
-            .attr('x', appSettings.showProfileImages !== false ? -nodeWidth/2 + 50 : 0)
+            .attr('x', getLabelOffsetX())
             .attr('y', 18)
-            .attr('text-anchor', appSettings.showProfileImages !== false ? 'start' : 'middle')
-            .style('font-size', d => {
-                const dept = d.data.department || 'Not specified';
-                const maxLength = appSettings.showProfileImages !== false ? 25 : 35;
-                return calculateFontSize(dept, 9, maxLength, 7) + 'px';
-            })
+            .attr('text-anchor', getLabelAnchor())
+            .style('font-size', d => getDepartmentFontSizePx(d.data.department || 'Not specified'))
             .style('font-style', 'italic')
             .style('fill', '#666')
             .text(d => d.data.department || 'Not specified');
@@ -1244,7 +1353,9 @@ function update(source) {
     }
 
 
-    const nodeUpdate = node.merge(nodeEnter)
+    const nodeMerge = node.merge(nodeEnter);
+
+    const nodeUpdate = nodeMerge
         .attr('class', d => {
             let cls = d.depth === 0 ? 'node ceo' : 'node';
             if (isHiddenNode(d)) cls += ' hidden-subtree';
@@ -1255,7 +1366,7 @@ function update(source) {
         .attr('transform', d => `translate(${d.x}, ${d.y})`);
 
     // Update eye icons and tooltips on merged selection (after transition start)
-    node.merge(nodeEnter).selectAll('text.hide-toggle')
+    nodeMerge.selectAll('text.hide-toggle')
         .text(d => hiddenNodeIds.has(d.data.id) ? '🙈' : '👁')
         .each(function(d){
             const titleEl = this.querySelector('title');
@@ -1286,6 +1397,39 @@ function update(source) {
                 const count = d._children?.length || d.children?.length || 0;
                 return count > 99 ? '99+' : count;
             });
+    }
+
+    if (appSettings.showProfileImages !== false) {
+        nodeMerge.each(function(d) {
+            const nodeSel = d3.select(this);
+            let img = nodeSel.select('image.profile-image');
+            if (img.empty()) {
+                img = nodeSel.insert('image', 'text');
+            }
+            applyProfileImageAttributes(img);
+        });
+    } else {
+        nodeMerge.selectAll('image.profile-image').remove();
+    }
+
+    nodeMerge.select('.node-text')
+        .attr('x', getLabelOffsetX())
+        .attr('text-anchor', getLabelAnchor())
+        .style('font-size', d => getNameFontSizePx(d.data.name))
+        .text(d => d.data.name);
+
+    nodeMerge.select('.node-title')
+        .attr('x', getLabelOffsetX())
+        .attr('text-anchor', getLabelAnchor())
+        .style('font-size', d => getTitleFontSizePx(d.data.title || ''))
+        .text(d => getTrimmedTitle(d.data.title || ''));
+
+    if (appSettings.showDepartments !== false) {
+        nodeMerge.select('.node-department')
+            .attr('x', getLabelOffsetX())
+            .attr('text-anchor', getLabelAnchor())
+            .style('font-size', d => getDepartmentFontSizePx(d.data.department || 'Not specified'))
+            .text(d => d.data.department || 'Not specified');
     }
 
     node.exit()
