@@ -1,6 +1,34 @@
 const API_BASE_URL = window.location.origin;
 let currentSettings = {};
 
+const EXPORT_COLUMN_KEYS = [
+    { key: 'name', selectId: 'exportColumnName' },
+    { key: 'title', selectId: 'exportColumnTitle' },
+    { key: 'department', selectId: 'exportColumnDepartment' },
+    { key: 'email', selectId: 'exportColumnEmail' },
+    { key: 'phone', selectId: 'exportColumnPhone' },
+    { key: 'hireDate', selectId: 'exportColumnHireDate' },
+    { key: 'country', selectId: 'exportColumnCountry' },
+    { key: 'state', selectId: 'exportColumnState' },
+    { key: 'city', selectId: 'exportColumnCity' },
+    { key: 'office', selectId: 'exportColumnOffice' },
+    { key: 'manager', selectId: 'exportColumnManager' }
+];
+
+const EXPORT_COLUMN_DEFAULTS = {
+    name: 'show',
+    title: 'show',
+    department: 'show',
+    email: 'show',
+    phone: 'show',
+    hireDate: 'show',
+    country: 'show',
+    state: 'show',
+    city: 'show',
+    office: 'show',
+    manager: 'show'
+};
+
 async function loadSettings() {
     try {
         const response = await fetch(`${API_BASE_URL}/api/settings`);
@@ -158,6 +186,46 @@ function applySettings(settings) {
         const el2 = document.getElementById('multiLineChildrenThreshold');
         if (el2) el2.value = settings.multiLineChildrenThreshold;
     }
+
+    applyExportColumnSettings(settings);
+}
+
+function applyExportColumnSettings(settings) {
+    const modeFor = (key) => {
+        const value = (settings.exportXlsxColumns || {})[key];
+        if (value === 'hide' || value === 'admin') {
+            return value;
+        }
+        return 'show';
+    };
+
+    EXPORT_COLUMN_KEYS.forEach(({ key, selectId }) => {
+        const select = document.getElementById(selectId);
+        if (select) {
+            select.value = modeFor(key);
+        }
+    });
+}
+
+function getExportColumnSettings() {
+    const result = {};
+    EXPORT_COLUMN_KEYS.forEach(({ key, selectId }) => {
+        const select = document.getElementById(selectId);
+        if (select) {
+            const value = select.value;
+            result[key] = (value === 'hide' || value === 'admin') ? value : 'show';
+        }
+    });
+    return result;
+}
+
+function resetExportColumns() {
+    EXPORT_COLUMN_KEYS.forEach(({ key, selectId }) => {
+        const select = document.getElementById(selectId);
+        if (select) {
+            select.value = EXPORT_COLUMN_DEFAULTS[key] || 'show';
+        }
+    });
 }
 
 document.getElementById('headerColor').addEventListener('input', event => {
@@ -455,7 +523,7 @@ async function resetAllSettings() {
         document.getElementById('searchAutoExpand').checked = true;
         document.getElementById('searchHighlight').checked = true;
         document.getElementById('showDepartments').checked = true;
-    document.getElementById('showEmployeeCount').checked = true;
+        document.getElementById('showEmployeeCount').checked = true;
         document.getElementById('highlightNewEmployees').checked = true;
         document.getElementById('newEmployeeMonths').value = '3';
         document.getElementById('hideDisabledUsers').checked = true;
@@ -468,6 +536,7 @@ async function resetAllSettings() {
         document.getElementById('printSize').value = 'a4';
         const mlThreshold = document.getElementById('multiLineChildrenThreshold');
         if (mlThreshold) mlThreshold.value = 20;
+        resetExportColumns();
 
         try {
             const response = await fetch(`${API_BASE_URL}/api/reset-all-settings`, { method: 'POST' });
@@ -482,24 +551,22 @@ async function resetAllSettings() {
 }
 
 async function logout() {
-    if (confirm('Are you sure you want to logout? You will be redirected to the login page.')) {
-        try {
-            const response = await fetch(`${API_BASE_URL}/logout`, {
-                method: 'POST',
-                credentials: 'include'
-            });
+    try {
+        const response = await fetch(`${API_BASE_URL}/logout`, {
+            method: 'POST',
+            credentials: 'include'
+        });
 
-            if (response.ok) {
-                window.location.href = '/';
-            } else {
-                sessionStorage.clear();
-                localStorage.clear();
-                window.location.href = '/';
-            }
-        } catch (error) {
-            console.error('Logout error:', error);
+        if (response.ok) {
+            window.location.href = '/';
+        } else {
+            sessionStorage.clear();
+            localStorage.clear();
             window.location.href = '/';
         }
+    } catch (error) {
+        console.error('Logout error:', error);
+        window.location.href = '/';
     }
 }
 
@@ -521,7 +588,7 @@ async function saveAllSettings() {
         searchAutoExpand: document.getElementById('searchAutoExpand').checked,
         searchHighlight: document.getElementById('searchHighlight').checked,
         showDepartments: document.getElementById('showDepartments').checked,
-    showEmployeeCount: document.getElementById('showEmployeeCount').checked,
+        showEmployeeCount: document.getElementById('showEmployeeCount').checked,
         highlightNewEmployees: document.getElementById('highlightNewEmployees').checked,
         newEmployeeMonths: parseInt(document.getElementById('newEmployeeMonths').value, 10),
         hideDisabledUsers: document.getElementById('hideDisabledUsers').checked,
@@ -531,7 +598,8 @@ async function saveAllSettings() {
         ignoredTitles: (document.getElementById('ignoredTitlesInput')?.value || '').trim(),
         printOrientation: document.getElementById('printOrientation').value,
         printSize: document.getElementById('printSize').value,
-        multiLineChildrenThreshold: parseInt(document.getElementById('multiLineChildrenThreshold')?.value || '20', 10)
+        multiLineChildrenThreshold: parseInt(document.getElementById('multiLineChildrenThreshold')?.value || '20', 10),
+        exportXlsxColumns: getExportColumnSettings()
     };
 
     try {
@@ -598,10 +666,11 @@ function registerConfigActions() {
         'reset-ignored-titles': resetIgnoredTitles,
         'reset-ignored-departments': resetIgnoredDepartments,
         'reset-multiline-settings': resetMultiLineSettings,
+        'reset-export-columns': resetExportColumns,
         'trigger-update': triggerUpdate,
-    'save-all': saveAllSettings,
-    'reset-all': resetAllSettings,
-    'logout': logout
+        'save-all': saveAllSettings,
+        'reset-all': resetAllSettings,
+        'logout': logout
     };
 
     document.querySelectorAll('[data-config-action]').forEach(button => {

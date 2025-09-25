@@ -390,6 +390,34 @@ input[id$="ColorHex"] {
     color: #666;
 }
 
+.export-columns-grid {
+    display: grid;
+    gap: 15px 20px;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    margin-top: 12px;
+}
+
+.column-setting {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: #ffffff;
+    border: 1px solid #e2e6ea;
+    border-radius: 6px;
+    padding: 12px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.column-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.column-select {
+    width: 100%;
+}
+
 /* Consistent spacing between toggle and its text label */
 .config-controls .toggle-switch + span {
     margin-left: 8px;

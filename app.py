@@ -202,6 +202,19 @@ DEFAULT_SETTINGS = {
     'showProfileImages': True,
     'printOrientation': 'landscape',
     'printSize': 'a4',
+    'exportXlsxColumns': {
+        'name': 'show',
+        'title': 'show',
+        'department': 'show',
+        'email': 'show',
+        'phone': 'show',
+        'hireDate': 'show',
+        'country': 'show',
+        'state': 'show',
+        'city': 'show',
+        'office': 'show',
+        'manager': 'show'
+    },
     'topUserEmail': TOP_LEVEL_USER_EMAIL or '',
     'highlightNewEmployees': True,
     'newEmployeeMonths': 3,
@@ -1382,24 +1395,54 @@ def export_xlsx():
         if not data:
             return jsonify({'error': 'No employee data available'}), 404
         
-        # Load settings to check filtering preferences
+        # Load settings to check filtering preferences and column visibility
         settings = load_settings()
         hide_disabled_users = settings.get('hideDisabledUsers', True)
         hide_guest_users = settings.get('hideGuestUsers', True)
         hide_no_title = settings.get('hideNoTitle', True)
         ignored_departments = parse_ignored_departments(settings)
-        
+        export_column_settings = settings.get('exportXlsxColumns', {}) or {}
+        is_admin = bool(session.get('authenticated'))
+
+        column_definitions = [
+            ('name', 'Name', lambda node, manager: node.get('name', '')),
+            ('title', 'Title', lambda node, manager: node.get('title', '')),
+            ('department', 'Department', lambda node, manager: node.get('department', '')),
+            ('email', 'Email', lambda node, manager: node.get('email', '')),
+            ('phone', 'Phone', lambda node, manager: node.get('phone', '')),
+            ('hireDate', 'Hire Date', lambda node, manager: format_hire_date(node.get('hireDate', ''))),
+            ('country', 'Country', lambda node, manager: node.get('country', '')),
+            ('state', 'State', lambda node, manager: node.get('state', '')),
+            ('city', 'City', lambda node, manager: node.get('city', '')),
+            ('office', 'Office', lambda node, manager: node.get('officeLocation', '')),
+            ('manager', 'Manager', lambda node, manager: manager)
+        ]
+
+        def column_is_visible(key):
+            raw_mode = export_column_settings.get(key, 'show')
+            mode = str(raw_mode).lower()
+            normalized_admin = mode.replace('_', '').replace('-', '')
+            if mode == 'hide':
+                return False
+            if mode == 'admin' and not is_admin:
+                return False
+            if normalized_admin in {'showadminonly', 'adminonly'} and not is_admin:
+                return False
+            return True
+
+        visible_columns = [col for col in column_definitions if column_is_visible(col[0])]
+        if not visible_columns:
+            # Always include at least the Name column to avoid empty exports
+            visible_columns = [column_definitions[0]]
+
         # Create workbook
         wb = Workbook()
         ws = wb.active
         ws.title = "Organization Chart"
-        
-        # Define headers
-        headers = ['Name', 'Title', 'Department', 'Email', 'Phone', 'Hire Date', 'Country', 'State', 'City', 'Office', 'Manager']
-        
+
         # Add headers with styling
-        for col, header in enumerate(headers, 1):
-            cell = ws.cell(row=1, column=col, value=header)
+        for col_index, (_, header, _) in enumerate(visible_columns, 1):
+            cell = ws.cell(row=1, column=col_index, value=header)
             cell.font = Font(bold=True, color="FFFFFF")
             cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
             cell.alignment = Alignment(horizontal="center")
@@ -1412,22 +1455,17 @@ def export_xlsx():
             # Check if we should skip this employee based on filtering settings
             title = node.get('title', '')
             department = node.get('department', '')
+            account_enabled = node.get('accountEnabled', True)
+            user_type = (node.get('userType') or '').lower()
             should_skip = (hide_no_title and (not title or title.strip() == '' or title.strip() == 'No Title')) or \
-                         (department_is_ignored(department, ignored_departments))
+                         (department_is_ignored(department, ignored_departments)) or \
+                         (hide_disabled_users and not account_enabled) or \
+                         (hide_guest_users and user_type == 'guest')
             
             # Add current employee only if not filtering them out
             if not should_skip:
-                ws.cell(row=row_num, column=1, value=node.get('name', ''))
-                ws.cell(row=row_num, column=2, value=title)
-                ws.cell(row=row_num, column=3, value=node.get('department', ''))
-                ws.cell(row=row_num, column=4, value=node.get('email', ''))
-                ws.cell(row=row_num, column=5, value=node.get('phone', ''))
-                ws.cell(row=row_num, column=6, value=format_hire_date(node.get('hireDate', '')))
-                ws.cell(row=row_num, column=7, value=node.get('country', ''))
-                ws.cell(row=row_num, column=8, value=node.get('state', ''))
-                ws.cell(row=row_num, column=9, value=node.get('city', ''))
-                ws.cell(row=row_num, column=10, value=node.get('officeLocation', ''))
-                ws.cell(row=row_num, column=11, value=manager_name)
+                for col_index, (_, _, extractor) in enumerate(visible_columns, 1):
+                    ws.cell(row=row_num, column=col_index, value=extractor(node, manager_name))
                 row_num += 1
             
             # Add children (using current employee name as manager if not skipped, otherwise pass through current manager)
@@ -1441,7 +1479,7 @@ def export_xlsx():
         flatten_org_data(data)
         
         # Auto-adjust column widths
-        for col in range(1, len(headers) + 1):
+        for col in range(1, len(visible_columns) + 1):
             column = get_column_letter(col)
             ws.column_dimensions[column].width = 20
         

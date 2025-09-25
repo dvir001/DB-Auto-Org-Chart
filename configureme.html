@@ -270,6 +270,108 @@
                 </div>
             </div>
 
+            <h2 class="section-heading">📄 Export to XLSX Options</h2>
+
+            <div class="config-group">
+                <div class="config-item">
+                    <label class="config-label">Column Visibility</label>
+                    <div class="config-description">Choose which fields appear in XLSX exports. “Show Admin Only” keeps the column hidden for regular viewers but includes it when an administrator exports.</div>
+                    <div class="export-columns-grid">
+                        <div class="column-setting">
+                            <span class="column-label">Name</span>
+                            <select id="exportColumnName" class="column-select">
+                                <option value="show">Show</option>
+                                <option value="hide">Hide</option>
+                                <option value="admin">Show Admin Only</option>
+                            </select>
+                        </div>
+                        <div class="column-setting">
+                            <span class="column-label">Title</span>
+                            <select id="exportColumnTitle" class="column-select">
+                                <option value="show">Show</option>
+                                <option value="hide">Hide</option>
+                                <option value="admin">Show Admin Only</option>
+                            </select>
+                        </div>
+                        <div class="column-setting">
+                            <span class="column-label">Department</span>
+                            <select id="exportColumnDepartment" class="column-select">
+                                <option value="show">Show</option>
+                                <option value="hide">Hide</option>
+                                <option value="admin">Show Admin Only</option>
+                            </select>
+                        </div>
+                        <div class="column-setting">
+                            <span class="column-label">Email</span>
+                            <select id="exportColumnEmail" class="column-select">
+                                <option value="show">Show</option>
+                                <option value="hide">Hide</option>
+                                <option value="admin">Show Admin Only</option>
+                            </select>
+                        </div>
+                        <div class="column-setting">
+                            <span class="column-label">Phone</span>
+                            <select id="exportColumnPhone" class="column-select">
+                                <option value="show">Show</option>
+                                <option value="hide">Hide</option>
+                                <option value="admin">Show Admin Only</option>
+                            </select>
+                        </div>
+                        <div class="column-setting">
+                            <span class="column-label">Hire Date</span>
+                            <select id="exportColumnHireDate" class="column-select">
+                                <option value="show">Show</option>
+                                <option value="hide">Hide</option>
+                                <option value="admin">Show Admin Only</option>
+                            </select>
+                        </div>
+                        <div class="column-setting">
+                            <span class="column-label">Country</span>
+                            <select id="exportColumnCountry" class="column-select">
+                                <option value="show">Show</option>
+                                <option value="hide">Hide</option>
+                                <option value="admin">Show Admin Only</option>
+                            </select>
+                        </div>
+                        <div class="column-setting">
+                            <span class="column-label">State</span>
+                            <select id="exportColumnState" class="column-select">
+                                <option value="show">Show</option>
+                                <option value="hide">Hide</option>
+                                <option value="admin">Show Admin Only</option>
+                            </select>
+                        </div>
+                        <div class="column-setting">
+                            <span class="column-label">City</span>
+                            <select id="exportColumnCity" class="column-select">
+                                <option value="show">Show</option>
+                                <option value="hide">Hide</option>
+                                <option value="admin">Show Admin Only</option>
+                            </select>
+                        </div>
+                        <div class="column-setting">
+                            <span class="column-label">Office</span>
+                            <select id="exportColumnOffice" class="column-select">
+                                <option value="show">Show</option>
+                                <option value="hide">Hide</option>
+                                <option value="admin">Show Admin Only</option>
+                            </select>
+                        </div>
+                        <div class="column-setting">
+                            <span class="column-label">Manager</span>
+                            <select id="exportColumnManager" class="column-select">
+                                <option value="show">Show</option>
+                                <option value="hide">Hide</option>
+                                <option value="admin">Show Admin Only</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="config-controls config-controls--spaced">
+                        <button class="btn btn-secondary" type="button" data-config-action="reset-export-columns">Reset Columns to Default</button>
+                    </div>
+                </div>
+            </div>
+
             <h2 class="section-heading">📊 Data Management</h2>
             
             <div class="config-group">

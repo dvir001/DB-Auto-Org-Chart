@@ -353,6 +353,13 @@ function setupStaticEventListeners() {
         });
     }
 
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', () => {
+            logout();
+        });
+    }
+
     document.querySelectorAll('[data-layout]').forEach(button => {
         button.addEventListener('click', () => {
             if (button.dataset.layout) {
@@ -561,16 +568,20 @@ function setLayoutOrientation(orientation) {
     }
 }
 
-// Show configure button to all users - authentication will be handled by the /configure route
-function showConfigButton() {
+function updateAdminActions() {
     const configBtn = document.getElementById('configBtn');
     if (configBtn) {
         configBtn.classList.remove('is-hidden');
     }
+
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+        logoutBtn.classList.toggle('is-hidden', !isAuthenticated);
+    }
 }
 
 function updateAuthDependentUI() {
-    showConfigButton();
+    updateAdminActions();
 
     const compactBtn = document.getElementById('compactToggleBtn');
     if (compactBtn) {
@@ -2819,12 +2830,12 @@ async function logout() {
         });
         
         if (response.ok) {
-            window.location.href = '/login';
+            window.location.href = '/';
         }
     } catch (error) {
         console.error('Logout error:', error);
         // Force redirect even if request fails
-        window.location.href = '/login';
+        window.location.href = '/';
     }
 }
 
