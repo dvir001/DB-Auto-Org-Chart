@@ -1,23 +1,23 @@
 services:
-  orgchart:
+  orgchart_dev:
     build: .
-    container_name: OrgChart
+    container_name: OrgChart-Dev
     restart: unless-stopped
     ports:
-      - "5000:5000"
+      - "5002:5000"
     environment:
       - FLASK_ENV=production
     env_file:
       - .env
     volumes:
-      - orgchart_data:/app/data
+      - orgchart_data_dev:/app/data
     labels:
         com.docker.compose.project: "docker"
     networks:
-      - default
+      - orgchart_dev_default
 
 networks:
-  default:
+  orgchart_dev_default:
 
 volumes:
-  orgchart_data:
+  orgchart_data_dev:
