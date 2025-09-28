@@ -1,385 +1,385 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-US">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Configuration - DB AutoOrgChart</title>
+    <title data-i18n="configure.pageTitle">Configuration - DB AutoOrgChart</title>
     <link rel="stylesheet" href="/static/configureme.css">
 </head>
 <body>
     <div class="container">
-        <a href="/" class="nav-link">← Back to Org Chart</a>
+        <a href="/" class="nav-link" data-i18n="configure.navBack">← Back to Org Chart</a>
         
         <div class="header">
-            <h1>Configuration Settings</h1>
-            <p>Customize your organization chart appearance and behavior</p>
+            <h1 data-i18n="configure.header.title">Configuration Settings</h1>
+            <p data-i18n="configure.header.subtitle">Customize your organization chart appearance and behavior</p>
         </div>
 
         <div class="config-section">
-            <h2>🎨 Appearance Settings</h2>
+            <h2 data-i18n="configure.sections.appearance.title">🎨 Appearance Settings</h2>
             
             <div class="config-group">
                 <div class="config-item">
-                    <label class="config-label">Chart Title</label>
-                    <div class="config-description">Customize the main title displayed in the header</div>
+                    <label class="config-label" data-i18n="configure.appearance.chartTitle.label">Chart Title</label>
+                    <div class="config-description" data-i18n="configure.appearance.chartTitle.description">Customize the main title displayed in the header</div>
                     <div class="config-controls">
-                        <input type="text" id="chartTitle" placeholder="Organization Chart">
-                        <button class="btn btn-secondary" type="button" data-config-action="reset-chart-title">Reset to Default</button>
+                        <input type="text" id="chartTitle" placeholder="Organization Chart" data-i18n-placeholder="configure.appearance.chartTitle.placeholder">
+                        <button class="btn btn-secondary" type="button" data-config-action="reset-chart-title" data-i18n="configure.buttons.resetDefault">Reset to Default</button>
                     </div>
                 </div>
 
                 <div class="config-item">
-                    <label class="config-label">Header Bar Color</label>
-                    <div class="config-description">Choose the color for the top header bar</div>
+                    <label class="config-label" data-i18n="configure.appearance.headerColor.label">Header Bar Color</label>
+                    <div class="config-description" data-i18n="configure.appearance.headerColor.description">Choose the color for the top header bar</div>
                     <div class="config-controls">
                         <input type="color" id="headerColor" value="#0078d4">
-                        <input type="text" id="headerColorHex" placeholder="#0078d4" maxlength="7">
-                        <button class="btn btn-secondary" type="button" data-config-action="reset-header-color">Reset to Default</button>
+                        <input type="text" id="headerColorHex" placeholder="#0078d4" maxlength="7" data-i18n-placeholder="configure.appearance.headerColor.placeholder">
+                        <button class="btn btn-secondary" type="button" data-config-action="reset-header-color" data-i18n="configure.buttons.resetDefault">Reset to Default</button>
                     </div>
                     <div class="preview-section">
-                        <div class="preview-header" id="headerPreview">
+                        <div class="preview-header" id="headerPreview" data-i18n="configure.appearance.headerColor.preview">
                             Preview Header
                         </div>
                     </div>
                 </div>
 
                 <div class="config-item">
-                    <label class="config-label">Logo Image</label>
-                    <div class="config-description">Upload a custom logo (max 5MB, recommended height 40px, PNG/JPG)</div>
+                    <label class="config-label" data-i18n="configure.appearance.logo.label">Logo Image</label>
+                    <div class="config-description" data-i18n="configure.appearance.logo.description">Upload a custom logo (max 5MB, recommended height 40px, PNG/JPG)</div>
                     <div class="config-controls">
-                        <label for="logoUpload" class="file-upload-label">Choose Logo</label>
+                        <label for="logoUpload" class="file-upload-label" data-i18n="configure.appearance.logo.choose">Choose Logo</label>
                         <input type="file" id="logoUpload" accept="image/*">
                         <span class="current-logo">
-                            <img id="currentLogo" src="/static/icon.png" alt="Current Logo">
+                            <img id="currentLogo" src="/static/icon.png" alt="Current Logo" data-i18n-alt="configure.appearance.logo.currentAlt">
                         </span>
-                        <button class="btn btn-secondary" type="button" data-config-action="reset-logo">Reset to Default</button>
+                        <button class="btn btn-secondary" type="button" data-config-action="reset-logo" data-i18n="configure.buttons.resetDefault">Reset to Default</button>
                         <span id="logoStatus" class="upload-status"></span>
                     </div>
-                    <div id="logoDropZone" class="upload-dropzone">Or drag & drop a PNG/JPG here</div>
+                    <div id="logoDropZone" class="upload-dropzone" data-i18n="configure.appearance.logo.dropText">Or drag & drop a PNG/JPG here</div>
                 </div>
 
                 <div class="config-item">
-                    <label class="config-label">Favicon Image</label>
-                    <div class="config-description">Upload a custom favicon for browser tab icon (max 5MB, recommended 32x32px ICO/PNG)</div>
+                    <label class="config-label" data-i18n="configure.appearance.favicon.label">Favicon Image</label>
+                    <div class="config-description" data-i18n="configure.appearance.favicon.description">Upload a custom favicon for browser tab icon (max 5MB, recommended 32x32px ICO/PNG)</div>
                     <div class="config-controls">
-                        <label for="faviconUpload" class="file-upload-label">Choose Favicon</label>
+                        <label for="faviconUpload" class="file-upload-label" data-i18n="configure.appearance.favicon.choose">Choose Favicon</label>
                         <input type="file" id="faviconUpload" accept="image/x-icon,image/png,image/jpeg,.ico">
                         <span class="current-logo">
-                            <img id="currentFavicon" src="/favicon.ico" alt="Current Favicon">
+                            <img id="currentFavicon" src="/favicon.ico" alt="Current Favicon" data-i18n-alt="configure.appearance.favicon.currentAlt">
                         </span>
-                        <button class="btn btn-secondary" type="button" data-config-action="reset-favicon">Reset to Default</button>
+                        <button class="btn btn-secondary" type="button" data-config-action="reset-favicon" data-i18n="configure.buttons.resetDefault">Reset to Default</button>
                         <span id="faviconStatus" class="upload-status"></span>
                     </div>
-                    <div id="faviconDropZone" class="upload-dropzone">Or drag & drop an ICO/PNG/JPG here</div>
+                    <div id="faviconDropZone" class="upload-dropzone" data-i18n="configure.appearance.favicon.dropText">Or drag & drop an ICO/PNG/JPG here</div>
                 </div>
 
                 <div class="config-item">
-                    <label class="config-label">Node Colors by Level</label>
-                    <div class="config-description">Customize colors for each hierarchy level</div>
+                    <label class="config-label" data-i18n="configure.appearance.nodeColors.label">Node Colors by Level</label>
+                    <div class="config-description" data-i18n="configure.appearance.nodeColors.description">Customize colors for each hierarchy level</div>
                     <div class="node-color-grid">
                         <div class="config-controls">
-                            <span class="node-color-label">Level 1:</span>
+                            <span class="node-color-label" data-i18n="configure.appearance.nodeColors.level1">Level 1:</span>
                             <input type="color" id="level0Color" value="#90EE90">
-                            <input type="text" id="level0ColorHex" placeholder="#90EE90" maxlength="7">
+                            <input type="text" id="level0ColorHex" placeholder="#90EE90" maxlength="7" data-i18n-placeholder="configure.appearance.nodeColors.placeholderLevel1">
                         </div>
                         <div class="config-controls">
-                            <span class="node-color-label">Level 2:</span>
+                            <span class="node-color-label" data-i18n="configure.appearance.nodeColors.level2">Level 2:</span>
                             <input type="color" id="level1Color" value="#FFFFE0">
-                            <input type="text" id="level1ColorHex" placeholder="#FFFFE0" maxlength="7">
+                            <input type="text" id="level1ColorHex" placeholder="#FFFFE0" maxlength="7" data-i18n-placeholder="configure.appearance.nodeColors.placeholderLevel2">
                         </div>
                         <div class="config-controls">
-                            <span class="node-color-label">Level 3:</span>
+                            <span class="node-color-label" data-i18n="configure.appearance.nodeColors.level3">Level 3:</span>
                             <input type="color" id="level2Color" value="#E0F2FF">
-                            <input type="text" id="level2ColorHex" placeholder="#E0F2FF" maxlength="7">
+                            <input type="text" id="level2ColorHex" placeholder="#E0F2FF" maxlength="7" data-i18n-placeholder="configure.appearance.nodeColors.placeholderLevel3">
                         </div>
                         <div class="config-controls">
-                            <span class="node-color-label">Level 4:</span>
+                            <span class="node-color-label" data-i18n="configure.appearance.nodeColors.level4">Level 4:</span>
                             <input type="color" id="level3Color" value="#FFE4E1">
-                            <input type="text" id="level3ColorHex" placeholder="#FFE4E1" maxlength="7">
+                            <input type="text" id="level3ColorHex" placeholder="#FFE4E1" maxlength="7" data-i18n-placeholder="configure.appearance.nodeColors.placeholderLevel4">
                         </div>
                         <div class="config-controls">
-                            <span class="node-color-label">Level 5:</span>
+                            <span class="node-color-label" data-i18n="configure.appearance.nodeColors.level5">Level 5:</span>
                             <input type="color" id="level4Color" value="#E8DFF5">
-                            <input type="text" id="level4ColorHex" placeholder="#E8DFF5" maxlength="7">
+                            <input type="text" id="level4ColorHex" placeholder="#E8DFF5" maxlength="7" data-i18n-placeholder="configure.appearance.nodeColors.placeholderLevel5">
                         </div>
                         <div class="config-controls">
-                            <span class="node-color-label">Level 6:</span>
+                            <span class="node-color-label" data-i18n="configure.appearance.nodeColors.level6">Level 6:</span>
                             <input type="color" id="level5Color" value="#FFEAA7">
-                            <input type="text" id="level5ColorHex" placeholder="#FFEAA7" maxlength="7">
+                            <input type="text" id="level5ColorHex" placeholder="#FFEAA7" maxlength="7" data-i18n-placeholder="configure.appearance.nodeColors.placeholderLevel6">
                         </div>
-                        <button class="btn btn-secondary" type="button" data-config-action="reset-node-colors">Reset All Node Colors</button>
+                        <button class="btn btn-secondary" type="button" data-config-action="reset-node-colors" data-i18n="configure.buttons.resetAllNodeColors">Reset All Node Colors</button>
                     </div>
                 </div>
             </div>
 
-            <h2 class="section-heading">⚙️ Behavior Settings</h2>
+            <h2 class="section-heading" data-i18n="configure.sections.behavior.title">⚙️ Behavior Settings</h2>
             
             <div class="config-group">
                 <div class="config-item">
-                    <label class="config-label">Auto-Update Schedule</label>
-                    <div class="config-description">Set the time for daily automatic data updates</div>
+                    <label class="config-label" data-i18n="configure.behavior.autoUpdate.label">Auto-Update Schedule</label>
+                    <div class="config-description" data-i18n="configure.behavior.autoUpdate.description">Set the time for daily automatic data updates</div>
                     <div class="config-controls">
                         <label class="toggle-switch">
                             <input type="checkbox" id="autoUpdateEnabled" checked>
                             <span class="slider"></span>
                         </label>
-                        <span>Enable Auto-Update</span>
+                        <span data-i18n="configure.behavior.autoUpdate.enable">Enable Auto-Update</span>
                         <div id="updateTimePicker" class="inline-time-picker">
                             <select id="updateHour" class="time-select"></select> :
                             <select id="updateMinute" class="time-select"></select>
                             <input type="hidden" id="updateTime" value="20:00">
                         </div>
-                        <button class="btn btn-secondary" type="button" data-config-action="reset-update-time">Reset to Default</button>
+                        <button class="btn btn-secondary" type="button" data-config-action="reset-update-time" data-i18n="configure.buttons.resetDefault">Reset to Default</button>
                     </div>
                 </div>
 
                 <div class="config-item">
-                    <label class="config-label">Initial Collapse Level</label>
-                    <div class="config-description">How many levels to show expanded on initial load</div>
+                    <label class="config-label" data-i18n="configure.behavior.collapseLevel.label">Initial Collapse Level</label>
+                    <div class="config-description" data-i18n="configure.behavior.collapseLevel.description">How many levels to show expanded on initial load</div>
                     <div class="config-controls">
                         <select id="collapseLevel">
-                            <option value="1">Show Level 1 only</option>
-                            <option value="2" selected>Show 2 levels</option>
-                            <option value="3">Show 3 levels</option>
-                            <option value="4">Show 4 levels</option>
-                            <option value="all">Show all levels</option>
+                            <option value="1" data-i18n="configure.behavior.collapseLevel.optionLevel1">Show Level 1 only</option>
+                            <option value="2" selected data-i18n="configure.behavior.collapseLevel.optionLevel2">Show 2 levels</option>
+                            <option value="3" data-i18n="configure.behavior.collapseLevel.optionLevel3">Show 3 levels</option>
+                            <option value="4" data-i18n="configure.behavior.collapseLevel.optionLevel4">Show 4 levels</option>
+                            <option value="all" data-i18n="configure.behavior.collapseLevel.optionAll">Show all levels</option>
                         </select>
-                        <button class="btn btn-secondary" type="button" data-config-action="reset-collapse-level">Reset to Default</button>
+                        <button class="btn btn-secondary" type="button" data-config-action="reset-collapse-level" data-i18n="configure.buttons.resetDefault">Reset to Default</button>
                     </div>
                 </div>
 
                 <div class="config-item">
-                    <label class="config-label">Search Settings</label>
-                    <div class="config-description">Configure search behavior</div>
+                    <label class="config-label" data-i18n="configure.behavior.search.label">Search Settings</label>
+                    <div class="config-description" data-i18n="configure.behavior.search.description">Configure search behavior</div>
                     <div class="config-controls">
                         <label class="toggle-switch">
                             <input type="checkbox" id="searchAutoExpand" checked>
                             <span class="slider"></span>
                         </label>
-                        <span>Auto-expand to search results</span>
+                        <span data-i18n="configure.behavior.search.autoExpand">Auto-expand to search results</span>
                     </div>
                     <div class="config-controls config-controls--spaced">
                         <label class="toggle-switch">
                             <input type="checkbox" id="searchHighlight" checked>
                             <span class="slider"></span>
                         </label>
-                        <span>Highlight search results</span>
+                        <span data-i18n="configure.behavior.search.highlight">Highlight search results</span>
                     </div>
                 </div>
 
                 <div class="config-item">
-                    <label class="config-label">Display Options</label>
-                    <div class="config-description">Customize what information is shown</div>
+                    <label class="config-label" data-i18n="configure.behavior.display.label">Display Options</label>
+                    <div class="config-description" data-i18n="configure.behavior.display.description">Customize what information is shown</div>
                     <div class="config-controls">
                         <label class="toggle-switch">
                             <input type="checkbox" id="showDepartments" checked>
                             <span class="slider"></span>
                         </label>
-                        <span>Show department names</span>
+                        <span data-i18n="configure.behavior.display.showDepartments">Show department names</span>
                     </div>
                     <div class="config-controls config-controls--spaced">
                         <label class="toggle-switch">
                             <input type="checkbox" id="showEmployeeCount" checked>
                             <span class="slider"></span>
                         </label>
-                        <span>Show employee count badges</span>
+                        <span data-i18n="configure.behavior.display.showEmployeeCount">Show employee count badges</span>
                     </div>
                 </div>
 
                 <div class="config-item">
-                    <label class="config-label">New Employee Highlighting</label>
-                    <div class="config-description">Highlight employees who recently joined the organization</div>
+                    <label class="config-label" data-i18n="configure.behavior.newEmployees.label">New Employee Highlighting</label>
+                    <div class="config-description" data-i18n="configure.behavior.newEmployees.description">Highlight employees who recently joined the organization</div>
                     <div class="config-controls">
                         <label class="toggle-switch">
                             <input type="checkbox" id="highlightNewEmployees" checked>
                             <span class="slider"></span>
                         </label>
-                        <span>Highlight new employees</span>
+                        <span data-i18n="configure.behavior.newEmployees.enable">Highlight new employees</span>
                     </div>
                     <div class="config-controls config-controls--spaced">
-                        <span class="label-prefix">Consider employees new if joined within:</span>
+                        <span class="label-prefix" data-i18n="configure.behavior.newEmployees.windowLabel">Consider employees new if joined within:</span>
                         <select id="newEmployeeMonths">
-                            <option value="1">1 month</option>
-                            <option value="3" selected>3 months</option>
-                            <option value="6">6 months</option>
-                            <option value="12">12 months</option>
+                            <option value="1" data-i18n="configure.behavior.newEmployees.month1">1 month</option>
+                            <option value="3" selected data-i18n="configure.behavior.newEmployees.month3">3 months</option>
+                            <option value="6" data-i18n="configure.behavior.newEmployees.month6">6 months</option>
+                            <option value="12" data-i18n="configure.behavior.newEmployees.month12">12 months</option>
                         </select>
                     </div>
                 </div>
 
                 <div class="config-item">
-                    <label class="config-label">Employee Filtering</label>
-                    <div class="config-description">Control which employees appear in the organizational chart</div>
+                    <label class="config-label" data-i18n="configure.behavior.filtering.label">Employee Filtering</label>
+                    <div class="config-description" data-i18n="configure.behavior.filtering.description">Control which employees appear in the organizational chart</div>
                     <div class="config-controls">
                         <label class="toggle-switch">
                             <input type="checkbox" id="hideDisabledUsers" checked>
                             <span class="slider"></span>
                         </label>
-                        <span>Hide disabled users</span>
+                        <span data-i18n="configure.behavior.filtering.hideDisabled">Hide disabled users</span>
                     </div>
                     <div class="config-controls config-controls--spaced">
                         <label class="toggle-switch">
                             <input type="checkbox" id="hideGuestUsers" checked>
                             <span class="slider"></span>
                         </label>
-                        <span>Hide guest users</span>
+                        <span data-i18n="configure.behavior.filtering.hideGuests">Hide guest users</span>
                     </div>
                     <div class="config-controls config-controls--spaced">
                         <label class="toggle-switch">
                             <input type="checkbox" id="hideNoTitle" checked>
                             <span class="slider"></span>
                         </label>
-                        <span>Hide employees with no job title</span>
+                        <span data-i18n="configure.behavior.filtering.hideNoTitle">Hide employees with no job title</span>
                     </div>
                     <div class="config-controls config-controls--spaced">
-                        <span class="label-prefix">Ignored job titles (comma-separated):</span>
-                        <input type="text" id="ignoredTitlesInput" placeholder="e.g., Intern, Contractor" class="text-input-wide" />
-                        <button class="btn btn-secondary" type="button" data-config-action="reset-ignored-titles">Reset to Default</button>
+                        <span class="label-prefix" data-i18n="configure.behavior.filtering.ignoredTitlesLabel">Ignored job titles (comma-separated):</span>
+                        <input type="text" id="ignoredTitlesInput" placeholder="e.g., Intern, Contractor" class="text-input-wide" data-i18n-placeholder="configure.behavior.filtering.ignoredTitlesPlaceholder" />
+                        <button class="btn btn-secondary" type="button" data-config-action="reset-ignored-titles" data-i18n="configure.buttons.resetDefault">Reset to Default</button>
                     </div>
                     <div class="config-controls config-controls--spaced">
-                        <span class="label-prefix">Ignored departments (comma-separated):</span>
-                        <input type="text" id="ignoredDepartmentsInput" placeholder="e.g., Consultant Group, Contractors" class="text-input-wide" />
-                        <button class="btn btn-secondary" type="button" data-config-action="reset-ignored-departments">Reset to Default</button>
+                        <span class="label-prefix" data-i18n="configure.behavior.filtering.ignoredDepartmentsLabel">Ignored departments (comma-separated):</span>
+                        <input type="text" id="ignoredDepartmentsInput" placeholder="e.g., Consultant Group, Contractors" class="text-input-wide" data-i18n-placeholder="configure.behavior.filtering.ignoredDepartmentsPlaceholder" />
+                        <button class="btn btn-secondary" type="button" data-config-action="reset-ignored-departments" data-i18n="configure.buttons.resetDefault">Reset to Default</button>
                     </div>
                 </div>
 
                 <div class="config-item">
-                    <label class="config-label">Multi-line Children Threshold</label>
-                    <div class="config-description">Set the number of direct reports at which a manager's team is wrapped into multiple rows.</div>
+                    <label class="config-label" data-i18n="configure.behavior.multiLine.label">Multi-line Children Threshold</label>
+                    <div class="config-description" data-i18n="configure.behavior.multiLine.description">Set the number of direct reports at which a manager's team is wrapped into multiple rows.</div>
                     <div class="config-controls">
-                        <span>Threshold:</span>
-                        <input type="number" id="multiLineChildrenThreshold" min="5" max="200" step="1" class="number-input-small" placeholder="20">
-                        <button class="btn btn-secondary" type="button" data-config-action="reset-multiline-settings">Reset to Default</button>
+                        <span data-i18n="configure.behavior.multiLine.threshold">Threshold:</span>
+                        <input type="number" id="multiLineChildrenThreshold" min="5" max="200" step="1" class="number-input-small" placeholder="20" data-i18n-placeholder="configure.behavior.multiLine.placeholder">
+                        <button class="btn btn-secondary" type="button" data-config-action="reset-multiline-settings" data-i18n="configure.buttons.resetDefault">Reset to Default</button>
                     </div>
                 </div>
 
                 <div class="config-item">
-                    <label class="config-label">Print Options</label>
-                    <div class="config-description">Configure print layout settings</div>
+                    <label class="config-label" data-i18n="configure.behavior.print.label">Print Options</label>
+                    <div class="config-description" data-i18n="configure.behavior.print.description">Configure print layout settings</div>
                     <div class="config-controls">
                         <select id="printOrientation">
-                            <option value="landscape" selected>Landscape</option>
-                            <option value="portrait">Portrait</option>
+                            <option value="landscape" selected data-i18n="configure.behavior.print.landscape">Landscape</option>
+                            <option value="portrait" data-i18n="configure.behavior.print.portrait">Portrait</option>
                         </select>
                         <select id="printSize" class="select-inline">
-                            <option value="a4" selected>A4</option>
-                            <option value="letter">Letter</option>
-                            <option value="a3">A3</option>
+                            <option value="a4" selected data-i18n="configure.behavior.print.a4">A4</option>
+                            <option value="letter" data-i18n="configure.behavior.print.letter">Letter</option>
+                            <option value="a3" data-i18n="configure.behavior.print.a3">A3</option>
                         </select>
                     </div>
                 </div>
             </div>
 
-            <h2 class="section-heading">📄 Export to XLSX Options</h2>
+            <h2 class="section-heading" data-i18n="configure.sections.export.title">📄 Export to XLSX Options</h2>
 
             <div class="config-group">
                 <div class="config-item">
-                    <label class="config-label">Column Visibility</label>
-                    <div class="config-description">Choose which fields appear in XLSX exports. “Show Admin Only” keeps the column hidden for regular viewers but includes it when an administrator exports.</div>
+                    <label class="config-label" data-i18n="configure.export.columnVisibility.label">Column Visibility</label>
+                    <div class="config-description" data-i18n="configure.export.columnVisibility.description">Choose which fields appear in XLSX exports. “Show Admin Only” keeps the column hidden for regular viewers but includes it when an administrator exports.</div>
                     <div class="export-columns-grid">
                         <div class="column-setting">
-                            <span class="column-label">Name</span>
+                            <span class="column-label" data-i18n="configure.export.columns.name">Name</span>
                             <select id="exportColumnName" class="column-select">
-                                <option value="show">Show</option>
-                                <option value="hide">Hide</option>
-                                <option value="admin">Show Admin Only</option>
+                                <option value="show" data-i18n="configure.export.options.show">Show</option>
+                                <option value="hide" data-i18n="configure.export.options.hide">Hide</option>
+                                <option value="admin" data-i18n="configure.export.options.admin">Show Admin Only</option>
                             </select>
                         </div>
                         <div class="column-setting">
-                            <span class="column-label">Title</span>
+                            <span class="column-label" data-i18n="configure.export.columns.title">Title</span>
                             <select id="exportColumnTitle" class="column-select">
-                                <option value="show">Show</option>
-                                <option value="hide">Hide</option>
-                                <option value="admin">Show Admin Only</option>
+                                <option value="show" data-i18n="configure.export.options.show">Show</option>
+                                <option value="hide" data-i18n="configure.export.options.hide">Hide</option>
+                                <option value="admin" data-i18n="configure.export.options.admin">Show Admin Only</option>
                             </select>
                         </div>
                         <div class="column-setting">
-                            <span class="column-label">Department</span>
+                            <span class="column-label" data-i18n="configure.export.columns.department">Department</span>
                             <select id="exportColumnDepartment" class="column-select">
-                                <option value="show">Show</option>
-                                <option value="hide">Hide</option>
-                                <option value="admin">Show Admin Only</option>
+                                <option value="show" data-i18n="configure.export.options.show">Show</option>
+                                <option value="hide" data-i18n="configure.export.options.hide">Hide</option>
+                                <option value="admin" data-i18n="configure.export.options.admin">Show Admin Only</option>
                             </select>
                         </div>
                         <div class="column-setting">
-                            <span class="column-label">Email</span>
+                            <span class="column-label" data-i18n="configure.export.columns.email">Email</span>
                             <select id="exportColumnEmail" class="column-select">
-                                <option value="show">Show</option>
-                                <option value="hide">Hide</option>
-                                <option value="admin">Show Admin Only</option>
+                                <option value="show" data-i18n="configure.export.options.show">Show</option>
+                                <option value="hide" data-i18n="configure.export.options.hide">Hide</option>
+                                <option value="admin" data-i18n="configure.export.options.admin">Show Admin Only</option>
                             </select>
                         </div>
                         <div class="column-setting">
-                            <span class="column-label">Phone</span>
+                            <span class="column-label" data-i18n="configure.export.columns.phone">Phone</span>
                             <select id="exportColumnPhone" class="column-select">
-                                <option value="show">Show</option>
-                                <option value="hide">Hide</option>
-                                <option value="admin">Show Admin Only</option>
+                                <option value="show" data-i18n="configure.export.options.show">Show</option>
+                                <option value="hide" data-i18n="configure.export.options.hide">Hide</option>
+                                <option value="admin" data-i18n="configure.export.options.admin">Show Admin Only</option>
                             </select>
                         </div>
                         <div class="column-setting">
-                            <span class="column-label">Hire Date</span>
+                            <span class="column-label" data-i18n="configure.export.columns.hireDate">Hire Date</span>
                             <select id="exportColumnHireDate" class="column-select">
-                                <option value="show">Show</option>
-                                <option value="hide">Hide</option>
-                                <option value="admin">Show Admin Only</option>
+                                <option value="show" data-i18n="configure.export.options.show">Show</option>
+                                <option value="hide" data-i18n="configure.export.options.hide">Hide</option>
+                                <option value="admin" data-i18n="configure.export.options.admin">Show Admin Only</option>
                             </select>
                         </div>
                         <div class="column-setting">
-                            <span class="column-label">Country</span>
+                            <span class="column-label" data-i18n="configure.export.columns.country">Country</span>
                             <select id="exportColumnCountry" class="column-select">
-                                <option value="show">Show</option>
-                                <option value="hide">Hide</option>
-                                <option value="admin">Show Admin Only</option>
+                                <option value="show" data-i18n="configure.export.options.show">Show</option>
+                                <option value="hide" data-i18n="configure.export.options.hide">Hide</option>
+                                <option value="admin" data-i18n="configure.export.options.admin">Show Admin Only</option>
                             </select>
                         </div>
                         <div class="column-setting">
-                            <span class="column-label">State</span>
+                            <span class="column-label" data-i18n="configure.export.columns.state">State</span>
                             <select id="exportColumnState" class="column-select">
-                                <option value="show">Show</option>
-                                <option value="hide">Hide</option>
-                                <option value="admin">Show Admin Only</option>
+                                <option value="show" data-i18n="configure.export.options.show">Show</option>
+                                <option value="hide" data-i18n="configure.export.options.hide">Hide</option>
+                                <option value="admin" data-i18n="configure.export.options.admin">Show Admin Only</option>
                             </select>
                         </div>
                         <div class="column-setting">
-                            <span class="column-label">City</span>
+                            <span class="column-label" data-i18n="configure.export.columns.city">City</span>
                             <select id="exportColumnCity" class="column-select">
-                                <option value="show">Show</option>
-                                <option value="hide">Hide</option>
-                                <option value="admin">Show Admin Only</option>
+                                <option value="show" data-i18n="configure.export.options.show">Show</option>
+                                <option value="hide" data-i18n="configure.export.options.hide">Hide</option>
+                                <option value="admin" data-i18n="configure.export.options.admin">Show Admin Only</option>
                             </select>
                         </div>
                         <div class="column-setting">
-                            <span class="column-label">Office</span>
+                            <span class="column-label" data-i18n="configure.export.columns.office">Office</span>
                             <select id="exportColumnOffice" class="column-select">
-                                <option value="show">Show</option>
-                                <option value="hide">Hide</option>
-                                <option value="admin">Show Admin Only</option>
+                                <option value="show" data-i18n="configure.export.options.show">Show</option>
+                                <option value="hide" data-i18n="configure.export.options.hide">Hide</option>
+                                <option value="admin" data-i18n="configure.export.options.admin">Show Admin Only</option>
                             </select>
                         </div>
                         <div class="column-setting">
-                            <span class="column-label">Manager</span>
+                            <span class="column-label" data-i18n="configure.export.columns.manager">Manager</span>
                             <select id="exportColumnManager" class="column-select">
-                                <option value="show">Show</option>
-                                <option value="hide">Hide</option>
-                                <option value="admin">Show Admin Only</option>
+                                <option value="show" data-i18n="configure.export.options.show">Show</option>
+                                <option value="hide" data-i18n="configure.export.options.hide">Hide</option>
+                                <option value="admin" data-i18n="configure.export.options.admin">Show Admin Only</option>
                             </select>
                         </div>
                     </div>
                     <div class="config-controls config-controls--spaced">
-                        <button class="btn btn-secondary" type="button" data-config-action="reset-export-columns">Reset Columns to Default</button>
+                        <button class="btn btn-secondary" type="button" data-config-action="reset-export-columns" data-i18n="configure.buttons.resetColumns">Reset Columns to Default</button>
                     </div>
                 </div>
             </div>
 
-            <h2 class="section-heading">📊 Data Management</h2>
+            <h2 class="section-heading" data-i18n="configure.sections.data.title">📊 Data Management</h2>
             
             <div class="config-group">
                 <div class="config-item">
-                    <label class="config-label">Manual Data Update</label>
-                    <div class="config-description">Trigger an immediate update of employee data from Azure AD</div>
+                    <label class="config-label" data-i18n="configure.data.manualUpdate.label">Manual Data Update</label>
+                    <div class="config-description" data-i18n="configure.data.manualUpdate.description">Trigger an immediate update of employee data from Azure AD</div>
                     <div class="config-controls">
-                        <button class="btn btn-primary" type="button" data-config-action="trigger-update">Update Now</button>
+                        <button class="btn btn-primary" type="button" data-config-action="trigger-update" data-i18n="configure.buttons.updateNow">Update Now</button>
                         <span id="updateStatus" class="update-status"></span>
                     </div>
                 </div>
@@ -388,15 +388,16 @@
             </div>
 
             <div class="action-buttons">
-                <button class="btn btn-success" type="button" data-config-action="save-all">Save All Settings</button>
-                <button class="btn btn-danger" type="button" data-config-action="reset-all">Reset Everything to Defaults</button>
-                <button class="btn btn-warning" type="button" data-config-action="logout">Logout</button>
+                <button class="btn btn-success" type="button" data-config-action="save-all" data-i18n="configure.buttons.saveAll">Save All Settings</button>
+                <button class="btn btn-danger" type="button" data-config-action="reset-all" data-i18n="configure.buttons.resetAll">Reset Everything to Defaults</button>
+                <button class="btn btn-warning" type="button" data-config-action="logout" data-i18n="configure.buttons.logout">Logout</button>
             </div>
 
             <div id="statusMessage" class="status-message"></div>
         </div>
     </div>
 
+    <script src="/static/i18n.js" defer></script>
     <script src="/static/configureme.js" defer></script>
 </body>
 </html>

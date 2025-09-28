@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-US">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Login - {{ chart_title }}</title>
+    <title data-i18n="login.pageTitle" data-i18n-params='{"chartTitle": {{ chart_title|tojson }} }'>Admin Login - {{ chart_title }}</title>
     {% if favicon_path %}
     <link rel="icon" type="image/x-icon" href="{{ favicon_path }}">
     {% endif %}
@@ -11,18 +11,19 @@
 </head>
 <body>
     <div class="login-container">
-        <a class="back-btn" href="/">← Back to Main Page</a>
-        <h2 class="login-title">Admin Login</h2>
-        <p class="login-description">Enter admin password to access configuration</p>
+        <a class="back-btn" href="/" data-i18n="login.backToMain">← Back to Main Page</a>
+        <h2 class="login-title" data-i18n="login.heading">Admin Login</h2>
+        <p class="login-description" data-i18n="login.description">Enter admin password to access configuration</p>
         <form id="loginForm" class="login-form" data-next="{{ next_page }}">
             <div class="form-field">
-                <label class="field-label" for="password">Password</label>
-                <input class="password-input" type="password" id="password" name="password" placeholder="Enter admin password" autocomplete="current-password" required autofocus>
+                <label class="field-label" for="password" data-i18n="login.password.label">Password</label>
+                <input class="password-input" type="password" id="password" name="password" placeholder="Enter admin password" autocomplete="current-password" required autofocus data-i18n-placeholder="login.password.placeholder">
             </div>
-            <button class="login-btn" type="submit">Login</button>
+            <button class="login-btn" type="submit" data-i18n="login.submit">Login</button>
         </form>
         <div class="error" id="error" role="alert" aria-live="polite"></div>
     </div>
+    <script src="{{ url_for('static', filename='i18n.js') }}" defer></script>
     <script src="{{ url_for('static', filename='login.js') }}" defer></script>
 </body>
 </html>

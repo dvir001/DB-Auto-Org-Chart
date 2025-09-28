@@ -1,0 +1,309 @@
+{
+	"buttons": {
+		"configure": "Configure",
+		"logout": "Logout",
+		"save": "Save",
+		"reset": "Reset"
+	},
+	"index": {
+		"pageTitle": "Organization Chart",
+		"header": {
+			"logoAlt": "Logo",
+			"title": "Organization Chart",
+			"subtitle": "Updates daily @ 8:00 PM",
+			"autoUpdate": {
+				"enabled": "Updates daily @ {time}",
+				"disabled": "Auto-update disabled"
+			}
+		},
+		"search": {
+			"placeholder": "Search for employees by name, title, or department...",
+			"noResults": "No matches found"
+		},
+		"topUser": {
+			"label": "Top-Level User:",
+			"placeholder": "Search for top-level user or leave empty for auto-detect...",
+			"saving": "Saving...",
+			"saved": "Saved!",
+			"error": "Unable to save",
+			"resetting": "Resetting...",
+			"resetDone": "Reset complete"
+		},
+		"toolbar": {
+			"layout": {
+				"vertical": "Vertical layout",
+				"horizontal": "Horizontal layout",
+				"compactTitle": "Toggle compact layout for teams",
+				"compactTitleAdmin": "Toggle compact layout for large teams (admin)",
+				"compactTitleGuest": "Toggle compact layout for large teams",
+				"compactLabel": "Compact Teams",
+				"compactLabelWithThreshold": "Compact Teams ({count}+ reports)",
+				"profileTitle": "Toggle profile images",
+				"profileHide": "Hide profile images",
+				"profileShow": "Show profile images"
+			},
+			"controls": {
+				"zoomIn": "Zoom in",
+				"zoomOut": "Zoom out",
+				"resetZoom": "Reset Zoom",
+				"fitToScreen": "Fit to Screen",
+				"expandAll": "Expand All",
+				"collapseAll": "Collapse All",
+				"resetHidden": "Reset Hidden",
+				"resetHiddenTitle": "Show all previously hidden subtrees",
+				"print": "Print",
+				"exportVisibleSvg": "Export Visible (SVG)",
+				"exportVisiblePng": "Export Visible (PNG)",
+				"exportVisiblePdf": "Export Visible (PDF)",
+				"exportXlsx": "Export to XLSX",
+				"exportXlsxAdmin": "Export to XLSX (Admin)"
+			}
+		},
+		"status": {
+			"errorLoading": "Unable to load organization data.",
+			"updating": "Updating organization chart..."
+		},
+		"alerts": {
+			"adminLoginExpired": "Your admin session has expired. Please log in again.",
+			"pngLoadError": "Couldn't load the chart image for export.",
+			"pngExportError": "Something went wrong while exporting the PNG.",
+			"pngBlobError": "Couldn't finalize the PNG export.",
+			"pngSetupError": "Couldn't prepare PNG export: {message}",
+			"pdfNoData": "There's no chart data to export to PDF.",
+			"pdfNoChartVisible": "No visible chart to export. Try zooming or expanding first.",
+			"pdfLibraryMissing": "PDF export library is missing. Refresh the page and try again.",
+			"pdfGenericError": "PDF export failed: {message}",
+			"unknownError": "An unknown error occurred.",
+			"xlsxExportFailed": "XLSX export failed: {message}",
+			"xlsxExportError": "Unexpected error during XLSX export."
+		},
+		"badges": {
+			"new": "NEW"
+		},
+		"tree": {
+			"toggleShow": "Show this subtree",
+			"toggleHide": "Hide this subtree"
+		},
+		"employee": {
+			"noTitle": "No title available",
+			"detail": {
+				"department": "Department",
+				"departmentUnknown": "Department unavailable",
+				"email": "Email",
+				"emailUnknown": "Email unavailable",
+				"phone": "Phone",
+				"phoneUnknown": "Phone unavailable",
+				"hireDate": "Hire Date",
+				"office": "Office",
+				"location": "Location",
+				"manager": "Manager",
+				"directReportsWithCount": "Direct Reports ({count})"
+			}
+		},
+		"loading": "Loading organization chart..."
+	},
+	"login": {
+		"pageTitle": "Admin Login - {chartTitle}",
+		"backToMain": "← Back to Main Page",
+		"heading": "Admin Login",
+		"description": "Enter admin password to access configuration",
+		"password": {
+			"label": "Password",
+			"placeholder": "Enter admin password"
+		},
+		"submit": "Login"
+	},
+	"configure": {
+		"pageTitle": "Configuration - DB AutoOrgChart",
+		"navBack": "← Back to Org Chart",
+		"header": {
+			"title": "Configuration Settings",
+			"subtitle": "Customize your organization chart appearance and behavior"
+		},
+		"sections": {
+			"appearance": {
+				"title": "🎨 Appearance Settings"
+			},
+			"behavior": {
+				"title": "⚙️ Behavior Settings"
+			},
+			"export": {
+				"title": "📄 Export to XLSX Options"
+			},
+			"data": {
+				"title": "📊 Data Management"
+			}
+		},
+		"appearance": {
+			"chartTitle": {
+				"label": "Chart Title",
+				"description": "Customize the main title displayed in the header",
+				"placeholder": "Organization Chart"
+			},
+			"headerColor": {
+				"label": "Header Bar Color",
+				"description": "Choose the color for the top header bar",
+				"placeholder": "#0078d4",
+				"preview": "Preview Header"
+			},
+			"logo": {
+				"label": "Logo Image",
+				"description": "Upload a custom logo (max 5MB, recommended height 40px, PNG/JPG)",
+				"choose": "Choose Logo",
+				"currentAlt": "Current Logo",
+				"dropText": "Or drag & drop a PNG/JPG here"
+			},
+			"favicon": {
+				"label": "Favicon Image",
+				"description": "Upload a custom favicon for browser tab icon (max 5MB, recommended 32x32px ICO/PNG)",
+				"choose": "Choose Favicon",
+				"currentAlt": "Current Favicon",
+				"dropText": "Or drag & drop an ICO/PNG/JPG here"
+			},
+			"nodeColors": {
+				"label": "Node Colors by Level",
+				"description": "Customize colors for each hierarchy level",
+				"level1": "Level 1:",
+				"placeholderLevel1": "#90EE90",
+				"level2": "Level 2:",
+				"placeholderLevel2": "#FFFFE0",
+				"level3": "Level 3:",
+				"placeholderLevel3": "#E0F2FF",
+				"level4": "Level 4:",
+				"placeholderLevel4": "#FFE4E1",
+				"level5": "Level 5:",
+				"placeholderLevel5": "#E8DFF5",
+				"level6": "Level 6:",
+				"placeholderLevel6": "#FFEAA7"
+			}
+		},
+		"behavior": {
+			"autoUpdate": {
+				"label": "Auto-Update Schedule",
+				"description": "Set the time for daily automatic data updates",
+				"enable": "Enable Auto-Update"
+			},
+			"collapseLevel": {
+				"label": "Initial Collapse Level",
+				"description": "How many levels to show expanded on initial load",
+				"optionLevel1": "Show Level 1 only",
+				"optionLevel2": "Show 2 levels",
+				"optionLevel3": "Show 3 levels",
+				"optionLevel4": "Show 4 levels",
+				"optionAll": "Show all levels"
+			},
+			"search": {
+				"label": "Search Settings",
+				"description": "Configure search behavior",
+				"autoExpand": "Auto-expand to search results",
+				"highlight": "Highlight search results"
+			},
+			"display": {
+				"label": "Display Options",
+				"description": "Customize what information is shown",
+				"showDepartments": "Show department names",
+				"showEmployeeCount": "Show employee count badges"
+			},
+			"newEmployees": {
+				"label": "New Employee Highlighting",
+				"description": "Highlight employees who recently joined the organization",
+				"enable": "Highlight new employees",
+				"windowLabel": "Consider employees new if joined within:",
+				"month1": "1 month",
+				"month3": "3 months",
+				"month6": "6 months",
+				"month12": "12 months"
+			},
+			"filtering": {
+				"label": "Employee Filtering",
+				"description": "Control which employees appear in the organizational chart",
+				"hideDisabled": "Hide disabled users",
+				"hideGuests": "Hide guest users",
+				"hideNoTitle": "Hide employees with no job title",
+				"ignoredTitlesLabel": "Ignored job titles (comma-separated):",
+				"ignoredTitlesPlaceholder": "e.g., Intern, Contractor",
+				"ignoredDepartmentsLabel": "Ignored departments (comma-separated):",
+				"ignoredDepartmentsPlaceholder": "e.g., Consultant Group, Contractors"
+			},
+			"multiLine": {
+				"label": "Multi-line Children Threshold",
+				"description": "Set the number of direct reports at which a manager's team is wrapped into multiple rows.",
+				"threshold": "Threshold:",
+				"placeholder": "20"
+			},
+			"print": {
+				"label": "Print Options",
+				"description": "Configure print layout settings",
+				"landscape": "Landscape",
+				"portrait": "Portrait",
+				"a4": "A4",
+				"letter": "Letter",
+				"a3": "A3"
+			}
+		},
+		"export": {
+			"columnVisibility": {
+				"label": "Column Visibility",
+				"description": "Choose which fields appear in XLSX exports. “Show Admin Only” keeps the column hidden for regular viewers but includes it when an administrator exports."
+			},
+			"columns": {
+				"name": "Name",
+				"title": "Title",
+				"department": "Department",
+				"email": "Email",
+				"phone": "Phone",
+				"hireDate": "Hire Date",
+				"country": "Country",
+				"state": "State",
+				"city": "City",
+				"office": "Office",
+				"manager": "Manager"
+			},
+			"options": {
+				"show": "Show",
+				"hide": "Hide",
+				"admin": "Show Admin Only"
+			}
+		},
+		"data": {
+			"manualUpdate": {
+				"label": "Manual Data Update",
+				"description": "Trigger an immediate update of employee data from Azure AD"
+			}
+		},
+		"buttons": {
+			"resetDefault": "Reset to Default",
+			"resetAllNodeColors": "Reset All Node Colors",
+			"resetColumns": "Reset Columns to Default",
+			"updateNow": "Update Now",
+			"saveAll": "Save All Settings",
+			"resetAll": "Reset Everything to Defaults",
+			"logout": "Logout"
+		}
+	},
+	"searchTest": {
+		"pageTitle": "Search Functionality Test",
+		"heading": "🔍 Search Functionality Test & Debug",
+		"sections": {
+			"checkData": {
+				"title": "1. Check Data File Status",
+				"checkButton": "Check Data File",
+				"debugButton": "Debug Search System"
+			},
+			"forceUpdate": {
+				"title": "2. Force Data Update",
+				"description": "If the data file doesn't exist or is empty, force an update:",
+				"button": "Force Update Now"
+			},
+			"testSearch": {
+				"title": "3. Test Search",
+				"placeholder": "Enter search term (min 2 chars)",
+				"button": "Test Search"
+			},
+			"viewAll": {
+				"title": "4. View All Employees",
+				"button": "Load All Employees"
+			}
+		}
+	}
+}

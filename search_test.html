@@ -1,43 +1,44 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-US">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Search Functionality Test</title>
+    <title data-i18n="searchTest.pageTitle">Search Functionality Test</title>
     <link rel="stylesheet" href="/static/search_test.css">
 </head>
 <body>
     <div class="container">
-        <h1>🔍 Search Functionality Test & Debug</h1>
+        <h1 data-i18n="searchTest.heading">🔍 Search Functionality Test & Debug</h1>
         
         <div class="test-section">
-            <h2>1. Check Data File Status</h2>
-            <button class="btn btn-primary" type="button" data-test-action="check-data">Check Data File</button>
-            <button class="btn btn-warning" type="button" data-test-action="debug-search">Debug Search System</button>
+            <h2 data-i18n="searchTest.sections.checkData.title">1. Check Data File Status</h2>
+            <button class="btn btn-primary" type="button" data-test-action="check-data" data-i18n="searchTest.sections.checkData.checkButton">Check Data File</button>
+            <button class="btn btn-warning" type="button" data-test-action="debug-search" data-i18n="searchTest.sections.checkData.debugButton">Debug Search System</button>
             <div id="dataFileResults" class="results"></div>
         </div>
 
         <div class="test-section">
-            <h2>2. Force Data Update</h2>
-            <p>If the data file doesn't exist or is empty, force an update:</p>
-            <button class="btn btn-success" type="button" data-test-action="force-update">Force Update Now</button>
+            <h2 data-i18n="searchTest.sections.forceUpdate.title">2. Force Data Update</h2>
+            <p data-i18n="searchTest.sections.forceUpdate.description">If the data file doesn't exist or is empty, force an update:</p>
+            <button class="btn btn-success" type="button" data-test-action="force-update" data-i18n="searchTest.sections.forceUpdate.button">Force Update Now</button>
             <div id="updateResults" class="results"></div>
         </div>
 
         <div class="test-section">
-            <h2>3. Test Search</h2>
-            <input type="text" id="searchQuery" class="search-box" placeholder="Enter search term (min 2 chars)">
-            <button class="btn btn-primary" type="button" data-test-action="test-search">Test Search</button>
+            <h2 data-i18n="searchTest.sections.testSearch.title">3. Test Search</h2>
+            <input type="text" id="searchQuery" class="search-box" placeholder="Enter search term (min 2 chars)" data-i18n-placeholder="searchTest.sections.testSearch.placeholder">
+            <button class="btn btn-primary" type="button" data-test-action="test-search" data-i18n="searchTest.sections.testSearch.button">Test Search</button>
             <div id="searchResults" class="results"></div>
         </div>
 
         <div class="test-section">
-            <h2>4. View All Employees</h2>
-            <button class="btn btn-primary" type="button" data-test-action="view-all">Load All Employees</button>
+            <h2 data-i18n="searchTest.sections.viewAll.title">4. View All Employees</h2>
+            <button class="btn btn-primary" type="button" data-test-action="view-all" data-i18n="searchTest.sections.viewAll.button">Load All Employees</button>
             <div id="allEmployees" class="results"></div>
         </div>
     </div>
 
+    <script src="/static/i18n.js" defer></script>
     <script src="/static/search_test.js" defer></script>
 </body>
 </html>

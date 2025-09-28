@@ -17,6 +17,23 @@ const PROFILE_IMAGE_PREFERENCE_KEY = 'orgChart.showProfileImages';
 let userProfileImagesPreference = null;
 let serverShowProfileImages = null;
 
+async function waitForTranslations() {
+    if (window.i18n && window.i18n.ready && typeof window.i18n.ready.then === 'function') {
+        try {
+            await window.i18n.ready;
+        } catch (error) {
+            console.error('[i18n] Failed to load translations', error);
+        }
+    }
+}
+
+function t(key, params) {
+    if (window.i18n && typeof window.i18n.t === 'function') {
+        return window.i18n.t(key, params);
+    }
+    return key;
+}
+
 function loadStoredCompactPreference() {
     userCompactPreference = null;
     try {
@@ -298,7 +315,7 @@ async function loadSettings() {
         if (response.ok) {
             appSettings = await response.json();
             serverShowProfileImages = appSettings.showProfileImages !== false;
-            applySettings();
+            await applySettings();
         } else {
             // If settings fail to load, still show header content with defaults
             showHeaderContent();
@@ -474,7 +491,8 @@ function handleControlAction(action) {
     }
 }
 
-function applySettings() {
+async function applySettings() {
+    await waitForTranslations();
     if (appSettings.chartTitle) {
         document.querySelector('.header-text h1').textContent = appSettings.chartTitle;
         // Update the browser tab title to match the custom title
@@ -503,9 +521,9 @@ function applySettings() {
     logo.style.display = '';
 
     if (appSettings.updateTime) {
-        const timeText = appSettings.autoUpdateEnabled ? 
-            `Updates daily @ ${appSettings.updateTime}` : 
-            'Auto-update disabled';
+        const timeText = appSettings.autoUpdateEnabled
+            ? t('index.header.autoUpdate.enabled', { time: appSettings.updateTime })
+            : t('index.header.autoUpdate.disabled');
         const headerP = document.querySelector('.header-text p');
         if (headerP) headerP.textContent = timeText;
     }
@@ -528,8 +546,15 @@ function applySettings() {
             const threshold = (appSettings.multiLineChildrenThreshold != null)
                 ? appSettings.multiLineChildrenThreshold
                 : 20;
-            btn.innerHTML = '<span class="layout-icon">▦</span> ' +
-                'Compact Teams (' + threshold + ')';
+            const labelSpan = btn.querySelector('[data-i18n="index.toolbar.layout.compactLabel"]')
+                || btn.querySelector('.layout-label');
+            const compactLabel = t('index.toolbar.layout.compactLabelWithThreshold', { count: threshold });
+            if (labelSpan) {
+                labelSpan.textContent = compactLabel;
+            } else {
+                btn.innerHTML = `<span class="layout-icon">▦</span> ${compactLabel}`;
+            }
+            btn.setAttribute('aria-label', compactLabel);
         }
     } catch (e) { /* no-op */ }
 
@@ -539,10 +564,14 @@ function applySettings() {
     if (profileBtn) {
         profileBtn.classList.toggle('active', showProfileImages);
         profileBtn.setAttribute('aria-pressed', String(showProfileImages));
-        profileBtn.title = showProfileImages ? 'Hide profile images' : 'Show profile images';
+        const profileTitle = showProfileImages
+            ? t('index.toolbar.layout.profileHide')
+            : t('index.toolbar.layout.profileShow');
+        profileBtn.title = profileTitle;
+        profileBtn.setAttribute('aria-label', profileTitle);
     }
 
-    updateAuthDependentUI();
+    await updateAuthDependentUI();
 }
 
 function adjustColor(color, amount) {
@@ -580,8 +609,19 @@ function updateAdminActions() {
     }
 }
 
-function updateAuthDependentUI() {
+async function updateAuthDependentUI() {
+    await waitForTranslations();
     updateAdminActions();
+
+    const exportXlsxBtn = document.querySelector('[data-control="export-xlsx"]');
+    if (exportXlsxBtn) {
+        const baseLabel = t('index.toolbar.controls.exportXlsx');
+        const adminLabel = t('index.toolbar.controls.exportXlsxAdmin');
+        const label = isAuthenticated ? adminLabel : baseLabel;
+        exportXlsxBtn.textContent = label;
+        exportXlsxBtn.setAttribute('aria-label', label);
+        exportXlsxBtn.title = label;
+    }
 
     const compactBtn = document.getElementById('compactToggleBtn');
     if (compactBtn) {
@@ -589,9 +629,11 @@ function updateAuthDependentUI() {
         compactBtn.removeAttribute('aria-disabled');
         const enabled = getEffectiveCompactEnabled();
         compactBtn.classList.toggle('active', enabled);
-        compactBtn.title = isAuthenticated
-            ? 'Toggle compact layout for large teams'
-            : 'Toggle compact layout for your view (not saved globally)';
+        const compactTitle = isAuthenticated
+            ? t('index.toolbar.layout.compactTitleAdmin')
+            : t('index.toolbar.layout.compactTitleGuest');
+        compactBtn.title = compactTitle;
+        compactBtn.setAttribute('aria-label', compactTitle);
     }
 
     const profileBtn = document.getElementById('profileImageToggleBtn');
@@ -599,7 +641,11 @@ function updateAuthDependentUI() {
         const showImages = getEffectiveProfileImagesEnabled();
         profileBtn.classList.toggle('active', showImages);
         profileBtn.setAttribute('aria-pressed', String(showImages));
-        profileBtn.title = showImages ? 'Hide profile images' : 'Show profile images';
+        const profileTitle = showImages
+            ? t('index.toolbar.layout.profileHide')
+            : t('index.toolbar.layout.profileShow');
+        profileBtn.title = profileTitle;
+        profileBtn.setAttribute('aria-label', profileTitle);
     }
 }
 
@@ -623,7 +669,8 @@ async function init() {
         loadStoredCompactPreference();
     }
     loadStoredProfileImagePreference();
-    updateAuthDependentUI();
+    await waitForTranslations();
+    await updateAuthDependentUI();
     await loadSettings();
     
     try {
@@ -645,12 +692,16 @@ async function init() {
         }
     } catch (error) {
         console.error('Error loading employee data:', error);
-        document.getElementById('orgChart').innerHTML = '<div class="loading">Error loading data. Please refresh the page.</div>';
+        const container = document.getElementById('orgChart');
+        if (container) {
+            container.innerHTML = `<div class="loading">${t('index.status.errorLoading')}</div>`;
+        }
     }
 }
 
 // Toggle Compact Teams from main page
 async function toggleCompactLargeTeams() {
+    await waitForTranslations();
     const btn = document.getElementById('compactToggleBtn');
     const previousValue = getEffectiveCompactEnabled();
     const newValue = !previousValue;
@@ -670,7 +721,7 @@ async function toggleCompactLargeTeams() {
             update(root);
             fitToScreen();
         }
-        updateAuthDependentUI();
+        await updateAuthDependentUI();
         return;
     }
 
@@ -690,8 +741,8 @@ async function toggleCompactLargeTeams() {
                 btn.disabled = false;
             }
             isAuthenticated = false;
-            updateAuthDependentUI();
-            alert('Admin login expired. Please log in again to change settings.');
+            await updateAuthDependentUI();
+            alert(t('index.alerts.adminLoginExpired'));
             return;
         }
         if (!res.ok) {
@@ -703,7 +754,7 @@ async function toggleCompactLargeTeams() {
         if (btn) {
             btn.disabled = false;
         }
-        updateAuthDependentUI();
+        await updateAuthDependentUI();
         if (root) {
             update(root);
             fitToScreen();
@@ -715,11 +766,12 @@ async function toggleCompactLargeTeams() {
             btn.disabled = false;
         }
         appSettings.multiLineChildrenEnabled = previousValue;
-        updateAuthDependentUI();
+        await updateAuthDependentUI();
     }
 }
 
-function toggleProfileImages() {
+async function toggleProfileImages() {
+    await waitForTranslations();
     const btn = document.getElementById('profileImageToggleBtn');
     const currentValue = getEffectiveProfileImagesEnabled();
     const newValue = !currentValue;
@@ -739,14 +791,18 @@ function toggleProfileImages() {
     if (btn) {
         btn.classList.toggle('active', newValue);
         btn.setAttribute('aria-pressed', String(newValue));
-        btn.title = newValue ? 'Hide profile images' : 'Show profile images';
+        const profileTitle = newValue
+            ? t('index.toolbar.layout.profileHide')
+            : t('index.toolbar.layout.profileShow');
+        btn.title = profileTitle;
+        btn.setAttribute('aria-label', profileTitle);
     }
 
     if (root) {
         update(root);
     }
 
-    updateAuthDependentUI();
+    await updateAuthDependentUI();
 }
 
 function preloadEmployeeImages(employees) {
@@ -852,7 +908,7 @@ function displayTopUserResults(employees, container, input) {
         item.className = 'search-result-item';
         item.innerHTML = `
             <div class="search-result-name">${escapeHtml(employee.name)}</div>
-            <div class="search-result-title">${escapeHtml(employee.title || 'No Title')} ${employee.department ? '– ' + escapeHtml(employee.department) : ''}</div>
+            <div class="search-result-title">${escapeHtml(employee.title || t('index.employee.noTitle'))} ${employee.department ? '– ' + escapeHtml(employee.department) : ''}</div>
         `;
         
         item.addEventListener('click', function() {
@@ -869,6 +925,7 @@ function displayTopUserResults(employees, container, input) {
 
 // Save the selected top-level user
 async function saveTopUser() {
+    await waitForTranslations();
     const searchInput = document.getElementById('topUserSearch');
     const saveBtn = document.getElementById('saveTopUserBtn');
     
@@ -889,7 +946,7 @@ async function saveTopUser() {
     try {
         if (saveBtn) {
             saveBtn.disabled = true;
-            saveBtn.textContent = 'Saving...';
+            saveBtn.textContent = t('index.topUser.saving');
         }
         
         // Update the setting using the public endpoint
@@ -909,7 +966,7 @@ async function saveTopUser() {
             
             // Show success feedback and force refresh
             if (saveBtn) {
-                saveBtn.textContent = 'Saved!';
+                saveBtn.textContent = t('index.topUser.saved');
             }
             setTimeout(() => {
                 // Force a full page refresh to ensure clean state and preserve toolbar
@@ -921,9 +978,9 @@ async function saveTopUser() {
     } catch (error) {
         console.error('Error saving top user:', error);
         if (saveBtn) {
-            saveBtn.textContent = 'Error';
+            saveBtn.textContent = t('index.topUser.error');
             setTimeout(() => {
-                saveBtn.textContent = 'Save';
+                saveBtn.textContent = t('buttons.save');
                 saveBtn.disabled = false;
             }, 2000);
         }
@@ -932,6 +989,7 @@ async function saveTopUser() {
 
 // Reset top-level user to auto-detect
 async function resetTopUser() {
+    await waitForTranslations();
     const searchInput = document.getElementById('topUserSearch');
     const resultsContainer = document.getElementById('topUserResults');
     const resetBtn = document.getElementById('resetTopUserBtn');
@@ -939,7 +997,7 @@ async function resetTopUser() {
     try {
         if (resetBtn) {
             resetBtn.disabled = true;
-            resetBtn.textContent = 'Resetting...';
+            resetBtn.textContent = t('index.topUser.resetting');
         }
         
         // Update the setting to empty string (auto-detect) using the public endpoint
@@ -964,7 +1022,7 @@ async function resetTopUser() {
             
             // Show success feedback and force refresh
             if (resetBtn) {
-                resetBtn.textContent = 'Reset!';
+                resetBtn.textContent = t('index.topUser.resetDone');
             }
             setTimeout(() => {
                 // Force a full page refresh to ensure clean state
@@ -976,9 +1034,9 @@ async function resetTopUser() {
     } catch (error) {
         console.error('Error resetting top user:', error);
         if (resetBtn) {
-            resetBtn.textContent = 'Error';
+            resetBtn.textContent = t('index.topUser.error');
             setTimeout(() => {
-                resetBtn.textContent = 'Reset';
+                resetBtn.textContent = t('buttons.reset');
                 resetBtn.disabled = false;
             }, 2000);
         }
@@ -987,9 +1045,13 @@ async function resetTopUser() {
 
 // Reload employee data and re-render chart
 async function reloadEmployeeData() {
+    await waitForTranslations();
     try {
         // Show loading state
-        document.getElementById('orgChart').innerHTML = '<div class="loading"><div class="spinner"></div><p>Updating organization chart...</p></div>';
+        const container = document.getElementById('orgChart');
+        if (container) {
+            container.innerHTML = `<div class="loading"><div class="spinner"></div><p>${t('index.status.updating')}</p></div>`;
+        }
         
         const response = await fetch(`${API_BASE_URL}/api/employees`);
         if (!response.ok) {
@@ -1008,7 +1070,10 @@ async function reloadEmployeeData() {
         }
     } catch (error) {
         console.error('Error reloading employee data:', error);
-        document.getElementById('orgChart').innerHTML = '<div class="loading">Error loading data. Please refresh the page.</div>';
+        const container = document.getElementById('orgChart');
+        if (container) {
+            container.innerHTML = `<div class="loading">${t('index.status.errorLoading')}</div>`;
+        }
     }
 }
 
@@ -1360,7 +1425,7 @@ function update(source) {
             .attr('x', nodeWidth/2 - 27)
             .attr('y', -nodeHeight/2 + 2)
             .attr('text-anchor', 'middle')
-            .text('NEW');
+            .text(t('index.badges.new'));
     }
 
 
@@ -1381,7 +1446,9 @@ function update(source) {
         .text(d => hiddenNodeIds.has(d.data.id) ? '🙈' : '👁')
         .each(function(d){
             const titleEl = this.querySelector('title');
-            if (titleEl) titleEl.textContent = hiddenNodeIds.has(d.data.id) ? 'Show this subtree' : 'Hide this subtree';
+            if (titleEl) titleEl.textContent = hiddenNodeIds.has(d.data.id)
+                ? t('index.tree.toggleShow')
+                : t('index.tree.toggleHide');
         });
 
     nodeUpdate.select('.expand-text')
@@ -1782,6 +1849,7 @@ function printChart() {
 }
 
 async function exportToImage(format = 'svg', exportFullChart = false) {
+    await waitForTranslations();
     const svgElement = await createExportSVG(exportFullChart);
     const svgString = new XMLSerializer().serializeToString(svgElement);
     
@@ -1891,14 +1959,14 @@ async function exportToImage(format = 'svg', exportFullChart = false) {
                     
                     img.onerror = function(error) {
                         console.error('All methods failed:', error);
-                        alert('Error loading chart for PNG export. Please try using SVG export instead.');
+                        alert(t('index.alerts.pngLoadError'));
                     };
                     
                     img.crossOrigin = 'anonymous';
                     img.src = svgDataUrl;
                 } catch (error) {
                     console.error('Fallback method failed:', error);
-                    alert('Error creating PNG export. Please try using SVG export instead.');
+                    alert(t('index.alerts.pngExportError'));
                 }
             };
             
@@ -1916,7 +1984,7 @@ async function exportToImage(format = 'svg', exportFullChart = false) {
                         URL.revokeObjectURL(pngUrl);
                     } else {
                         console.error('Failed to create PNG blob');
-                        alert('Error creating PNG file. Please try again.');
+                        alert(t('index.alerts.pngBlobError'));
                     }
                 }, 'image/png', 0.95);
             };
@@ -1926,30 +1994,31 @@ async function exportToImage(format = 'svg', exportFullChart = false) {
             
         } catch (error) {
             console.error('Error in PNG export setup:', error);
-            alert('Error setting up PNG export: ' + error.message);
+            alert(t('index.alerts.pngSetupError', { message: error.message }));
         }
     }
 }
 
 async function exportToPDF(exportFullChart = false) {
+    await waitForTranslations();
     try {
         console.log('Starting PDF export...');
         
         // Check if data is loaded
         if (!currentData) {
-            alert('No organizational chart data available. Please wait for the data to load or refresh the page.');
+            alert(t('index.alerts.pdfNoData'));
             return;
         }
         
         // Check if root is available for visible chart export
         if (!exportFullChart && !root) {
-            alert('No chart is currently visible. Please ensure the organizational chart is loaded.');
+            alert(t('index.alerts.pdfNoChartVisible'));
             return;
         }
         
         if (typeof window.jspdf === 'undefined') {
             console.error('jsPDF library not loaded');
-            alert('PDF library not loaded. Please refresh the page.');
+            alert(t('index.alerts.pdfLibraryMissing'));
             return;
         }
         
@@ -2041,7 +2110,7 @@ async function exportToPDF(exportFullChart = false) {
         } catch (cleanupError) {
             console.warn('Cleanup error:', cleanupError);
         }
-        alert('An error occurred during PDF export: ' + (error.message || error || 'Unknown error'));
+        alert(t('index.alerts.pdfGenericError', { message: error.message || error || t('index.alerts.unknownError') }));
     }
 }
 
@@ -2449,6 +2518,17 @@ function showEmployeeDetail(employee) {
     const headerContent = document.getElementById('employeeDetailContent');
     const infoContent = document.getElementById('employeeInfo');
 
+    const departmentLabel = t('index.employee.detail.department');
+    const departmentUnknown = t('index.employee.detail.departmentUnknown');
+    const emailLabel = t('index.employee.detail.email');
+    const emailUnknown = t('index.employee.detail.emailUnknown');
+    const phoneLabel = t('index.employee.detail.phone');
+    const phoneUnknown = t('index.employee.detail.phoneUnknown');
+    const hireDateLabel = t('index.employee.detail.hireDate');
+    const officeLabel = t('index.employee.detail.office');
+    const locationLabel = t('index.employee.detail.location');
+    const managerHeading = t('index.employee.detail.manager');
+
     const initials = (employee.name || '')
         .split(' ')
         .map(n => n[0])
@@ -2471,39 +2551,39 @@ function showEmployeeDetail(employee) {
         <div class="employee-name">
             <h2>${escapeHtml(employee.name)}</h2>
         </div>
-        <div class="employee-title">${escapeHtml(employee.title)}</div>
+        <div class="employee-title">${escapeHtml(employee.title || t('index.employee.noTitle'))}</div>
     `;
 
     let infoHTML = `
         <div class="info-item">
-            <div class="info-label">Department</div>
-            <div class="info-value">${escapeHtml(employee.department || 'Not specified')}</div>
+            <div class="info-label">${departmentLabel}</div>
+            <div class="info-value">${escapeHtml(employee.department || departmentUnknown)}</div>
         </div>
         <div class="info-item">
-            <div class="info-label">Email</div>
+            <div class="info-label">${emailLabel}</div>
             <div class="info-value">
-                ${employee.email ? `<a href="mailto:${escapeHtml(employee.email)}">${escapeHtml(employee.email)}</a>` : 'Not available'}
+                ${employee.email ? `<a href="mailto:${escapeHtml(employee.email)}">${escapeHtml(employee.email)}</a>` : emailUnknown}
             </div>
         </div>
         <div class="info-item">
-            <div class="info-label">Phone</div>
-            <div class="info-value">${escapeHtml(employee.phone || 'Not available')}</div>
+            <div class="info-label">${phoneLabel}</div>
+            <div class="info-value">${escapeHtml(employee.phone || phoneUnknown)}</div>
         </div>
         ${employee.hireDate ? `
         <div class="info-item">
-            <div class="info-label">Hire Date</div>
+            <div class="info-label">${hireDateLabel}</div>
             <div class="info-value">${escapeHtml(formatHireDate(employee.hireDate))}</div>
         </div>
         ` : ''}
         ${employee.location ? `
         <div class="info-item">
-            <div class="info-label">Office</div>
+            <div class="info-label">${officeLabel}</div>
             <div class="info-value">${escapeHtml(employee.location)}</div>
         </div>
         ` : ''}
         ${employee.city || employee.state || employee.country ? `
         <div class="info-item">
-            <div class="info-label">Location</div>
+            <div class="info-label">${locationLabel}</div>
             <div class="info-value">${[employee.city, employee.state, employee.country].filter(Boolean).map(escapeHtml).join(', ')}</div>
         </div>
         ` : ''}
@@ -2529,14 +2609,14 @@ function showEmployeeDetail(employee) {
 
             infoHTML += `
                 <div class="manager-section">
-                    <h3>Manager</h3>
+                    <h3>${managerHeading}</h3>
                     <div class="manager-item" data-employee-id="${escapeHtml(manager.id)}">
                         <div class="manager-avatar-container">
                             ${managerAvatar}
                         </div>
                         <div class="manager-details">
                             <div class="manager-name">${escapeHtml(manager.name)}</div>
-                            <div class="manager-title">${escapeHtml(manager.title)}</div>
+                            <div class="manager-title">${escapeHtml(manager.title || t('index.employee.noTitle'))}</div>
                         </div>
                     </div>
                 </div>
@@ -2546,9 +2626,10 @@ function showEmployeeDetail(employee) {
 
     const directReports = employee.children || [];
     if (directReports.length > 0) {
+        const directReportsLabel = t('index.employee.detail.directReportsWithCount', { count: directReports.length });
         infoHTML += `
             <div class="direct-reports">
-                <h3>Direct Reports (${directReports.length})</h3>
+                <h3>${directReportsLabel}</h3>
                 ${directReports.map(report => {
                     const reportInitials = (report.name || '')
                         .split(' ')
@@ -2572,7 +2653,7 @@ function showEmployeeDetail(employee) {
                             </div>
                             <div class="report-details">
                                 <div class="report-name">${escapeHtml(report.name)}</div>
-                                <div class="report-title">${escapeHtml(report.title)}</div>
+                                <div class="report-title">${escapeHtml(report.title || t('index.employee.noTitle'))}</div>
                             </div>
                         </div>
                     `;
@@ -2674,7 +2755,7 @@ async function performSearch(query) {
         if (results.length > 0) {
             displaySearchResults(results);
         } else {
-            searchResults.innerHTML = '<div class="search-result-item">No results found</div>';
+            searchResults.innerHTML = `<div class="search-result-item">${t('index.search.noResults')}</div>`;
             searchResults.classList.add('active');
         }
     } catch (error) {
@@ -2697,7 +2778,7 @@ function displaySearchResults(results) {
         const title = document.createElement('div');
         title.className = 'search-result-title';
         const departmentText = emp.department ? ` – ${emp.department}` : '';
-        title.textContent = `${emp.title || 'No Title'}${departmentText}`;
+    title.textContent = `${emp.title || t('index.employee.noTitle')}${departmentText}`;
 
         item.appendChild(name);
         item.appendChild(title);
@@ -2783,6 +2864,7 @@ function expandToEmployee(employeeId) {
 
 // Export to XLSX function
 async function exportToXLSX() {
+    await waitForTranslations();
     try {
         const response = await fetch(`${API_BASE_URL}/api/export-xlsx`);
         
@@ -2811,11 +2893,13 @@ async function exportToXLSX() {
             window.URL.revokeObjectURL(url);
         } else {
             const errorData = await response.json();
-            alert(`Export failed: ${errorData.error || 'Unknown error'}`);
+            alert(t('index.alerts.xlsxExportFailed', {
+                message: errorData.error || t('index.alerts.unknownError')
+            }));
         }
     } catch (error) {
         console.error('Export error:', error);
-        alert('Failed to export XLSX file');
+        alert(t('index.alerts.xlsxExportError'));
     }
 }
 

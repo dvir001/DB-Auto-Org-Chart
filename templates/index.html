@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-US">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title></title>
+    <title data-i18n="index.pageTitle"></title>
     <script src="/static/d3.min.js"></script>
     <script src="/static/jspdf.umd.min.js"></script>
     <link rel="stylesheet" href="/static/styles.css">
@@ -13,14 +13,14 @@
     <div class="container">
         <div class="header">
             <div class="header-content loading">
-                <img alt="Logo" class="header-logo loading" data-default-src="/static/icon.png" data-hide-on-error="true">
+                <img alt="Logo" class="header-logo loading" data-default-src="/static/icon.png" data-hide-on-error="true" data-i18n-alt="index.header.logoAlt">
                 <div class="header-text">
-                    <h1>Organization Chart</h1>
-                    <p>Updates daily @ 8:00 PM</p>
+                    <h1 data-i18n="index.header.title">Organization Chart</h1>
+                    <p data-i18n="index.header.subtitle">Updates daily @ 8:00 PM</p>
                 </div>
                 <div class="header-actions">
-                    <button id="configBtn" class="logout-btn" type="button">Configure</button>
-                    <button id="logoutBtn" class="logout-btn is-hidden" type="button">Logout</button>
+                    <button id="configBtn" class="logout-btn" type="button" data-i18n="buttons.configure">Configure</button>
+                    <button id="logoutBtn" class="logout-btn is-hidden" type="button" data-i18n="buttons.logout">Logout</button>
                 </div>
             </div>
         </div>
@@ -28,18 +28,18 @@
         <div class="search-bar">
             <div class="search-wrapper">
                 <span class="search-icon">🔍</span>
-                <input type="text" class="search-input" id="searchInput" placeholder="Search for employees by name, title, or department...">
+                <input type="text" class="search-input" id="searchInput" placeholder="Search for employees by name, title, or department..." data-i18n-placeholder="index.search.placeholder">
                 <div class="search-results" id="searchResults"></div>
             </div>
             <div class="top-user-controls">
-                <label for="topUserSearch" class="top-user-label">Top-Level User:</label>
+                <label for="topUserSearch" class="top-user-label" data-i18n="index.topUser.label">Top-Level User:</label>
                 <div class="search-wrapper top-user-search-wrapper">
                     <span class="search-icon">🔍</span>
-                    <input type="text" id="topUserSearch" class="search-input" placeholder="Search for top-level user or leave empty for auto-detect...">
+                    <input type="text" id="topUserSearch" class="search-input" placeholder="Search for top-level user or leave empty for auto-detect..." data-i18n-placeholder="index.topUser.placeholder">
                     <div class="search-results top-user-results" id="topUserResults"></div>
                 </div>
-                <button id="saveTopUserBtn" class="save-btn" type="button">Save</button>
-                <button id="resetTopUserBtn" class="reset-btn" type="button">Reset</button>
+                <button id="saveTopUserBtn" class="save-btn" type="button" data-i18n="buttons.save">Save</button>
+                <button id="resetTopUserBtn" class="reset-btn" type="button" data-i18n="buttons.reset">Reset</button>
             </div>
         </div>
         
@@ -47,38 +47,38 @@
             <div class="org-chart-container" id="orgChart">
                 <div class="chart-toolbar">
                     <div class="toolbar-section toolbar-section--layout layout-toggle">
-                        <button class="layout-btn active" data-layout="vertical" type="button" aria-label="Vertical layout">
+                        <button class="layout-btn active" data-layout="vertical" type="button" aria-label="Vertical layout" data-i18n-aria-label="index.toolbar.layout.vertical">
                             <span class="layout-icon">↓</span>
                         </button>
-                        <button class="layout-btn" data-layout="horizontal" type="button" aria-label="Horizontal layout">
+                        <button class="layout-btn" data-layout="horizontal" type="button" aria-label="Horizontal layout" data-i18n-aria-label="index.toolbar.layout.horizontal">
                             <span class="layout-icon">→</span>
                         </button>
-                        <button id="compactToggleBtn" class="layout-btn" type="button" title="Toggle compact layout for teams">
+                        <button id="compactToggleBtn" class="layout-btn" type="button" title="Toggle compact layout for teams" data-i18n-title="index.toolbar.layout.compactTitle">
                             <span class="layout-icon">▦</span>
-                            Compact Teams
+                            <span data-i18n="index.toolbar.layout.compactLabel">Compact Teams</span>
                         </button>
-                        <button id="profileImageToggleBtn" class="layout-btn layout-btn--icon" type="button" title="Toggle profile images" aria-label="Toggle profile images">
+                        <button id="profileImageToggleBtn" class="layout-btn layout-btn--icon" type="button" title="Toggle profile images" aria-label="Toggle profile images" data-i18n-title="index.toolbar.layout.profileTitle" data-i18n-aria-label="index.toolbar.layout.profileTitle">
                             <span class="layout-icon" aria-hidden="true">🖼️</span>
                         </button>
                     </div>
                     <div class="toolbar-section toolbar-section--controls controls">
-                        <button class="control-btn" data-control="zoom-in" type="button">+</button>
-                        <button class="control-btn" data-control="zoom-out" type="button">-</button>
-                        <button class="control-btn" data-control="reset-zoom" type="button">Reset Zoom</button>
-                        <button class="control-btn" data-control="fit" type="button">Fit to Screen</button>
-                        <button class="control-btn" data-control="expand" type="button">Expand All</button>
-                        <button class="control-btn" data-control="collapse" type="button">Collapse All</button>
-                        <button class="control-btn" data-control="reset-hidden" type="button" title="Show all previously hidden subtrees">Reset Hidden</button>
-                        <button class="control-btn" data-control="print" type="button">Print</button>
-                        <button class="control-btn control-btn--violet" data-control="export-visible-svg" type="button">Export Visible (SVG)</button>
-                        <button class="control-btn control-btn--teal" data-control="export-visible-png" type="button">Export Visible (PNG)</button>
-                        <button class="control-btn control-btn--crimson" data-control="export-visible-pdf" type="button">Export Visible (PDF)</button>
-                        <button class="control-btn control-btn--green" data-control="export-xlsx" type="button">Export to XLSX</button>
+                        <button class="control-btn" data-control="zoom-in" type="button" aria-label="Zoom in" data-i18n-aria-label="index.toolbar.controls.zoomIn">+</button>
+                        <button class="control-btn" data-control="zoom-out" type="button" aria-label="Zoom out" data-i18n-aria-label="index.toolbar.controls.zoomOut">-</button>
+                        <button class="control-btn" data-control="reset-zoom" type="button" data-i18n="index.toolbar.controls.resetZoom">Reset Zoom</button>
+                        <button class="control-btn" data-control="fit" type="button" data-i18n="index.toolbar.controls.fitToScreen">Fit to Screen</button>
+                        <button class="control-btn" data-control="expand" type="button" data-i18n="index.toolbar.controls.expandAll">Expand All</button>
+                        <button class="control-btn" data-control="collapse" type="button" data-i18n="index.toolbar.controls.collapseAll">Collapse All</button>
+                        <button class="control-btn" data-control="reset-hidden" type="button" title="Show all previously hidden subtrees" data-i18n="index.toolbar.controls.resetHidden" data-i18n-title="index.toolbar.controls.resetHiddenTitle">Reset Hidden</button>
+                        <button class="control-btn" data-control="print" type="button" data-i18n="index.toolbar.controls.print">Print</button>
+                        <button class="control-btn control-btn--violet" data-control="export-visible-svg" type="button" data-i18n="index.toolbar.controls.exportVisibleSvg">Export Visible (SVG)</button>
+                        <button class="control-btn control-btn--teal" data-control="export-visible-png" type="button" data-i18n="index.toolbar.controls.exportVisiblePng">Export Visible (PNG)</button>
+                        <button class="control-btn control-btn--crimson" data-control="export-visible-pdf" type="button" data-i18n="index.toolbar.controls.exportVisiblePdf">Export Visible (PDF)</button>
+                        <button class="control-btn control-btn--green" data-control="export-xlsx" type="button" data-i18n="index.toolbar.controls.exportXlsx">Export to XLSX</button>
                     </div>
                 </div>
                 <div class="loading">
                     <div class="spinner"></div>
-                    <p>Loading organization chart...</p>
+                    <p data-i18n="index.loading">Loading organization chart...</p>
                 </div>
             </div>
             
@@ -92,6 +92,7 @@
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='app.js') }}"></script>
+    <script src="{{ url_for('static', filename='i18n.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='app.js') }}" defer></script>
 </body>
 </html>
