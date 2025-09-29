@@ -87,7 +87,9 @@ def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not session.get('authenticated'):
-            return redirect(url_for('login'))
+            desired_path = sanitize_next_path(request.path)
+            params = {'next': desired_path} if desired_path else {}
+            return redirect(url_for('login', **params))
         return f(*args, **kwargs)
     return decorated_function
 
@@ -156,6 +158,7 @@ if not os.path.exists(DATA_DIR):
 
 SETTINGS_FILE = os.path.join(DATA_DIR, 'app_settings.json')
 DATA_FILE = os.path.join(DATA_DIR, 'employee_data.json')
+MISSING_MANAGER_FILE = os.path.join(DATA_DIR, 'missing_manager_records.json')
 
 # Configuration for file uploads (removed SVG for security)
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
@@ -586,6 +589,80 @@ def build_org_hierarchy(employees):
         
         return root
 
+
+def collect_missing_manager_records(employees, hierarchy_root=None, settings=None):
+    if not employees:
+        return []
+
+    employee_index = {emp['id']: emp for emp in employees if emp.get('id')}
+    visited = set()
+
+    def traverse(node):
+        node_id = node.get('id')
+        if not node_id or node_id in visited:
+            return
+        visited.add(node_id)
+        for child in node.get('children', []):
+            traverse(child)
+
+    if hierarchy_root:
+        traverse(hierarchy_root)
+
+    root_ids = set()
+    top_user_email = None
+
+    if hierarchy_root and hierarchy_root.get('id'):
+        root_ids.add(hierarchy_root['id'])
+
+    if settings is None:
+        settings = load_settings()
+
+    if settings:
+        top_user_email = (settings.get('topUserEmail') or '').strip().lower() or None
+
+    missing_records = []
+
+    for emp in employees:
+        emp_id = emp.get('id')
+        manager_id = emp.get('managerId')
+        manager_name = ''
+        reason = None
+
+        if emp_id and emp_id in root_ids:
+            continue
+
+        if top_user_email:
+            email = (emp.get('email') or '').strip().lower()
+            if email and email == top_user_email:
+                continue
+
+        if manager_id and manager_id in employee_index:
+            manager_name = employee_index[manager_id].get('name') or ''
+
+        if not manager_id:
+            reason = 'no_manager'
+        elif manager_id not in employee_index:
+            reason = 'manager_not_found'
+        elif emp_id not in visited:
+            reason = 'detached'
+
+        if reason:
+            missing_records.append({
+                'id': emp_id,
+                'name': emp.get('name'),
+                'title': emp.get('title'),
+                'department': emp.get('department'),
+                'email': emp.get('email'),
+                'phone': emp.get('phone'),
+                'location': emp.get('location') or emp.get('officeLocation') or '',
+                'managerName': manager_name,
+                'reason': reason
+            })
+
+    missing_records.sort(key=lambda item: (item.get('department') or '', item.get('name') or ''))
+    return missing_records
+
+
 def update_employee_data():
     try:
         # Ensure data directory exists and is writable
@@ -620,6 +697,7 @@ def update_employee_data():
                 logger.info(f"Filtered ignored departments {sorted(list(ignored_set))}; {before}->{len(employees)} employees")
             
             hierarchy = build_org_hierarchy(employees)
+            missing_records = collect_missing_manager_records(employees, hierarchy, settings)
             
             if hierarchy:
                 settings = load_settings()
@@ -648,6 +726,13 @@ def update_employee_data():
                 with open(DATA_FILE, 'w') as f:
                     json.dump(hierarchy, f, indent=2)
                 logger.info(f"[{datetime.now()}] Successfully updated employee data. Total employees: {len(employees)}")
+
+                try:
+                    with open(MISSING_MANAGER_FILE, 'w') as report_file:
+                        json.dump(missing_records, report_file, indent=2)
+                    logger.info(f"Updated missing manager report cache with {len(missing_records)} records")
+                except Exception as report_error:
+                    logger.error(f"Failed to write missing manager report cache: {report_error}")
             else:
                 logger.error(f"[{datetime.now()}] Could not build hierarchy from employee data")
         else:
@@ -764,7 +849,10 @@ def login():
                 session['authenticated'] = True
                 session['username'] = 'admin'
                 logger.info("Successful login")
-                return jsonify({'success': True, 'next': next_page})
+                return jsonify({
+                    'success': True,
+                    'next': next_page or ''
+                })
 
             logger.warning("Failed login attempt - password mismatch")
             return jsonify({'error': 'Invalid password'}), 401
@@ -803,10 +891,12 @@ def index():
 @app.route('/configure')
 def configure():
     if not session.get('authenticated'):
-        # Redirect to login with a parameter indicating they want to access configure
-        return redirect(url_for('login', next='configure'))
+        # Redirect to login preserving the intended destination
+        desired_path = sanitize_next_path(request.path)
+        params = {'next': desired_path} if desired_path else {}
+        return redirect(url_for('login', **params))
     
-    template_content = get_template('configureme.html')
+    template_content = get_template('configure.html')
     settings = load_settings()
     favicon_path = settings.get('faviconPath', '/favicon.ico')
     
@@ -814,6 +904,19 @@ def configure():
     favicon_link = f'<link rel="icon" type="image/x-icon" href="{favicon_path}">'
     template_content = template_content.replace('</head>', f'    {favicon_link}\n</head>')
     
+    return render_template_string(template_content)
+
+
+@app.route('/reports')
+@login_required
+def reports():
+    template_content = get_template('reports.html')
+    settings = load_settings()
+    favicon_path = settings.get('faviconPath', '/favicon.ico')
+
+    favicon_link = f'<link rel="icon" type="image/x-icon" href="{favicon_path}">'
+    template_content = template_content.replace('</head>', f'    {favicon_link}\n</head>')
+
     return render_template_string(template_content)
 
 @app.route('/static/icon_custom_<string:file_hash>.png')
@@ -1053,11 +1156,19 @@ def set_top_user():
                         logger.info(f"Filtered ignored departments {sorted(list(ignored_set))}; {before}->{len(employees)} employees")
                     
                     hierarchy = build_org_hierarchy(employees)
+                    missing_records = collect_missing_manager_records(employees, hierarchy, settings)
                     
                     if hierarchy:
                         with open(DATA_FILE, 'w') as f:
                             json.dump(hierarchy, f, indent=2)
                         logger.info(f"Successfully rebuilt hierarchy with new top-level user: {hierarchy.get('name')}")
+
+                        try:
+                            with open(MISSING_MANAGER_FILE, 'w') as report_file:
+                                json.dump(missing_records, report_file, indent=2)
+                            logger.info(f"Updated missing manager report cache with {len(missing_records)} records after top-level change")
+                        except Exception as report_error:
+                            logger.error(f"Failed to write missing manager report cache: {report_error}")
                     else:
                         raise Exception("Failed to build hierarchy")
                 else:
@@ -1501,6 +1612,115 @@ def export_xlsx():
     except Exception as e:
         logger.error(f"Error exporting to XLSX: {e}")
         return jsonify({'error': 'Failed to export XLSX'}), 500
+
+
+def _load_missing_manager_data(force_refresh=False):
+    try:
+        if force_refresh or not os.path.exists(MISSING_MANAGER_FILE):
+            logger.info("Refreshing missing manager report cache")
+            update_employee_data()
+
+        if not os.path.exists(MISSING_MANAGER_FILE):
+            logger.warning("Missing manager report cache not found after refresh")
+            return []
+
+        with open(MISSING_MANAGER_FILE, 'r') as report_file:
+            data = json.load(report_file)
+            if isinstance(data, list):
+                return data
+            logger.warning("Unexpected missing manager report format; ignoring contents")
+            return []
+    except json.JSONDecodeError as decode_error:
+        logger.error(f"Failed to parse missing manager report cache: {decode_error}")
+        return []
+    except Exception as error:
+        logger.error(f"Unexpected error loading missing manager report cache: {error}")
+        return []
+
+
+@app.route('/api/reports/missing-manager')
+@require_auth
+def get_missing_manager_report():
+    try:
+        refresh = request.args.get('refresh', 'false').lower() == 'true'
+        records = _load_missing_manager_data(force_refresh=refresh)
+        generated_at = None
+        if os.path.exists(MISSING_MANAGER_FILE):
+            generated_at = datetime.fromtimestamp(os.path.getmtime(MISSING_MANAGER_FILE)).isoformat()
+
+        return jsonify({
+            'records': records,
+            'count': len(records),
+            'generatedAt': generated_at
+        })
+    except Exception as e:
+        logger.error(f"Error loading missing manager report: {e}")
+        return jsonify({'error': 'Failed to load report data'}), 500
+
+
+@app.route('/api/reports/missing-manager/export')
+@require_auth
+def export_missing_manager_report():
+    if not Workbook:
+        return jsonify({'error': 'XLSX export not available - openpyxl not installed'}), 500
+
+    try:
+        refresh = request.args.get('refresh', 'false').lower() == 'true'
+        records = _load_missing_manager_data(force_refresh=refresh)
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Missing Managers"
+
+        headers = [
+            ('name', 'Name'),
+            ('title', 'Title'),
+            ('department', 'Department'),
+            ('email', 'Email'),
+            ('phone', 'Phone'),
+            ('location', 'Location'),
+            ('managerName', 'Manager Name'),
+            ('reason', 'Reason')
+        ]
+
+        reason_labels = {
+            'no_manager': 'No manager assigned',
+            'manager_not_found': 'Manager not found in data',
+            'detached': 'Detached from hierarchy'
+        }
+
+        for column_index, (_, header_text) in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=column_index, value=header_text)
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+            cell.alignment = Alignment(horizontal="center")
+
+        for row_index, record in enumerate(records, start=2):
+            for column_index, (key, _) in enumerate(headers, 1):
+                value = record.get(key)
+                if key == 'reason':
+                    value = reason_labels.get(value, value or '')
+                ws.cell(row=row_index, column=column_index, value=value)
+
+        for col in range(1, len(headers) + 1):
+            column_letter = get_column_letter(col)
+            ws.column_dimensions[column_letter].width = 22
+
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+
+        filename = f"missing-managers-{datetime.now().strftime('%Y-%m-%d')}.xlsx"
+
+        return send_file(
+            output,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+    except Exception as e:
+        logger.error(f"Error exporting missing manager report: {e}")
+        return jsonify({'error': 'Failed to export report'}), 500
 
 @app.route('/api/auth-check')
 def auth_check():

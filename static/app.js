@@ -370,6 +370,22 @@ function setupStaticEventListeners() {
         });
     }
 
+    const loginBtn = document.getElementById('loginBtn');
+    if (loginBtn) {
+        loginBtn.addEventListener('click', () => {
+            const currentPath = window.location.pathname.replace(/^\/+/, '');
+            const loginUrl = currentPath ? `/login?next=${encodeURIComponent(currentPath)}` : '/login';
+            window.location.href = loginUrl;
+        });
+    }
+
+    const reportsBtn = document.getElementById('reportsBtn');
+    if (reportsBtn) {
+        reportsBtn.addEventListener('click', () => {
+            window.location.href = '/reports';
+        });
+    }
+
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', () => {
@@ -600,7 +616,17 @@ function setLayoutOrientation(orientation) {
 function updateAdminActions() {
     const configBtn = document.getElementById('configBtn');
     if (configBtn) {
-        configBtn.classList.remove('is-hidden');
+        configBtn.classList.toggle('is-hidden', !isAuthenticated);
+    }
+
+    const loginBtn = document.getElementById('loginBtn');
+    if (loginBtn) {
+        loginBtn.classList.toggle('is-hidden', isAuthenticated);
+    }
+
+    const reportsBtn = document.getElementById('reportsBtn');
+    if (reportsBtn) {
+        reportsBtn.classList.toggle('is-hidden', !isAuthenticated);
     }
 
     const logoutBtn = document.getElementById('logoutBtn');

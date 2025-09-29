@@ -1,0 +1,245 @@
+:root {
+    --primary-color: #0078d4;
+    --secondary-color: #5c6bc0;
+    --success-color: #2e7d32;
+    --danger-color: #c62828;
+    --border-radius: 12px;
+    --card-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+    --text-muted: #6b7280;
+    --surface-color: #ffffff;
+    --background-color: #f8fafc;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: "Segoe UI", Tahoma, sans-serif;
+    background: linear-gradient(180deg, #f0f4ff 0%, #f8fafc 100%);
+    color: #1f2937;
+    min-height: 100vh;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 32px 24px 64px;
+}
+
+.nav-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+    color: var(--primary-color);
+    font-weight: 600;
+    margin-bottom: 24px;
+    transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.nav-link:hover {
+    transform: translateX(-4px);
+    color: #0056a6;
+}
+
+.page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 24px;
+}
+
+.page-header h1 {
+    margin: 0;
+    font-size: 2rem;
+}
+
+.page-header p {
+    margin: 8px 0 0;
+    color: var(--text-muted);
+}
+
+.header-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.btn {
+    border: none;
+    border-radius: 999px;
+    padding: 12px 20px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+}
+
+.btn-primary {
+    background: var(--primary-color);
+    color: #fff;
+}
+
+.btn-secondary {
+    background: #eef2ff;
+    color: #3f51b5;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.16);
+}
+
+.btn:active {
+    transform: translateY(0);
+    box-shadow: 0 6px 12px rgba(15, 23, 42, 0.14);
+}
+
+.summary-panel {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+}
+
+.summary-card {
+    background: var(--surface-color);
+    border-radius: var(--border-radius);
+    padding: 20px 24px;
+    box-shadow: var(--card-shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.summary-label {
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+}
+
+.summary-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+.table-panel {
+    background: var(--surface-color);
+    border-radius: var(--border-radius);
+    box-shadow: var(--card-shadow);
+    padding: 24px;
+}
+
+.table-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.table-header h2 {
+    margin: 0;
+}
+
+.table-meta {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
+.table-wrapper {
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 800px;
+}
+
+thead th {
+    text-align: left;
+    background: #eef2ff;
+    padding: 12px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #374151;
+    border-bottom: 2px solid #c7d2fe;
+}
+
+tbody td {
+    padding: 12px;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 0.95rem;
+    color: #1f2937;
+}
+
+tbody tr:hover {
+    background: #f8faff;
+}
+
+.empty-row td {
+    text-align: center;
+    padding: 28px;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.badge--danger {
+    background: rgba(198, 40, 40, 0.12);
+    color: var(--danger-color);
+}
+
+.badge--warning {
+    background: rgba(255, 179, 0, 0.16);
+    color: #b45309;
+}
+
+.badge--info {
+    background: rgba(99, 102, 241, 0.12);
+    color: #4338ca;
+}
+
+.error-banner {
+    margin-top: 24px;
+    padding: 16px 20px;
+    border-radius: var(--border-radius);
+    background: rgba(198, 40, 40, 0.16);
+    color: var(--danger-color);
+    font-weight: 600;
+    box-shadow: var(--card-shadow);
+}
+
+.is-hidden {
+    display: none !important;
+}
+
+@media (max-width: 768px) {
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .header-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .table-panel {
+        padding: 16px;
+    }
+}

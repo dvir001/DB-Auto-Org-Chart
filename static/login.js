@@ -34,8 +34,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const result = await response.json().catch(() => ({}));
 
             if (response.ok) {
-                const redirectTarget = result.next || 'configure';
-                window.location.href = `/${redirectTarget}`;
+                const rawTarget = typeof result.next === 'string' ? result.next : '';
+                const sanitizedTarget = rawTarget.replace(/^\/+/, '').trim();
+                const redirectTarget = sanitizedTarget ? `/${sanitizedTarget}` : '/';
+                window.location.href = redirectTarget;
                 return;
             }
 

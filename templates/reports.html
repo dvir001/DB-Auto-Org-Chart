@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="reports.pageTitle">Reports - DB AutoOrgChart</title>
+    <link rel="stylesheet" href="/static/reports.css">
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="nav-link" data-i18n="reports.navBack">← Back to Org Chart</a>
+
+        <header class="page-header">
+            <div>
+                <h1 data-i18n="reports.header.title">Admin Reports</h1>
+                <p data-i18n="reports.header.subtitle">Analyze data quality and export insights</p>
+            </div>
+            <div class="header-actions">
+                <button type="button" class="btn btn-secondary" id="refreshReportBtn" data-i18n="reports.buttons.refresh">Refresh Data</button>
+                <button type="button" class="btn btn-primary" id="exportReportBtn" data-i18n="reports.buttons.export">Export XLSX</button>
+            </div>
+        </header>
+
+        <section class="summary-panel">
+            <div class="summary-card">
+                <div class="summary-label" data-i18n="reports.summary.totalLabel">Total Users Missing Manager</div>
+                <div class="summary-value" id="missingCount">0</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-label" data-i18n="reports.summary.generatedLabel">Last Generated</div>
+                <div class="summary-value" id="generatedAt" data-i18n="reports.summary.generatedPending">Pending</div>
+            </div>
+        </section>
+
+        <section class="table-panel">
+            <div class="table-header">
+                <h2 data-i18n="reports.table.title">Employees without Managers</h2>
+                <div class="table-meta" id="tableStatus" data-i18n="reports.table.loading">Loading report...</div>
+            </div>
+
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th data-i18n="reports.table.columns.name">Name</th>
+                            <th data-i18n="reports.table.columns.title">Title</th>
+                            <th data-i18n="reports.table.columns.department">Department</th>
+                            <th data-i18n="reports.table.columns.email">Email</th>
+                            <th data-i18n="reports.table.columns.phone">Phone</th>
+                            <th data-i18n="reports.table.columns.location">Location</th>
+                            <th data-i18n="reports.table.columns.manager">Manager</th>
+                            <th data-i18n="reports.table.columns.reason">Reason</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reportTableBody">
+                        <tr class="empty-row">
+                            <td colspan="8" data-i18n="reports.table.empty">No users are currently missing manager information. Great job!</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <div id="errorBanner" class="error-banner is-hidden"></div>
+    </div>
+
+    <script src="/static/i18n.js" defer></script>
+    <script src="/static/reports.js" defer></script>
+</body>
+</html>

@@ -263,7 +263,7 @@ function updateHeaderPreview(color) {
     const darker = adjustColor(color, -30);
     const stylesheet = Array.from(document.styleSheets).find(sheet => {
         try {
-            return sheet.href && sheet.href.includes('configureme.css');
+            return sheet.href && sheet.href.includes('configure.css');
         } catch (error) {
             return false;
         }

@@ -3,7 +3,9 @@
 		"configure": "Configure",
 		"logout": "Logout",
 		"save": "Save",
-		"reset": "Reset"
+		"reset": "Reset",
+		"reports": "Reports",
+		"adminLogin": "Admin Login"
 	},
 	"index": {
 		"pageTitle": "Organization Chart",
@@ -279,6 +281,53 @@
 			"saveAll": "Save All Settings",
 			"resetAll": "Reset Everything to Defaults",
 			"logout": "Logout"
+		}
+	},
+	"reports": {
+		"pageTitle": "Reports - DB AutoOrgChart",
+		"navBack": "← Back to Org Chart",
+		"header": {
+			"title": "Admin Reports",
+			"subtitle": "Analyze data quality and export insights"
+		},
+		"buttons": {
+			"refresh": "Refresh Data",
+			"refreshTooltip": "Regenerate the report with the latest directory data",
+			"export": "Export XLSX",
+			"exportTooltip": "Download this report as an Excel workbook"
+		},
+		"summary": {
+			"totalLabel": "Total Users Missing Manager",
+			"generatedLabel": "Last Generated",
+			"generatedPending": "Pending"
+		},
+		"table": {
+			"title": "Employees without Managers",
+			"loading": "Loading report...",
+			"updated": "Report loaded",
+			"countSummary": "Showing {count} employees",
+			"empty": "No users are currently missing manager information. Great job!",
+			"columns": {
+				"name": "Name",
+				"title": "Title",
+				"department": "Department",
+				"email": "Email",
+				"phone": "Phone",
+				"location": "Location",
+				"manager": "Manager",
+				"reason": "Reason"
+			},
+			"reasonLabels": {
+				"no_manager": "No manager assigned",
+				"manager_not_found": "Manager not found in data",
+				"detached": "Detached from hierarchy",
+				"unknown": "Unknown reason"
+			}
+		},
+		"errors": {
+			"loadFailed": "Unable to load the report.",
+			"exportFailed": "Unable to export the report.",
+			"initializationFailed": "Failed to initialize the reports page."
 		}
 	},
 	"searchTest": {

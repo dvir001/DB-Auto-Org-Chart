@@ -4,7 +4,7 @@
 
 **Key additions in this fork**
 - Hardened security posture: stricter Content-Security-Policy (`script-src 'self'`), dedicated login template + JS, sanitized redirect handling, and protections against placeholder secrets.
-- Frontend refactor: all inline scripts/styles removed, `configureme` and `search_test` now load modular JS/CSS bundles with shared CSS variables and safer DOM updates.
+- Frontend refactor: all inline scripts/styles removed, `configure` and `search_test` now load modular JS/CSS bundles with shared CSS variables and safer DOM updates.
 - Export & print tooling: one-click exports for the visible chart in SVG/PNG/PDF, a server-backed `/api/export-xlsx` endpoint wired to `Export to XLSX` UI controls, and a print-optimised window.
 - Discovery & filtering perks: hide/show subtrees per user with persistent local storage, quick reset of hidden teams, enriched search/top-level selection helpers, configurable filters to drop disabled or guest accounts from the dataset by default, and the Compact Teams toggle available to every viewer.
 - Operational polish: unused static assets trimmed, scheduler + data directories validated on startup, and logging made more actionable for Azure Graph interactions.
@@ -15,7 +15,7 @@ In short, these are the main features of DB-AutoOrgChart:
 
 - Automatic organization hierarchy generation from Azure AD
 - Real-time employee search functionality (employee directory)
-- Completely configurable with zero coding knowledge via configureme page
+- Completely configurable with zero coding knowledge via configure page
 - Interactive D3.js-based org chart with zoom and pan
 - Detailed employee information panel
 - Print-friendly org chart export
