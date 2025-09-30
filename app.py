@@ -211,6 +211,7 @@ DEFAULT_SETTINGS = {
         'department': 'show',
         'email': 'show',
         'phone': 'show',
+        'businessPhone': 'show',
         'hireDate': 'admin',
         'country': 'show',
         'state': 'show',
@@ -378,9 +379,9 @@ def fetch_all_employees():
     # Construct the users URL with conditional filtering
     filter_string = " and ".join(api_filters) if api_filters else ""
     if filter_string:
-        users_url = f'{GRAPH_API_ENDPOINT}/users?$select=id,displayName,jobTitle,department,mail,mobilePhone,officeLocation,city,state,country,usageLocation,streetAddress,postalCode,employeeHireDate,accountEnabled,userType&$expand=manager($select=id,displayName)&$filter={filter_string}'
+        users_url = f'{GRAPH_API_ENDPOINT}/users?$select=id,displayName,jobTitle,department,mail,mobilePhone,businessPhones,officeLocation,city,state,country,usageLocation,streetAddress,postalCode,employeeHireDate,accountEnabled,userType&$expand=manager($select=id,displayName)&$filter={filter_string}'
     else:
-        users_url = f'{GRAPH_API_ENDPOINT}/users?$select=id,displayName,jobTitle,department,mail,mobilePhone,officeLocation,city,state,country,usageLocation,streetAddress,postalCode,employeeHireDate,accountEnabled,userType&$expand=manager($select=id,displayName)'
+        users_url = f'{GRAPH_API_ENDPOINT}/users?$select=id,displayName,jobTitle,department,mail,mobilePhone,businessPhones,officeLocation,city,state,country,usageLocation,streetAddress,postalCode,employeeHireDate,accountEnabled,userType&$expand=manager($select=id,displayName)'
     
     while users_url:
         try:
@@ -408,6 +409,12 @@ def fetch_all_employees():
                         continue
                         
                     if user.get('displayName'):
+                        business_phones = user.get('businessPhones') or []
+                        if isinstance(business_phones, list):
+                            business_phone = next((phone for phone in business_phones if phone), '')
+                        else:
+                            business_phone = business_phones or ''
+
                         hire_date_str = user.get('employeeHireDate')
                         is_new = False
                         hire_date = None
@@ -454,6 +461,7 @@ def fetch_all_employees():
                             'department': user.get('department') or 'No Department',
                             'email': user.get('mail') or '',
                             'phone': user.get('mobilePhone') or '',
+                            'businessPhone': business_phone,
                             'location': user.get('officeLocation') or '',
                             'officeLocation': user.get('officeLocation') or '',
                             'city': user.get('city') or '',
@@ -654,6 +662,7 @@ def collect_missing_manager_records(employees, hierarchy_root=None, settings=Non
                 'department': emp.get('department'),
                 'email': emp.get('email'),
                 'phone': emp.get('phone'),
+                'businessPhone': emp.get('businessPhone'),
                 'location': emp.get('location') or emp.get('officeLocation') or '',
                 'managerName': manager_name,
                 'reason': reason
@@ -1066,6 +1075,7 @@ def get_employees():
                     'department': '',
                     'email': '',
                     'phone': '',
+                    'businessPhone': '',
                     'location': '',
                     'officeLocation': '',
                     'city': '',
@@ -1079,6 +1089,7 @@ def get_employees():
                     'id': 'root',
                     'name': 'No Data',
                     'title': 'Please check configuration',
+                    'businessPhone': '',
                     'children': []
                 }
         
@@ -1521,6 +1532,7 @@ def export_xlsx():
             ('department', 'Department', lambda node, manager: node.get('department', '')),
             ('email', 'Email', lambda node, manager: node.get('email', '')),
             ('phone', 'Phone', lambda node, manager: node.get('phone', '')),
+            ('businessPhone', 'Business Phone', lambda node, manager: node.get('businessPhone', '')),
             ('hireDate', 'Hire Date', lambda node, manager: format_hire_date(node.get('hireDate', ''))),
             ('country', 'Country', lambda node, manager: node.get('country', '')),
             ('state', 'State', lambda node, manager: node.get('state', '')),
@@ -1678,6 +1690,7 @@ def export_missing_manager_report():
             ('department', 'Department'),
             ('email', 'Email'),
             ('phone', 'Phone'),
+            ('businessPhone', 'Business Phone'),
             ('location', 'Location'),
             ('managerName', 'Manager Name'),
             ('reason', 'Reason')

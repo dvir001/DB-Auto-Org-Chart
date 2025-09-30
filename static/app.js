@@ -2544,12 +2544,19 @@ function showEmployeeDetail(employee) {
     const headerContent = document.getElementById('employeeDetailContent');
     const infoContent = document.getElementById('employeeInfo');
 
-    const departmentLabel = t('index.employee.detail.department');
-    const departmentUnknown = t('index.employee.detail.departmentUnknown');
-    const emailLabel = t('index.employee.detail.email');
-    const emailUnknown = t('index.employee.detail.emailUnknown');
-    const phoneLabel = t('index.employee.detail.phone');
-    const phoneUnknown = t('index.employee.detail.phoneUnknown');
+    const translateWithFallback = (key, fallback) => {
+        const value = t(key);
+        return value === key ? fallback : value;
+    };
+
+    const departmentLabel = translateWithFallback('index.employee.detail.department', 'Department');
+    const departmentUnknown = translateWithFallback('index.employee.detail.departmentUnknown', 'Unknown department');
+    const emailLabel = translateWithFallback('index.employee.detail.email', 'Email');
+    const emailUnknown = translateWithFallback('index.employee.detail.emailUnknown', 'No email provided');
+    const phoneLabel = translateWithFallback('index.employee.detail.phone', 'Phone');
+    const phoneUnknown = translateWithFallback('index.employee.detail.phoneUnknown', 'No phone provided');
+    const businessPhoneLabel = translateWithFallback('index.employee.detail.businessPhone', 'Business Phone');
+    const businessPhoneUnknown = translateWithFallback('index.employee.detail.businessPhoneUnknown', 'No business phone provided');
     const hireDateLabel = t('index.employee.detail.hireDate');
     const officeLabel = t('index.employee.detail.office');
     const locationLabel = t('index.employee.detail.location');
@@ -2594,6 +2601,10 @@ function showEmployeeDetail(employee) {
         <div class="info-item">
             <div class="info-label">${phoneLabel}</div>
             <div class="info-value">${escapeHtml(employee.phone || phoneUnknown)}</div>
+        </div>
+        <div class="info-item">
+            <div class="info-label">${businessPhoneLabel}</div>
+            <div class="info-value">${escapeHtml(employee.businessPhone || businessPhoneUnknown)}</div>
         </div>
         ${employee.hireDate ? `
         <div class="info-item">
