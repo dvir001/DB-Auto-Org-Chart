@@ -24,9 +24,7 @@ body {
 .header {
     background: linear-gradient(135deg, #0078d4 0%, #0b559f 100%);
     color: white;
-    padding: 20px 30px;
-    background: linear-gradient(90deg, rgba(243, 246, 251, 1) 0%, rgba(243, 246, 251, 0) 100%);
-    background: linear-gradient(270deg, rgba(243, 246, 251, 1) 0%, rgba(243, 246, 251, 0) 100%);
+    padding: 8px 20px;
     align-items: center;
     justify-content: space-between;
 }
@@ -34,8 +32,8 @@ body {
 .header-content {
     display: flex;
     align-items: center;
-    gap: 20px;
-    max-height: 240px;
+    gap: 10px;
+    max-height: 160px;
     z-index: 1000;
 }
 
@@ -45,8 +43,8 @@ body {
 }
 
 .header-logo {
-    height: 40px;
-    max-width: 200px;
+    height: 28px;
+    max-width: 140px;
     object-fit: contain;
 }
 
@@ -56,19 +54,19 @@ body {
 }
 
 .header-text h1 {
-    font-size: 2em;
-    margin-bottom: 5px;
-    font-weight: 300;
+    font-size: 1.4em;
+    margin-bottom: 2px;
+    font-weight: 400;
 }
 
 .header-text p {
-    opacity: 0.9;
-    font-size: 0.95em;
+    opacity: 0.85;
+    font-size: 0.8em;
 }
 
 .header-actions {
     display: flex;
-    gap: 15px;
+    gap: 8px;
 }
 
 .header-link {
@@ -90,11 +88,11 @@ body {
     color: white;
     background: transparent;
     text-decoration: none;
-    padding: 8px 16px;
+    padding: 5px 12px;
     border: 1px solid rgba(255,255,255,0.3);
     border-radius: 4px;
     transition: all 0.3s ease;
-    font-size: 14px;
+    font-size: 12px;
     cursor: pointer;
 }
 
@@ -108,7 +106,7 @@ body {
 }
 
 .search-bar {
-    padding: 15px 30px;
+    padding: 8px 18px;
     background: white;
     border-bottom: 1px solid #e0e0e0;
     position: sticky;
@@ -117,7 +115,7 @@ body {
     box-shadow: 0 2px 5px rgba(0,0,0,0.05);
     display: flex;
     align-items: center;
-    gap: 30px;
+    gap: 16px;
     flex-wrap: wrap;
 }
 
@@ -129,10 +127,10 @@ body {
 
 .search-input {
     width: 100%;
-    padding: 10px 15px 10px 40px;
+    padding: 7px 12px 7px 34px;
     border: 1px solid #ddd;
     border-radius: 4px;
-    font-size: 14px;
+    font-size: 12px;
     transition: all 0.3s ease;
 }
 
@@ -153,13 +151,13 @@ body {
 .top-user-controls {
     display: flex;
     align-items: center;
-    gap: 12px;
-    flex: 1 1 320px;
+    gap: 8px;
+    flex: 1 1 260px;
     flex-wrap: wrap;
 }
 
 .top-user-label {
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 500;
     color: #333;
     white-space: nowrap;
@@ -182,7 +180,7 @@ body {
 }
 
 .top-user-result-item {
-    font-size: 13px;
+    font-size: 12px;
 }
 
 .top-user-result-name {
@@ -192,16 +190,17 @@ body {
 
 .top-user-result-details {
     color: #666;
-    font-size: 12px;
+    font-size: 11px;
 }
 
 .save-btn {
-    padding: 8px 12px;
+    padding: 6px 12px;
     border: 1px solid #28a745;
     border-radius: 4px;
     background: #28a745;
     color: white;
-    font-size: 13px;
+    font-size: 12px;
+    font-weight: 500;
     cursor: pointer;
     transition: all 0.3s ease;
     white-space: nowrap;
@@ -219,12 +218,13 @@ body {
 }
 
 .reset-btn {
-    padding: 8px 12px;
+    padding: 6px 12px;
     border: 1px solid #dc3545;
     border-radius: 4px;
-    background: #dc3545;
-    color: white;
-    font-size: 13px;
+    background: white;
+    color: #dc3545;
+    font-size: 12px;
+    font-weight: 500;
     cursor: pointer;
     transition: all 0.3s ease;
     white-space: nowrap;
@@ -233,6 +233,7 @@ body {
 .reset-btn:hover {
     background: #c82333;
     border-color: #c82333;
+    color: white;
 }
 
 .main-content {
@@ -243,14 +244,14 @@ body {
 
 .org-chart-container {
     flex: 1;
-    padding: 20px;
+    padding: 12px 18px 18px;
     /* Allow panning/zoom without visible scrollbars on the chart area */
     overflow: hidden;
     position: relative;
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 14px;
 }
 
 #orgChart {
@@ -306,9 +307,10 @@ body {
     flex-wrap: wrap;
     align-items: stretch;
     justify-content: space-between;
-    gap: 12px;
+    gap: 10px;
     position: relative;
     z-index: 10;
+    padding: 4px 12px;
 }
 
 .toolbar-section {
@@ -316,11 +318,12 @@ body {
     align-items: center;
     flex-wrap: wrap;
     gap: 8px;
-    background: #ffffff;
-    border: 1px solid #d9d9d9;
-    border-radius: 8px;
-    padding: 10px 12px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    background: rgba(255,255,255,0.92);
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    border-radius: 12px;
+    padding: 6px 10px;
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.12);
+    backdrop-filter: blur(12px);
 }
 
 .layout-toggle {
@@ -336,36 +339,46 @@ body {
 }
 
 .layout-btn {
-    padding: 8px 14px;
-    background: #ffffff;
-    border: 1px solid #d0d0d0;
-    border-radius: 4px;
+    padding: 0 14px;
+    min-height: 34px;
+    background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+    border: 1px solid rgba(71, 85, 105, 0.35);
+    border-radius: 10px;
     cursor: pointer;
-    font-size: 12px;
-    transition: all 0.2s ease;
-    display: flex;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+    display: inline-flex;
     align-items: center;
     gap: 6px;
     white-space: nowrap;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.14);
+    color: #1f2937;
 }
 
 .layout-btn--icon {
-    min-width: 44px;
-    padding: 8px;
+    min-width: 36px;
+    height: 34px;
+    padding: 0;
     justify-content: center;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #d7dee7 0%, #c0c8d4 100%);
+    color: #1f2937;
 }
 
 .layout-btn:hover {
-    background: #f5f7fa;
-    border-color: #bfc6d1;
+    transform: translateY(-1px);
+    background: linear-gradient(135deg, #d7dee7 0%, #b8c2cf 100%);
+    border-color: rgba(79, 70, 229, 0.4);
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.18);
 }
 
 .layout-btn.active {
-    background: #0078d4;
-    border-color: #0078d4;
+    background: linear-gradient(135deg, #0b559f 0%, #0078d4 100%);
+    border-color: rgba(11, 85, 159, 0.8);
     color: #ffffff;
-    box-shadow: 0 2px 6px rgba(0,120,212,0.35);
+    box-shadow: 0 8px 20px rgba(11, 85, 159, 0.35);
 }
 
 .layout-icon {
@@ -377,94 +390,101 @@ body {
 }
 
 .control-btn {
-    padding: 8px 14px;
-    background: #ffffff;
-    border: 1px solid #d0d0d0;
-    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 16px;
+    min-height: 34px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
     cursor: pointer;
-    font-size: 12px;
-    transition: all 0.2s ease;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+    box-shadow: 0 3px 12px rgba(15, 23, 42, 0.12);
     white-space: nowrap;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
-.control-btn:hover {
-    background: #f5f7fa;
-    border-color: #0078d4;
+.control-btn:not(.control-btn--violet):not(.control-btn--teal):not(.control-btn--crimson):not(.control-btn--green) {
+    background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+    border-color: rgba(71, 85, 105, 0.35);
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.14);
+    color: #1f2937;
+}
+
+.control-btn:not(.control-btn--violet):not(.control-btn--teal):not(.control-btn--crimson):not(.control-btn--green):hover {
     transform: translateY(-1px);
-    box-shadow: 0 3px 10px rgba(0,0,0,0.18);
+    filter: none;
+    background: linear-gradient(135deg, #d7dee7 0%, #b8c2cf 100%);
+    border-color: rgba(79, 70, 229, 0.4);
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.18);
 }
 
-.control-btn:active {
-    transform: translateY(0);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-}
 
 .control-btn--violet {
-    background: #6f42c1;
-    border-color: #6f42c1;
+    background: linear-gradient(135deg, #6f42c1 0%, #8a63d6 100%);
+    border-color: transparent;
     color: #ffffff;
 }
 
 .control-btn--violet:hover {
-    background: #59339d;
-    border-color: #59339d;
-    color: #ffffff;
+    transform: translateY(-1px);
+    filter: brightness(1.05);
 }
 
 .control-btn--teal {
-    background: #17a2b8;
-    border-color: #17a2b8;
+    background: linear-gradient(135deg, #0f9ba8 0%, #1cc3d0 100%);
+    border-color: transparent;
     color: #ffffff;
 }
 
 .control-btn--teal:hover {
-    background: #13899a;
-    border-color: #13899a;
-    color: #ffffff;
+    transform: translateY(-1px);
+    filter: brightness(1.05);
 }
 
 .control-btn--crimson {
-    background: #dc3545;
-    border-color: #dc3545;
+    background: linear-gradient(135deg, #d61b3d 0%, #f04257 100%);
+    border-color: transparent;
     color: #ffffff;
 }
 
 .control-btn--crimson:hover {
-    background: #b02a37;
-    border-color: #b02a37;
-    color: #ffffff;
+    transform: translateY(-1px);
+    filter: brightness(1.05);
 }
 
 .control-btn--green {
-    background: #28a745;
-    border-color: #28a745;
+    background: linear-gradient(135deg, #238a3a 0%, #34c759 100%);
+    border-color: transparent;
     color: #ffffff;
 }
 
 .control-btn--green:hover {
-    background: #218838;
-    border-color: #218838;
-    color: #ffffff;
+    transform: translateY(-1px);
+    filter: brightness(1.05);
 }
 
 @media (max-width: 1450px) {
     .org-chart-container {
-        padding: 18px;
-        gap: 14px;
+        padding: 12px 16px 16px;
+        gap: 12px;
     }
 
     .chart-toolbar {
         gap: 10px;
+        padding: 4px 10px;
     }
 
     .toolbar-section {
-        padding: 8px 10px;
+        padding: 6px 8px;
     }
 
     .layout-btn,
     .control-btn {
-        padding: 6px 12px;
+        padding: 0 12px;
+        min-height: 32px;
         font-size: 11px;
     }
 }
@@ -474,11 +494,13 @@ body {
         flex-direction: column;
         align-items: stretch;
         gap: 10px;
+        padding: 4px 8px;
     }
 
     .toolbar-section {
         width: 100%;
         justify-content: center;
+        padding: 6px 8px;
     }
 
     .layout-toggle,
@@ -492,6 +514,8 @@ body {
     .control-btn {
         flex: 0 1 180px;
         justify-content: center;
+        padding: 0 10px;
+        min-height: 32px;
     }
 
     .layout-btn--icon {
@@ -583,10 +607,11 @@ body {
 
     .chart-toolbar {
         gap: 8px;
+        padding: 4px 6px;
     }
 
     .toolbar-section {
-        padding: 8px;
+        padding: 6px 8px;
         gap: 6px;
     }
 
@@ -611,12 +636,16 @@ body {
     .layout-btn,
     .control-btn {
         flex: 0 0 auto;
-        padding: 6px 10px;
-        font-size: 11px;
+        padding: 0 10px;
+        min-height: 30px;
+        font-size: 10.5px;
     }
 
     .layout-btn--icon {
-        padding: 6px;
+        width: 32px;
+        height: 30px;
+        min-width: 32px;
+        padding: 0;
     }
 }
 

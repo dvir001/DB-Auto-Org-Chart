@@ -40,9 +40,18 @@
 				"compactTitleGuest": "Toggle compact layout for large teams",
 				"compactLabel": "Compact Teams",
 				"compactLabelWithThreshold": "Compact Teams ({count}+ reports)",
+				"employeeCountTitle": "Toggle employee count badges",
+				"employeeCountHide": "Hide employee count badges",
+				"employeeCountShow": "Show employee count badges",
 				"profileTitle": "Toggle profile images",
 				"profileHide": "Hide profile images",
-				"profileShow": "Show profile images"
+				"profileShow": "Show profile images",
+				"departmentTitle": "Toggle department visibility",
+				"departmentHide": "Hide departments",
+				"departmentShow": "Show departments",
+				"jobTitleTitle": "Toggle job title visibility",
+				"jobTitleHide": "Hide job titles",
+				"jobTitleShow": "Show job titles"
 			},
 			"controls": {
 				"zoomIn": "Zoom in",
@@ -201,12 +210,6 @@
 				"description": "Configure search behavior",
 				"autoExpand": "Auto-expand to search results",
 				"highlight": "Highlight search results"
-			},
-			"display": {
-				"label": "Display Options",
-				"description": "Customize what information is shown",
-				"showDepartments": "Show department names",
-				"showEmployeeCount": "Show employee count badges"
 			},
 			"newEmployees": {
 				"label": "New Employee Highlighting",

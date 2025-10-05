@@ -15,6 +15,7 @@
   "searchAutoExpand": true,
   "searchHighlight": true,
   "showDepartments": true,
+  "showJobTitles": true,
   "showEmployeeCount": false,
   "showProfileImages": true,
   "printOrientation": "landscape",

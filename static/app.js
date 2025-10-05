@@ -16,6 +16,16 @@ let userCompactPreference = null;
 const PROFILE_IMAGE_PREFERENCE_KEY = 'orgChart.showProfileImages';
 let userProfileImagesPreference = null;
 let serverShowProfileImages = null;
+const SHOW_EMPLOYEE_COUNT_PREFERENCE_KEY = 'orgChart.showEmployeeCount';
+let userShowEmployeeCountPreference = null;
+let serverShowEmployeeCount = null;
+const SHOW_DEPARTMENTS_PREFERENCE_KEY = 'orgChart.showDepartments';
+let userShowDepartmentsPreference = null;
+let serverShowDepartments = null;
+const SHOW_JOB_TITLES_PREFERENCE_KEY = 'orgChart.showJobTitles';
+let userShowJobTitlesPreference = null;
+let serverShowJobTitles = null;
+let currentDetailEmployeeId = null;
 
 async function waitForTranslations() {
     if (window.i18n && window.i18n.ready && typeof window.i18n.ready.then === 'function') {
@@ -116,6 +126,172 @@ function getEffectiveProfileImagesEnabled() {
         return userProfileImagesPreference;
     }
     return serverEnabled;
+}
+
+function loadStoredEmployeeCountPreference() {
+    userShowEmployeeCountPreference = null;
+    try {
+        const stored = localStorage.getItem(SHOW_EMPLOYEE_COUNT_PREFERENCE_KEY);
+        if (stored === 'true') {
+            userShowEmployeeCountPreference = true;
+        } else if (stored === 'false') {
+            userShowEmployeeCountPreference = false;
+        }
+    } catch (error) {
+        console.warn('Unable to access employee count preference storage:', error);
+        userShowEmployeeCountPreference = null;
+    }
+}
+
+function storeEmployeeCountPreference(value) {
+    userShowEmployeeCountPreference = value;
+    try {
+        localStorage.setItem(SHOW_EMPLOYEE_COUNT_PREFERENCE_KEY, String(value));
+    } catch (error) {
+        console.warn('Unable to persist employee count preference:', error);
+    }
+}
+
+function clearEmployeeCountPreference() {
+    userShowEmployeeCountPreference = null;
+    try {
+        localStorage.removeItem(SHOW_EMPLOYEE_COUNT_PREFERENCE_KEY);
+    } catch (error) {
+        console.warn('Unable to clear employee count preference storage:', error);
+    }
+}
+
+function getEffectiveEmployeeCountEnabled() {
+    const serverEnabled = (serverShowEmployeeCount != null)
+        ? serverShowEmployeeCount
+        : (!appSettings || appSettings.showEmployeeCount !== false);
+    if (userShowEmployeeCountPreference !== null) {
+        return userShowEmployeeCountPreference;
+    }
+    return serverEnabled;
+}
+
+function loadStoredDepartmentPreference() {
+    userShowDepartmentsPreference = null;
+    try {
+        const stored = localStorage.getItem(SHOW_DEPARTMENTS_PREFERENCE_KEY);
+        if (stored === 'true') {
+            userShowDepartmentsPreference = true;
+        } else if (stored === 'false') {
+            userShowDepartmentsPreference = false;
+        }
+    } catch (error) {
+        console.warn('Unable to access department visibility preference storage:', error);
+        userShowDepartmentsPreference = null;
+    }
+}
+
+function storeDepartmentPreference(value) {
+    userShowDepartmentsPreference = value;
+    try {
+        localStorage.setItem(SHOW_DEPARTMENTS_PREFERENCE_KEY, String(value));
+    } catch (error) {
+        console.warn('Unable to persist department visibility preference:', error);
+    }
+}
+
+function clearDepartmentPreference() {
+    userShowDepartmentsPreference = null;
+    try {
+        localStorage.removeItem(SHOW_DEPARTMENTS_PREFERENCE_KEY);
+    } catch (error) {
+        console.warn('Unable to clear department visibility preference storage:', error);
+    }
+}
+
+function getEffectiveDepartmentsEnabled() {
+    const serverEnabled = (serverShowDepartments != null)
+        ? serverShowDepartments
+        : (!appSettings || appSettings.showDepartments !== false);
+    if (userShowDepartmentsPreference !== null) {
+        return userShowDepartmentsPreference;
+    }
+    return serverEnabled;
+}
+
+function loadStoredJobTitlePreference() {
+    userShowJobTitlesPreference = null;
+    try {
+        const stored = localStorage.getItem(SHOW_JOB_TITLES_PREFERENCE_KEY);
+        if (stored === 'true') {
+            userShowJobTitlesPreference = true;
+        } else if (stored === 'false') {
+            userShowJobTitlesPreference = false;
+        }
+    } catch (error) {
+        console.warn('Unable to access job title visibility preference storage:', error);
+        userShowJobTitlesPreference = null;
+    }
+}
+
+function storeJobTitlePreference(value) {
+    userShowJobTitlesPreference = value;
+    try {
+        localStorage.setItem(SHOW_JOB_TITLES_PREFERENCE_KEY, String(value));
+    } catch (error) {
+        console.warn('Unable to persist job title visibility preference:', error);
+    }
+}
+
+function clearJobTitlePreference() {
+    userShowJobTitlesPreference = null;
+    try {
+        localStorage.removeItem(SHOW_JOB_TITLES_PREFERENCE_KEY);
+    } catch (error) {
+        console.warn('Unable to clear job title visibility preference storage:', error);
+    }
+}
+
+function getEffectiveJobTitlesEnabled() {
+    const serverEnabled = (serverShowJobTitles != null)
+        ? serverShowJobTitles
+        : (!appSettings || appSettings.showJobTitles !== false);
+    if (userShowJobTitlesPreference !== null) {
+        return userShowJobTitlesPreference;
+    }
+    return serverEnabled;
+}
+
+function isJobTitleVisible() {
+    return !appSettings || appSettings.showJobTitles !== false;
+}
+
+function isDepartmentVisible() {
+    return !appSettings || appSettings.showDepartments !== false;
+}
+
+function getVisibleJobTitleText(person, { includeFallback = true } = {}) {
+    if (!isJobTitleVisible()) return '';
+    const title = (person && typeof person.title === 'string') ? person.title.trim() : '';
+    if (title) {
+        return person.title;
+    }
+    if (!includeFallback) {
+        return '';
+    }
+    const translation = t('index.employee.noTitle');
+    return translation === 'index.employee.noTitle' ? 'No Title' : translation;
+}
+
+function getVisibleDepartmentText(person, { includeFallback = false, fallback } = {}) {
+    if (!isDepartmentVisible()) return '';
+    const department = (person && typeof person.department === 'string') ? person.department.trim() : '';
+    if (department) {
+        return person.department;
+    }
+    if (!includeFallback) {
+        return '';
+    }
+    if (fallback) {
+        return fallback;
+    }
+    const translation = t('index.employee.detail.departmentUnknown');
+    return translation === 'index.employee.detail.departmentUnknown' ? 'Unknown department' : translation;
 }
 
 function persistHiddenIds() {
@@ -275,6 +451,23 @@ function getTrimmedTitle(title = '') {
     return title.length > charLimit ? title.substring(0, charLimit) + '...' : title;
 }
 
+function getDirectReportCount(node) {
+    if (!node) {
+        return 0;
+    }
+    const directReports = node._children?.length || node.children?.length || 0;
+    return directReports;
+}
+
+function shouldShowCountBadge(node) {
+    return appSettings.showEmployeeCount !== false && getDirectReportCount(node) > 0;
+}
+
+function formatDirectReportCount(node) {
+    const count = getDirectReportCount(node);
+    return count > 99 ? '99+' : String(count);
+}
+
 // Security: Safely set innerHTML with escaped content
 function safeInnerHTML(element, htmlContent) {
     element.innerHTML = htmlContent;
@@ -314,7 +507,10 @@ async function loadSettings() {
         const response = await fetch(`${API_BASE_URL}/api/settings`);
         if (response.ok) {
             appSettings = await response.json();
+            serverShowEmployeeCount = appSettings.showEmployeeCount !== false;
             serverShowProfileImages = appSettings.showProfileImages !== false;
+            serverShowDepartments = appSettings.showDepartments !== false;
+            serverShowJobTitles = appSettings.showJobTitles !== false;
             await applySettings();
         } else {
             // If settings fail to load, still show header content with defaults
@@ -425,9 +621,24 @@ function setupStaticEventListeners() {
         compactBtn.addEventListener('click', toggleCompactLargeTeams);
     }
 
+    const employeeCountBtn = document.getElementById('employeeCountToggleBtn');
+    if (employeeCountBtn) {
+        employeeCountBtn.addEventListener('click', toggleEmployeeCountVisibility);
+    }
+
     const profileBtn = document.getElementById('profileImageToggleBtn');
     if (profileBtn) {
         profileBtn.addEventListener('click', toggleProfileImages);
+    }
+
+    const departmentBtn = document.getElementById('departmentToggleBtn');
+    if (departmentBtn) {
+        departmentBtn.addEventListener('click', toggleDepartmentVisibility);
+    }
+
+    const jobTitleBtn = document.getElementById('jobTitleToggleBtn');
+    if (jobTitleBtn) {
+        jobTitleBtn.addEventListener('click', toggleJobTitleVisibility);
     }
 
     const closeDetailBtn = document.getElementById('employeeDetailCloseBtn');
@@ -574,6 +785,19 @@ async function applySettings() {
         }
     } catch (e) { /* no-op */ }
 
+    const showEmployeeCount = getEffectiveEmployeeCountEnabled();
+    appSettings.showEmployeeCount = showEmployeeCount;
+    const employeeCountBtn = document.getElementById('employeeCountToggleBtn');
+    if (employeeCountBtn) {
+        employeeCountBtn.classList.toggle('active', showEmployeeCount);
+        employeeCountBtn.setAttribute('aria-pressed', String(showEmployeeCount));
+        const countHide = t('index.toolbar.layout.employeeCountHide', { defaultValue: 'Hide employee count badges' });
+        const countShow = t('index.toolbar.layout.employeeCountShow', { defaultValue: 'Show employee count badges' });
+        const countTitle = showEmployeeCount ? countHide : countShow;
+        employeeCountBtn.title = countTitle;
+        employeeCountBtn.setAttribute('aria-label', countTitle);
+    }
+
     const showProfileImages = getEffectiveProfileImagesEnabled();
     appSettings.showProfileImages = showProfileImages;
     const profileBtn = document.getElementById('profileImageToggleBtn');
@@ -585,6 +809,32 @@ async function applySettings() {
             : t('index.toolbar.layout.profileShow');
         profileBtn.title = profileTitle;
         profileBtn.setAttribute('aria-label', profileTitle);
+    }
+
+    const showDepartments = getEffectiveDepartmentsEnabled();
+    appSettings.showDepartments = showDepartments;
+    const departmentBtn = document.getElementById('departmentToggleBtn');
+    if (departmentBtn) {
+        departmentBtn.classList.toggle('active', showDepartments);
+        departmentBtn.setAttribute('aria-pressed', String(showDepartments));
+        const deptHide = t('index.toolbar.layout.departmentHide', { defaultValue: 'Hide Departments' });
+        const deptShow = t('index.toolbar.layout.departmentShow', { defaultValue: 'Show Departments' });
+        const departmentTitle = showDepartments ? deptHide : deptShow;
+        departmentBtn.title = departmentTitle;
+        departmentBtn.setAttribute('aria-label', departmentTitle);
+    }
+
+    const showJobTitles = getEffectiveJobTitlesEnabled();
+    appSettings.showJobTitles = showJobTitles;
+    const titleBtn = document.getElementById('jobTitleToggleBtn');
+    if (titleBtn) {
+        titleBtn.classList.toggle('active', showJobTitles);
+        titleBtn.setAttribute('aria-pressed', String(showJobTitles));
+        const titleHide = t('index.toolbar.layout.jobTitleHide', { defaultValue: 'Hide Job Titles' });
+        const titleShow = t('index.toolbar.layout.jobTitleShow', { defaultValue: 'Show Job Titles' });
+        const titleToggle = showJobTitles ? titleHide : titleShow;
+        titleBtn.title = titleToggle;
+        titleBtn.setAttribute('aria-label', titleToggle);
     }
 
     await updateAuthDependentUI();
@@ -662,6 +912,18 @@ async function updateAuthDependentUI() {
         compactBtn.setAttribute('aria-label', compactTitle);
     }
 
+    const employeeCountBtn = document.getElementById('employeeCountToggleBtn');
+    if (employeeCountBtn) {
+        const showCount = getEffectiveEmployeeCountEnabled();
+        employeeCountBtn.classList.toggle('active', showCount);
+        employeeCountBtn.setAttribute('aria-pressed', String(showCount));
+        const countHide = t('index.toolbar.layout.employeeCountHide', { defaultValue: 'Hide employee count badges' });
+        const countShow = t('index.toolbar.layout.employeeCountShow', { defaultValue: 'Show employee count badges' });
+        const countTitle = showCount ? countHide : countShow;
+        employeeCountBtn.title = countTitle;
+        employeeCountBtn.setAttribute('aria-label', countTitle);
+    }
+
     const profileBtn = document.getElementById('profileImageToggleBtn');
     if (profileBtn) {
         const showImages = getEffectiveProfileImagesEnabled();
@@ -672,6 +934,30 @@ async function updateAuthDependentUI() {
             : t('index.toolbar.layout.profileShow');
         profileBtn.title = profileTitle;
         profileBtn.setAttribute('aria-label', profileTitle);
+    }
+
+    const departmentBtn = document.getElementById('departmentToggleBtn');
+    if (departmentBtn) {
+        const showDepartments = getEffectiveDepartmentsEnabled();
+        departmentBtn.classList.toggle('active', showDepartments);
+        departmentBtn.setAttribute('aria-pressed', String(showDepartments));
+        const deptHide = t('index.toolbar.layout.departmentHide', { defaultValue: 'Hide Departments' });
+        const deptShow = t('index.toolbar.layout.departmentShow', { defaultValue: 'Show Departments' });
+        const departmentTitle = showDepartments ? deptHide : deptShow;
+        departmentBtn.title = departmentTitle;
+        departmentBtn.setAttribute('aria-label', departmentTitle);
+    }
+
+    const jobTitleBtn = document.getElementById('jobTitleToggleBtn');
+    if (jobTitleBtn) {
+        const showTitles = getEffectiveJobTitlesEnabled();
+        jobTitleBtn.classList.toggle('active', showTitles);
+        jobTitleBtn.setAttribute('aria-pressed', String(showTitles));
+        const titleHide = t('index.toolbar.layout.jobTitleHide', { defaultValue: 'Hide Job Titles' });
+        const titleShow = t('index.toolbar.layout.jobTitleShow', { defaultValue: 'Show Job Titles' });
+        const jobTitle = showTitles ? titleHide : titleShow;
+        jobTitleBtn.title = jobTitle;
+        jobTitleBtn.setAttribute('aria-label', jobTitle);
     }
 }
 
@@ -694,7 +980,10 @@ async function init() {
     } else {
         loadStoredCompactPreference();
     }
+    loadStoredEmployeeCountPreference();
     loadStoredProfileImagePreference();
+    loadStoredDepartmentPreference();
+    loadStoredJobTitlePreference();
     await waitForTranslations();
     await updateAuthDependentUI();
     await loadSettings();
@@ -809,6 +1098,41 @@ async function toggleCompactLargeTeams() {
     }
 }
 
+async function toggleEmployeeCountVisibility() {
+    await waitForTranslations();
+    const btn = document.getElementById('employeeCountToggleBtn');
+    const currentValue = getEffectiveEmployeeCountEnabled();
+    const newValue = !currentValue;
+
+    if (!appSettings) {
+        appSettings = {};
+    }
+
+    appSettings.showEmployeeCount = newValue;
+
+    if (serverShowEmployeeCount != null && newValue === serverShowEmployeeCount) {
+        clearEmployeeCountPreference();
+    } else {
+        storeEmployeeCountPreference(newValue);
+    }
+
+    if (btn) {
+        btn.classList.toggle('active', newValue);
+        btn.setAttribute('aria-pressed', String(newValue));
+        const countHide = t('index.toolbar.layout.employeeCountHide', { defaultValue: 'Hide employee count badges' });
+        const countShow = t('index.toolbar.layout.employeeCountShow', { defaultValue: 'Show employee count badges' });
+        const countTitle = newValue ? countHide : countShow;
+        btn.title = countTitle;
+        btn.setAttribute('aria-label', countTitle);
+    }
+
+    if (root) {
+        update(root);
+    }
+
+    await updateAuthDependentUI();
+}
+
 async function toggleProfileImages() {
     await waitForTranslations();
     const btn = document.getElementById('profileImageToggleBtn');
@@ -840,6 +1164,82 @@ async function toggleProfileImages() {
     if (root) {
         update(root);
     }
+
+    await updateAuthDependentUI();
+}
+
+async function toggleDepartmentVisibility() {
+    await waitForTranslations();
+    const btn = document.getElementById('departmentToggleBtn');
+    const currentValue = getEffectiveDepartmentsEnabled();
+    const newValue = !currentValue;
+
+    if (!appSettings) {
+        appSettings = {};
+    }
+
+    appSettings.showDepartments = newValue;
+
+    if (serverShowDepartments != null && newValue === serverShowDepartments) {
+        clearDepartmentPreference();
+    } else {
+        storeDepartmentPreference(newValue);
+    }
+
+    if (btn) {
+        btn.classList.toggle('active', newValue);
+        btn.setAttribute('aria-pressed', String(newValue));
+        const deptHide = t('index.toolbar.layout.departmentHide', { defaultValue: 'Hide Departments' });
+        const deptShow = t('index.toolbar.layout.departmentShow', { defaultValue: 'Show Departments' });
+        const departmentTitle = newValue ? deptHide : deptShow;
+        btn.title = departmentTitle;
+        btn.setAttribute('aria-label', departmentTitle);
+    }
+
+    if (root) {
+        update(root);
+    }
+
+    refreshSearchResultsPresentation();
+    refreshEmployeeDetailPanel();
+
+    await updateAuthDependentUI();
+}
+
+async function toggleJobTitleVisibility() {
+    await waitForTranslations();
+    const btn = document.getElementById('jobTitleToggleBtn');
+    const currentValue = getEffectiveJobTitlesEnabled();
+    const newValue = !currentValue;
+
+    if (!appSettings) {
+        appSettings = {};
+    }
+
+    appSettings.showJobTitles = newValue;
+
+    if (serverShowJobTitles != null && newValue === serverShowJobTitles) {
+        clearJobTitlePreference();
+    } else {
+        storeJobTitlePreference(newValue);
+    }
+
+    if (btn) {
+        btn.classList.toggle('active', newValue);
+        btn.setAttribute('aria-pressed', String(newValue));
+        const titleHide = t('index.toolbar.layout.jobTitleHide', { defaultValue: 'Hide Job Titles' });
+        const titleShow = t('index.toolbar.layout.jobTitleShow', { defaultValue: 'Show Job Titles' });
+        const jobTitle = newValue ? titleHide : titleShow;
+        btn.title = jobTitle;
+        btn.setAttribute('aria-label', jobTitle);
+    }
+
+    if (root) {
+        update(root);
+    }
+
+    refreshSearchResultsPresentation();
+    refreshEmployeeDetailPanel();
 
     await updateAuthDependentUI();
 }
@@ -945,10 +1345,19 @@ function displayTopUserResults(employees, container, input) {
     employees.forEach(employee => {
         const item = document.createElement('div');
         item.className = 'search-result-item';
-        item.innerHTML = `
-            <div class="search-result-name">${escapeHtml(employee.name)}</div>
-            <div class="search-result-title">${escapeHtml(employee.title || t('index.employee.noTitle'))} ${employee.department ? '– ' + escapeHtml(employee.department) : ''}</div>
-        `;
+        item.dataset.title = employee.title || '';
+        item.dataset.department = employee.department || '';
+
+        const nameDiv = document.createElement('div');
+        nameDiv.className = 'search-result-name';
+        nameDiv.textContent = employee.name || '';
+
+        const metaDiv = document.createElement('div');
+        metaDiv.className = 'search-result-title';
+    populateResultMeta(metaDiv, employee);
+
+        item.appendChild(nameDiv);
+        item.appendChild(metaDiv);
         
         item.addEventListener('click', function() {
             input.value = employee.name;
@@ -960,6 +1369,22 @@ function displayTopUserResults(employees, container, input) {
     });
     
     container.classList.add('active');
+}
+
+function populateResultMeta(element, data, { includeTitleFallback = true, includeDepartmentFallback = false } = {}) {
+    if (!element) return;
+    const titleText = getVisibleJobTitleText(data, { includeFallback: includeTitleFallback });
+    const departmentText = getVisibleDepartmentText(data, { includeFallback: includeDepartmentFallback });
+    const segments = [];
+    if (titleText) segments.push(titleText);
+    if (departmentText) segments.push(departmentText);
+    if (segments.length) {
+        element.textContent = segments.length === 2 ? `${segments[0]} – ${segments[1]}` : segments[0];
+        element.hidden = false;
+    } else {
+        element.textContent = '';
+        element.hidden = true;
+    }
 }
 
 // Save the selected top-level user
@@ -1427,54 +1852,51 @@ function update(source) {
         .style('font-size', d => getNameFontSizePx(d.data.name))
         .text(d => d.data.name);
 
-    nodeEnter.append('text')
-        .attr('class', 'node-title')
-        .attr('x', getLabelOffsetX())
-        .attr('y', 5)
-        .attr('text-anchor', getLabelAnchor())
-        .style('font-size', d => getTitleFontSizePx(d.data.title || ''))
-        .text(d => getTrimmedTitle(d.data.title || ''));
+    if (isJobTitleVisible()) {
+        nodeEnter.append('text')
+            .attr('class', 'node-title')
+            .attr('x', getLabelOffsetX())
+            .attr('y', 5)
+            .attr('text-anchor', getLabelAnchor())
+            .style('font-size', d => getTitleFontSizePx(getVisibleJobTitleText(d.data, { includeFallback: true })))
+            .text(d => {
+                const title = getVisibleJobTitleText(d.data, { includeFallback: true });
+                return title ? getTrimmedTitle(title) : '';
+            });
+    }
 
-    if (appSettings.showDepartments !== false) {
+    if (isDepartmentVisible()) {
         nodeEnter.append('text')
             .attr('class', 'node-department')
             .attr('x', getLabelOffsetX())
-            .attr('y', 18)
+            .attr('y', isJobTitleVisible() ? 18 : 5)
             .attr('text-anchor', getLabelAnchor())
-            .style('font-size', d => getDepartmentFontSizePx(d.data.department || 'Not specified'))
+            .style('font-size', d => getDepartmentFontSizePx(getVisibleDepartmentText(d.data, { includeFallback: true, fallback: 'Not specified' })))
             .style('font-style', 'italic')
             .style('fill', '#666')
-            .text(d => d.data.department || 'Not specified');
+            .text(d => getVisibleDepartmentText(d.data, { includeFallback: true, fallback: 'Not specified' }));
     }
 
-    if (appSettings.showEmployeeCount !== false) {
-        const countGroup = nodeEnter.append('g')
-            .attr('class', 'count-badge')
-            .style('display', d => {
-                const totalCount = d._children?.length || d.children?.length || 0;
-                return totalCount > 0 ? 'block' : 'none';
-            });
+    const countGroup = nodeEnter.append('g')
+        .attr('class', 'count-badge')
+        .style('display', d => shouldShowCountBadge(d) ? 'block' : 'none');
 
-        countGroup.append('circle')
-            .attr('cx', -nodeWidth/2 + 15)
-            .attr('cy', -nodeHeight/2 + 15)
-            .attr('r', 12)
-            .style('fill', '#ff6b6b')
-            .style('stroke', 'white')
-            .style('stroke-width', '2px');
+    countGroup.append('circle')
+        .attr('cx', -nodeWidth/2 + 15)
+        .attr('cy', -nodeHeight/2 + 15)
+        .attr('r', 12)
+        .style('fill', '#ff6b6b')
+        .style('stroke', 'white')
+        .style('stroke-width', '2px');
 
-        countGroup.append('text')
-            .attr('x', -nodeWidth/2 + 15)
-            .attr('y', -nodeHeight/2 + 19)
-            .attr('text-anchor', 'middle')
-            .style('fill', 'white')
-            .style('font-size', '11px')
-            .style('font-weight', 'bold')
-            .text(d => {
-                const count = d._children?.length || d.children?.length || 0;
-                return count > 99 ? '99+' : count;
-            });
-    }
+    countGroup.append('text')
+        .attr('x', -nodeWidth/2 + 15)
+        .attr('y', -nodeHeight/2 + 19)
+        .attr('text-anchor', 'middle')
+        .style('fill', 'white')
+        .style('font-size', '11px')
+        .style('font-weight', 'bold')
+        .text(d => formatDirectReportCount(d));
 
     const expandBtn = nodeEnter.append('g')
         .attr('class', 'expand-group')
@@ -1568,19 +1990,11 @@ function update(source) {
     nodeUpdate.select('.expand-group')
         .style('display', d => (d._children?.length || d.children?.length) ? 'block' : 'none');
 
-    if (appSettings.showEmployeeCount !== false) {
-        nodeUpdate.select('.count-badge')
-            .style('display', d => {
-                const totalCount = d._children?.length || d.children?.length || 0;
-                return totalCount > 0 ? 'block' : 'none';
-            });
+    nodeMerge.selectAll('.count-badge')
+        .style('display', d => shouldShowCountBadge(d) ? 'block' : 'none');
 
-        nodeUpdate.select('.count-badge text')
-            .text(d => {
-                const count = d._children?.length || d.children?.length || 0;
-                return count > 99 ? '99+' : count;
-            });
-    }
+    nodeMerge.selectAll('.count-badge text')
+        .text(d => formatDirectReportCount(d));
 
     if (appSettings.showProfileImages !== false) {
         nodeMerge.each(function(d) {
@@ -1601,19 +2015,52 @@ function update(source) {
         .style('font-size', d => getNameFontSizePx(d.data.name))
         .text(d => d.data.name);
 
-    nodeMerge.select('.node-title')
-        .attr('x', getLabelOffsetX())
-        .attr('text-anchor', getLabelAnchor())
-        .style('font-size', d => getTitleFontSizePx(d.data.title || ''))
-        .text(d => getTrimmedTitle(d.data.title || ''));
+    const titlesVisible = isJobTitleVisible();
+    const departmentsVisible = isDepartmentVisible();
+    const departmentY = titlesVisible ? 18 : 5;
 
-    if (appSettings.showDepartments !== false) {
-        nodeMerge.select('.node-department')
-            .attr('x', getLabelOffsetX())
-            .attr('text-anchor', getLabelAnchor())
-            .style('font-size', d => getDepartmentFontSizePx(d.data.department || 'Not specified'))
-            .text(d => d.data.department || 'Not specified');
-    }
+    nodeMerge.each(function(d) {
+        const nodeSelection = d3.select(this);
+
+        let titleSelection = nodeSelection.select('text.node-title');
+        if (titlesVisible) {
+            if (titleSelection.empty()) {
+                titleSelection = nodeSelection.append('text')
+                    .attr('class', 'node-title');
+            }
+            const rawTitle = getVisibleJobTitleText(d.data, { includeFallback: true });
+            const displayTitle = rawTitle ? getTrimmedTitle(rawTitle) : '';
+            titleSelection
+                .attr('x', getLabelOffsetX())
+                .attr('y', 5)
+                .attr('text-anchor', getLabelAnchor())
+                .style('font-size', getTitleFontSizePx(rawTitle || ''))
+                .text(displayTitle)
+                .style('display', displayTitle ? null : 'none');
+        } else if (!titleSelection.empty()) {
+            titleSelection.remove();
+        }
+
+        let departmentSelection = nodeSelection.select('text.node-department');
+        if (departmentsVisible) {
+            if (departmentSelection.empty()) {
+                departmentSelection = nodeSelection.append('text')
+                    .attr('class', 'node-department')
+                    .style('font-style', 'italic')
+                    .style('fill', '#666');
+            }
+            const departmentText = getVisibleDepartmentText(d.data, { includeFallback: true, fallback: 'Not specified' });
+            departmentSelection
+                .attr('x', getLabelOffsetX())
+                .attr('y', departmentY)
+                .attr('text-anchor', getLabelAnchor())
+                .style('font-size', getDepartmentFontSizePx(departmentText || 'Not specified'))
+                .text(departmentText)
+                .style('display', departmentText ? null : 'none');
+        } else if (!departmentSelection.empty()) {
+            departmentSelection.remove();
+        }
+    });
 
     node.exit()
         .transition()
@@ -2413,6 +2860,9 @@ async function createExportSVG(exportFullChart = false) {
     });
     await Promise.all(imagePromises);
 
+    const titlesVisible = isJobTitleVisible();
+    const departmentsVisible = isDepartmentVisible();
+
     // Draw nodes
     for (const d of nodesToExport) {
         const nodeG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -2440,7 +2890,7 @@ async function createExportSVG(exportFullChart = false) {
         rect.setAttribute('fill', fillColor);
         rect.setAttribute('stroke', adjustColor(fillColor, -50));
         rect.setAttribute('stroke-width', '2');
-    nodeG.appendChild(rect);
+        nodeG.appendChild(rect);
         
         // Profile image with circular clipping
         if (appSettings.showProfileImages !== false) {
@@ -2492,48 +2942,62 @@ async function createExportSVG(exportFullChart = false) {
         nodeG.appendChild(nameText);
         
         // Title
-        const title = d.data.title || '';
-        const titleElement = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        titleElement.setAttribute('class', 'node-title');
-        titleElement.setAttribute('x', textX);
-        titleElement.setAttribute('y', 5);
-        titleElement.setAttribute('text-anchor', textAnchor);
-        
-        // Manual text wrapping for title
-        const words = title.split(' ');
-        let currentLine = '';
-        let lineCount = 0;
-        const maxLines = 2;
-        for (let i = 0; i < words.length; i++) {
-            const testLine = currentLine ? `${currentLine} ${words[i]}` : words[i];
-            // Simple length check, not perfect but avoids complex measurement
-            if (testLine.length > (textWidth / 6) && lineCount < maxLines - 1) {
+        const rawTitle = getVisibleJobTitleText(d.data, { includeFallback: true });
+        if (titlesVisible && rawTitle) {
+            const titleElement = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            titleElement.setAttribute('class', 'node-title');
+            titleElement.setAttribute('x', textX);
+            titleElement.setAttribute('y', 5);
+            titleElement.setAttribute('text-anchor', textAnchor);
+
+            const words = rawTitle.split(/\s+/).filter(Boolean);
+            let currentLine = '';
+            let lineCount = 0;
+            const maxLines = 2;
+            const wrapThreshold = textWidth / 6;
+
+            if (words.length === 0) {
                 const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
                 tspan.setAttribute('x', textX);
-                tspan.setAttribute('dy', `${lineCount === 0 ? 0 : 1.2}em`);
-                tspan.textContent = currentLine;
+                tspan.textContent = rawTitle;
                 titleElement.appendChild(tspan);
-                currentLine = words[i];
-                lineCount++;
             } else {
-                currentLine = testLine;
+                for (const word of words) {
+                    const testLine = currentLine ? `${currentLine} ${word}` : word;
+                    if (testLine.length > wrapThreshold && lineCount < maxLines - 1) {
+                        const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+                        tspan.setAttribute('x', textX);
+                        tspan.setAttribute('dy', `${lineCount === 0 ? 0 : 1.2}em`);
+                        tspan.textContent = currentLine || word;
+                        titleElement.appendChild(tspan);
+                        currentLine = word;
+                        lineCount++;
+                    } else {
+                        currentLine = testLine;
+                    }
+                }
+
+                if (currentLine) {
+                    const lastTspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+                    lastTspan.setAttribute('x', textX);
+                    lastTspan.setAttribute('dy', `${lineCount === 0 ? 0 : 1.2}em`);
+                    lastTspan.textContent = currentLine;
+                    titleElement.appendChild(lastTspan);
+                }
             }
+
+            nodeG.appendChild(titleElement);
         }
-        const lastTspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
-        lastTspan.setAttribute('x', textX);
-        lastTspan.setAttribute('dy', `${lineCount === 0 ? 0 : 1.2}em`);
-        lastTspan.textContent = currentLine;
-        titleElement.appendChild(lastTspan);
-    nodeG.appendChild(titleElement);
 
         // Department
-        if (appSettings.showDepartments !== false && d.data.department) {
+        const departmentText = getVisibleDepartmentText(d.data, { includeFallback: true, fallback: 'Not specified' });
+        if (departmentsVisible && departmentText) {
             const deptText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
             deptText.setAttribute('class', 'node-department');
             deptText.setAttribute('x', textX);
-            deptText.setAttribute('y', 28);
+            deptText.setAttribute('y', titlesVisible && rawTitle ? 28 : 5);
             deptText.setAttribute('text-anchor', textAnchor);
-            deptText.textContent = d.data.department;
+            deptText.textContent = departmentText;
             nodeG.appendChild(deptText);
         }
         
@@ -2619,6 +3083,8 @@ function initializeAvatarFallbacks(container) {
 function showEmployeeDetail(employee) {
     if (!employee) return;
 
+    currentDetailEmployeeId = employee.id || (employee.data && employee.data.id) || null;
+
     const detailPanel = document.getElementById('employeeDetail');
     const headerContent = document.getElementById('employeeDetailContent');
     const infoContent = document.getElementById('employeeInfo');
@@ -2640,6 +3106,8 @@ function showEmployeeDetail(employee) {
     const officeLabel = t('index.employee.detail.office');
     const locationLabel = t('index.employee.detail.location');
     const managerHeading = t('index.employee.detail.manager');
+    const jobTitleDisplay = getVisibleJobTitleText(employee, { includeFallback: true });
+    const departmentDisplay = getVisibleDepartmentText(employee, { includeFallback: true, fallback: departmentUnknown });
 
     const initials = (employee.name || '')
         .split(' ')
@@ -2656,6 +3124,10 @@ function showEmployeeDetail(employee) {
         fallbackClass: 'employee-avatar-fallback'
     });
 
+    const titleMarkup = jobTitleDisplay
+        ? `<div class="employee-title">${escapeHtml(jobTitleDisplay)}</div>`
+        : '';
+
     headerContent.innerHTML = `
         <div class="employee-avatar-container">
             ${employeeAvatar}
@@ -2663,14 +3135,10 @@ function showEmployeeDetail(employee) {
         <div class="employee-name">
             <h2>${escapeHtml(employee.name)}</h2>
         </div>
-        <div class="employee-title">${escapeHtml(employee.title || t('index.employee.noTitle'))}</div>
+        ${titleMarkup}
     `;
 
     let infoHTML = `
-        <div class="info-item">
-            <div class="info-label">${departmentLabel}</div>
-            <div class="info-value">${escapeHtml(employee.department || departmentUnknown)}</div>
-        </div>
         <div class="info-item">
             <div class="info-label">${emailLabel}</div>
             <div class="info-value">
@@ -2705,6 +3173,15 @@ function showEmployeeDetail(employee) {
         ` : ''}
     `;
 
+    if (isDepartmentVisible()) {
+        infoHTML = `
+        <div class="info-item">
+            <div class="info-label">${departmentLabel}</div>
+            <div class="info-value">${escapeHtml(departmentDisplay)}</div>
+        </div>
+        ` + infoHTML;
+    }
+
     if (employee.managerId && window.currentOrgData) {
         const manager = findManagerById(window.currentOrgData, employee.managerId);
         if (manager) {
@@ -2723,6 +3200,11 @@ function showEmployeeDetail(employee) {
                 fallbackClass: 'manager-avatar-fallback'
             });
 
+            const managerTitleDisplay = getVisibleJobTitleText(manager, { includeFallback: true });
+            const managerTitleMarkup = managerTitleDisplay
+                ? `<div class="manager-title">${escapeHtml(managerTitleDisplay)}</div>`
+                : '';
+
             infoHTML += `
                 <div class="manager-section">
                     <h3>${managerHeading}</h3>
@@ -2732,7 +3214,7 @@ function showEmployeeDetail(employee) {
                         </div>
                         <div class="manager-details">
                             <div class="manager-name">${escapeHtml(manager.name)}</div>
-                            <div class="manager-title">${escapeHtml(manager.title || t('index.employee.noTitle'))}</div>
+                            ${managerTitleMarkup}
                         </div>
                     </div>
                 </div>
@@ -2762,6 +3244,11 @@ function showEmployeeDetail(employee) {
                         fallbackClass: 'report-avatar-fallback'
                     });
 
+                    const reportTitleDisplay = getVisibleJobTitleText(report, { includeFallback: true });
+                    const reportTitleMarkup = reportTitleDisplay
+                        ? `<div class="report-title">${escapeHtml(reportTitleDisplay)}</div>`
+                        : '';
+
                     return `
                         <div class="report-item" data-employee-id="${escapeHtml(report.id)}">
                             <div class="report-avatar-container">
@@ -2769,7 +3256,7 @@ function showEmployeeDetail(employee) {
                             </div>
                             <div class="report-details">
                                 <div class="report-name">${escapeHtml(report.name)}</div>
-                                <div class="report-title">${escapeHtml(report.title || t('index.employee.noTitle'))}</div>
+                                ${reportTitleMarkup}
                             </div>
                         </div>
                     `;
@@ -2783,8 +3270,25 @@ function showEmployeeDetail(employee) {
     detailPanel.classList.add('active');
 }
 
+function refreshEmployeeDetailPanel() {
+    const detailPanel = document.getElementById('employeeDetail');
+    if (!detailPanel || !detailPanel.classList.contains('active')) {
+        return;
+    }
+    if (!currentDetailEmployeeId) {
+        return;
+    }
+    const employee = employeeById.get(currentDetailEmployeeId);
+    if (!employee) {
+        currentDetailEmployeeId = null;
+        return;
+    }
+    showEmployeeDetail(employee);
+}
+
 function closeEmployeeDetail() {
     document.getElementById('employeeDetail').classList.remove('active');
+    currentDetailEmployeeId = null;
 }
 
 function findNodeById(node, targetId) {
@@ -2886,6 +3390,8 @@ function displaySearchResults(results) {
         const item = document.createElement('div');
         item.className = 'search-result-item';
         item.dataset.employeeId = emp.id;
+        item.dataset.title = emp.title || '';
+        item.dataset.department = emp.department || '';
 
         const name = document.createElement('div');
         name.className = 'search-result-name';
@@ -2893,14 +3399,38 @@ function displaySearchResults(results) {
 
         const title = document.createElement('div');
         title.className = 'search-result-title';
-        const departmentText = emp.department ? ` – ${emp.department}` : '';
-    title.textContent = `${emp.title || t('index.employee.noTitle')}${departmentText}`;
+    populateResultMeta(title, emp);
 
         item.appendChild(name);
         item.appendChild(title);
         searchResults.appendChild(item);
     });
     searchResults.classList.add('active');
+}
+
+function refreshSearchResultsPresentation() {
+    if (searchResults) {
+        searchResults.querySelectorAll('.search-result-item').forEach(item => {
+            const meta = item.querySelector('.search-result-title');
+            if (!meta) return;
+            populateResultMeta(meta, {
+                title: item.dataset.title || '',
+                department: item.dataset.department || ''
+            });
+        });
+    }
+
+    const topUserResults = document.getElementById('topUserResults');
+    if (topUserResults) {
+        topUserResults.querySelectorAll('.search-result-item').forEach(item => {
+            const meta = item.querySelector('.search-result-title');
+            if (!meta) return;
+            populateResultMeta(meta, {
+                title: item.dataset.title || '',
+                department: item.dataset.department || ''
+            });
+        });
+    }
 }
 
 function selectSearchResult(employeeId) {

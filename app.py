@@ -202,6 +202,7 @@ DEFAULT_SETTINGS = {
     'searchAutoExpand': True,
     'searchHighlight': True,
     'showDepartments': True,
+    'showJobTitles': True,
     'showEmployeeCount': True,
     'showProfileImages': True,
     'printOrientation': 'landscape',

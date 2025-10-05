@@ -139,14 +139,6 @@ function applySettings(settings) {
         document.getElementById('searchHighlight').checked = settings.searchHighlight;
     }
 
-    if (settings.showDepartments !== undefined) {
-        document.getElementById('showDepartments').checked = settings.showDepartments;
-    }
-
-    if (settings.showEmployeeCount !== undefined) {
-        document.getElementById('showEmployeeCount').checked = settings.showEmployeeCount;
-    }
-
     if (settings.highlightNewEmployees !== undefined) {
         document.getElementById('highlightNewEmployees').checked = settings.highlightNewEmployees;
     }
@@ -524,8 +516,6 @@ async function resetAllSettings() {
         resetCollapseLevel();
         document.getElementById('searchAutoExpand').checked = true;
         document.getElementById('searchHighlight').checked = true;
-        document.getElementById('showDepartments').checked = true;
-        document.getElementById('showEmployeeCount').checked = true;
         document.getElementById('highlightNewEmployees').checked = true;
         document.getElementById('newEmployeeMonths').value = '3';
         document.getElementById('hideDisabledUsers').checked = true;
@@ -589,8 +579,6 @@ async function saveAllSettings() {
         collapseLevel: document.getElementById('collapseLevel').value,
         searchAutoExpand: document.getElementById('searchAutoExpand').checked,
         searchHighlight: document.getElementById('searchHighlight').checked,
-        showDepartments: document.getElementById('showDepartments').checked,
-        showEmployeeCount: document.getElementById('showEmployeeCount').checked,
         highlightNewEmployees: document.getElementById('highlightNewEmployees').checked,
         newEmployeeMonths: parseInt(document.getElementById('newEmployeeMonths').value, 10),
         hideDisabledUsers: document.getElementById('hideDisabledUsers').checked,
