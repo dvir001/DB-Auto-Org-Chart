@@ -26,7 +26,7 @@
 			"label": "Top-Level User:",
 			"placeholder": "Search for top-level user or leave empty for auto-detect...",
 			"saving": "Saving...",
-			"saved": "Saved!",
+			"saved": "Saved for this session!",
 			"error": "Unable to save",
 			"resetting": "Resetting...",
 			"resetDone": "Reset complete"

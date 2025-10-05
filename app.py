@@ -159,6 +159,7 @@ if not os.path.exists(DATA_DIR):
 SETTINGS_FILE = os.path.join(DATA_DIR, 'app_settings.json')
 DATA_FILE = os.path.join(DATA_DIR, 'employee_data.json')
 MISSING_MANAGER_FILE = os.path.join(DATA_DIR, 'missing_manager_records.json')
+EMPLOYEE_LIST_FILE = os.path.join(DATA_DIR, 'employee_list.json')
 
 # Configuration for file uploads (removed SVG for security)
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
@@ -237,8 +238,19 @@ DEFAULT_SETTINGS = {
     'ignoredTitles': ''
 }
 
+def _apply_environment_overrides(settings):
+    settings = settings.copy()
+
+    if TOP_LEVEL_USER_EMAIL:
+        settings['topUserEmail'] = TOP_LEVEL_USER_EMAIL.strip()
+    else:
+        settings['topUserEmail'] = settings.get('topUserEmail', '')
+
+    return settings
+
+
 def load_settings():
-    """Load settings from file or return defaults"""
+    """Load settings from file or return defaults with environment overrides"""
     if os.path.exists(SETTINGS_FILE):
         try:
             with open(SETTINGS_FILE, 'r') as f:
@@ -246,10 +258,11 @@ def load_settings():
                 for key in DEFAULT_SETTINGS:
                     if key not in settings:
                         settings[key] = DEFAULT_SETTINGS[key]
-                return settings
+                return _apply_environment_overrides(settings)
         except Exception as e:
             logger.error(f"Error loading settings: {e}")
-    return DEFAULT_SETTINGS.copy()
+    defaults = DEFAULT_SETTINGS.copy()
+    return _apply_environment_overrides(defaults)
 
 # Helpers: ignored departments parsing and matching
 def parse_ignored_departments(settings):
@@ -492,19 +505,30 @@ def fetch_all_employees():
     logger.info(f"Fetched {len(employees)} employees from Graph API")
     return employees
 
-def build_org_hierarchy(employees):
+def build_org_hierarchy(employees, *, top_user_email_override=None, settings=None):
     if not employees:
         return None
     
-    settings = load_settings()
-    # Get the top-level user email from settings first, then fall back to environment variable
-    # Only use environment variable if settings file doesn't have a value set
-    settings_top_user = settings.get('topUserEmail', '').strip()
-    top_user_email = settings_top_user if settings_top_user else TOP_LEVEL_USER_EMAIL
-    
+    if settings is None:
+        settings = load_settings()
+
+    settings_top_user = (settings.get('topUserEmail') or '').strip()
+    env_top_user = (TOP_LEVEL_USER_EMAIL or '').strip()
+
+    if top_user_email_override is not None:
+        chosen_top_user = (top_user_email_override or '').strip()
+    elif env_top_user:
+        chosen_top_user = env_top_user
+    else:
+        chosen_top_user = settings_top_user
+
+    top_user_email = (chosen_top_user or '').strip() or None
+
     # Debug logging
     logger.info(f"Settings topUserEmail: '{settings_top_user}'")
-    logger.info(f"Environment TOP_LEVEL_USER_EMAIL: '{TOP_LEVEL_USER_EMAIL}'")
+    logger.info(f"Environment TOP_LEVEL_USER_EMAIL: '{env_top_user}'")
+    if top_user_email_override is not None:
+        logger.info(f"Session override topUserEmail: '{top_user_email_override}'")
     logger.info(f"Final top_user_email: '{top_user_email}'")
     logger.info(f"TOP_LEVEL_USER_ID: '{TOP_LEVEL_USER_ID}'")
     
@@ -598,7 +622,7 @@ def build_org_hierarchy(employees):
         return root
 
 
-def collect_missing_manager_records(employees, hierarchy_root=None, settings=None):
+def collect_missing_manager_records(employees, hierarchy_root=None, settings=None, top_user_email_override=None):
     if not employees:
         return []
 
@@ -625,8 +649,12 @@ def collect_missing_manager_records(employees, hierarchy_root=None, settings=Non
     if settings is None:
         settings = load_settings()
 
-    if settings:
+    if top_user_email_override is not None:
+        top_user_email = (top_user_email_override or '').strip().lower() or None
+    elif settings:
         top_user_email = (settings.get('topUserEmail') or '').strip().lower() or None
+    elif TOP_LEVEL_USER_EMAIL:
+        top_user_email = (TOP_LEVEL_USER_EMAIL or '').strip().lower() or None
 
     missing_records = []
 
@@ -705,7 +733,14 @@ def update_employee_data():
                 ]
                 logger.info(f"Filtered ignored departments {sorted(list(ignored_set))}; {before}->{len(employees)} employees")
             
-            hierarchy = build_org_hierarchy(employees)
+            try:
+                with open(EMPLOYEE_LIST_FILE, 'w') as employee_cache:
+                    json.dump(employees, employee_cache, indent=2)
+                logger.info(f"Cached {len(employees)} employees for session-specific hierarchy builds")
+            except Exception as cache_error:
+                logger.error(f"Failed to write employee cache: {cache_error}")
+
+            hierarchy = build_org_hierarchy(employees, settings=settings)
             missing_records = collect_missing_manager_records(employees, hierarchy, settings)
             
             if hierarchy:
@@ -748,6 +783,36 @@ def update_employee_data():
             logger.error(f"[{datetime.now()}] No employees fetched from Graph API")
     except Exception as e:
         logger.error(f"[{datetime.now()}] Error updating employee data: {e}")
+
+
+def load_cached_employees():
+    if os.path.exists(EMPLOYEE_LIST_FILE):
+        try:
+            with open(EMPLOYEE_LIST_FILE, 'r') as cache_file:
+                return json.load(cache_file)
+        except Exception as e:
+            logger.error(f"Failed to read employee cache {EMPLOYEE_LIST_FILE}: {e}")
+    return None
+
+
+def flatten_hierarchy_to_employee_list(root_node):
+    employees = []
+
+    def _walk(node):
+        if not isinstance(node, dict):
+            return
+
+        entry = {k: v for k, v in node.items() if k != 'children'}
+        entry['children'] = []
+        employees.append(entry)
+
+        for child in node.get('children', []) or []:
+            _walk(child)
+
+    if root_node:
+        _walk(root_node)
+
+    return employees
 
 def schedule_updates():
     global scheduler_running
@@ -1035,11 +1100,70 @@ def get_employees():
         
         with open(DATA_FILE, 'r') as f:
             data = json.load(f)
+
+        settings = load_settings()
+        months_threshold = settings.get('newEmployeeMonths', 3)
+
+        session_override_present = 'topUserEmail' in session
+        session_top_user = (session.get('topUserEmail') or '').strip() if session_override_present else None
+        env_top_user = (TOP_LEVEL_USER_EMAIL or '').strip()
+
+        requested_top_user = None
+        override_reason = None
+
+        if session_override_present:
+            requested_top_user = session_top_user
+            override_reason = 'session override'
+        elif env_top_user:
+            current_root_email = (data or {}).get('email') or ''
+            if current_root_email.strip().lower() != env_top_user.lower():
+                requested_top_user = env_top_user
+                override_reason = 'environment default enforcement'
+
+        if requested_top_user is not None:
+            employees = load_cached_employees()
+            if not employees and data:
+                employees = flatten_hierarchy_to_employee_list(data)
+            if not employees:
+                logger.info("Employee cache unavailable; fetching employees from Graph API for top user override")
+                employees = fetch_all_employees()
+                if employees:
+                    try:
+                        with open(EMPLOYEE_LIST_FILE, 'w') as cache_file:
+                            json.dump(employees, cache_file, indent=2)
+                    except Exception as cache_error:
+                        logger.error(f"Failed to refresh employee cache: {cache_error}")
+
+            if employees:
+                override_hierarchy = build_org_hierarchy(
+                    employees,
+                    top_user_email_override=requested_top_user,
+                    settings=settings
+                )
+                if override_hierarchy:
+                    data = override_hierarchy
+
+                    if override_reason == 'environment default enforcement':
+                        try:
+                            with open(DATA_FILE, 'w') as data_file:
+                                json.dump(data, data_file, indent=2)
+                            missing_records = collect_missing_manager_records(
+                                employees,
+                                data,
+                                settings,
+                                top_user_email_override=requested_top_user
+                            )
+                            with open(MISSING_MANAGER_FILE, 'w') as report_file:
+                                json.dump(missing_records, report_file, indent=2)
+                            logger.info("Refreshed global hierarchy cache to align with environment top user")
+                        except Exception as cache_error:
+                            logger.error(f"Failed to persist environment-aligned hierarchy: {cache_error}")
+                else:
+                    logger.warning("Failed to build hierarchy with requested top user override; returning cached hierarchy")
+            else:
+                logger.warning("Unable to locate employee data while applying top user override; returning cached hierarchy")
         
         if data:
-            settings = load_settings()
-            months_threshold = settings.get('newEmployeeMonths', 3)
-            
             def update_new_status(node):
                 if node.get('hireDate'):
                     try:
@@ -1103,6 +1227,8 @@ def handle_settings():
     if request.method == 'GET':
         # GET is allowed without auth for loading initial settings
         settings = load_settings()
+        if 'topUserEmail' in session:
+            settings['topUserEmail'] = session.get('topUserEmail') or ''
         return jsonify(settings)
     
     elif request.method == 'POST':
@@ -1130,72 +1256,23 @@ def handle_settings():
 @app.route('/api/set-top-user', methods=['POST'])
 @limiter.limit("20 per minute")
 def set_top_user():
-    """Set top-level user without requiring authentication"""
+    """Store the caller's preferred top-level user in their session"""
     try:
-        data = request.json
-        if not data or 'topUserEmail' not in data:
+        data = request.json or {}
+        if 'topUserEmail' not in data:
             return jsonify({'error': 'Missing topUserEmail parameter'}), 400
-        
-        # Load current settings
-        current_settings = load_settings()
-        
-        # Update only the topUserEmail setting
-        current_settings['topUserEmail'] = data['topUserEmail']
-        
-        # Debug logging
-        logger.info(f"Received request to set top user to: '{data['topUserEmail']}'")
-        logger.info(f"Current settings before update: topUserEmail = '{current_settings.get('topUserEmail', 'NOT_SET')}'")
-        
-        # Save the settings
-        if save_settings(current_settings):
-            logger.info(f"Successfully saved top-level user setting: '{data['topUserEmail'] or 'Auto-Detect'}'")
-            
-            # Trigger employee data update to reflect new hierarchy
-            try:
-                # Force refresh by getting fresh employee data and rebuilding hierarchy
-                employees = fetch_all_employees()
-                if employees:
-                    # Apply filtering based on current settings (which now include the new top user)
-                    settings = load_settings()  # Reload to get the fresh settings
-                    ignored_set = parse_ignored_departments(settings)
-                    if ignored_set:
-                        before = len(employees)
-                        employees = [
-                            emp for emp in employees
-                            if not department_is_ignored(emp.get('department'), ignored_set)
-                        ]
-                        logger.info(f"Filtered ignored departments {sorted(list(ignored_set))}; {before}->{len(employees)} employees")
-                    
-                    hierarchy = build_org_hierarchy(employees)
-                    missing_records = collect_missing_manager_records(employees, hierarchy, settings)
-                    
-                    if hierarchy:
-                        with open(DATA_FILE, 'w') as f:
-                            json.dump(hierarchy, f, indent=2)
-                        logger.info(f"Successfully rebuilt hierarchy with new top-level user: {hierarchy.get('name')}")
 
-                        try:
-                            with open(MISSING_MANAGER_FILE, 'w') as report_file:
-                                json.dump(missing_records, report_file, indent=2)
-                            logger.info(f"Updated missing manager report cache with {len(missing_records)} records after top-level change")
-                        except Exception as report_error:
-                            logger.error(f"Failed to write missing manager report cache: {report_error}")
-                    else:
-                        raise Exception("Failed to build hierarchy")
-                else:
-                    raise Exception("No employees found")
-                    
-                logger.info("Completed employee data update after top-level user change")
-            except Exception as e:
-                logger.error(f"Error updating employee data: {e}")
-                return jsonify({'error': 'Failed to update employee data'}), 500
-            
-            return jsonify({'success': True})
-        else:
-            return jsonify({'error': 'Failed to save settings'}), 500
-            
+        requested_email = (data.get('topUserEmail') or '').strip()
+        session['topUserEmail'] = requested_email
+        session.modified = True
+
+        logger.info(
+            f"Stored session-specific top user preference '{requested_email or 'auto-detect'}' for client {request.remote_addr}"
+        )
+
+        return jsonify({'success': True, 'topUserEmail': requested_email})
     except Exception as e:
-        logger.error(f"Error updating top-level user: {e}")
+        logger.error(f"Error updating top-level user session preference: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/api/set-multiline-enabled', methods=['POST'])

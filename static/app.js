@@ -720,7 +720,20 @@ async function init() {
         console.error('Error loading employee data:', error);
         const container = document.getElementById('orgChart');
         if (container) {
-            container.innerHTML = `<div class="loading">${t('index.status.errorLoading')}</div>`;
+            const loading = container.querySelector('.loading');
+            if (loading) {
+                const spinner = loading.querySelector('.spinner');
+                if (spinner) {
+                    spinner.style.display = 'none';
+                }
+                const message = loading.querySelector('p');
+                if (message) {
+                    message.textContent = t('index.status.errorLoading');
+                } else {
+                    loading.textContent = t('index.status.errorLoading');
+                }
+                loading.style.display = '';
+            }
         }
     }
 }
@@ -987,17 +1000,35 @@ async function saveTopUser() {
         });
         
         if (response.ok) {
+            let payload = {};
+            try {
+                payload = await response.json();
+            } catch (parseError) {
+                payload = {};
+            }
+
+            const resolvedEmail = (payload && typeof payload.topUserEmail === 'string') ? payload.topUserEmail : emailToSave;
+
             // Update app settings
-            appSettings.topUserEmail = emailToSave;
+            appSettings.topUserEmail = resolvedEmail;
             
-            // Show success feedback and force refresh
+            // Show success feedback and refresh chart data
             if (saveBtn) {
                 saveBtn.textContent = t('index.topUser.saved');
             }
-            setTimeout(() => {
-                // Force a full page refresh to ensure clean state and preserve toolbar
-                window.location.reload();
-            }, 1000);
+
+            try {
+                await reloadEmployeeData();
+            } catch (refreshError) {
+                console.error('Failed to reload employee data after saving top user:', refreshError);
+            }
+
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                setTimeout(() => {
+                    saveBtn.textContent = t('buttons.save');
+                }, 1500);
+            }
         } else {
             throw new Error('Failed to save setting');
         }
@@ -1038,22 +1069,39 @@ async function resetTopUser() {
         });
         
         if (response.ok) {
+            let payload = {};
+            try {
+                payload = await response.json();
+            } catch (parseError) {
+                payload = {};
+            }
+
+            const resolvedEmail = (payload && typeof payload.topUserEmail === 'string') ? payload.topUserEmail : '';
+
             // Update app settings
-            appSettings.topUserEmail = '';
+            appSettings.topUserEmail = resolvedEmail;
             
             // Clear the search input
             searchInput.value = '';
             searchInput._selectedUser = null;
             resultsContainer.classList.remove('active');
             
-            // Show success feedback and force refresh
             if (resetBtn) {
                 resetBtn.textContent = t('index.topUser.resetDone');
             }
-            setTimeout(() => {
-                // Force a full page refresh to ensure clean state
-                window.location.reload();
-            }, 1000);
+
+            try {
+                await reloadEmployeeData();
+            } catch (refreshError) {
+                console.error('Failed to reload employee data after resetting top user:', refreshError);
+            }
+
+            if (resetBtn) {
+                resetBtn.disabled = false;
+                setTimeout(() => {
+                    resetBtn.textContent = t('buttons.reset');
+                }, 1500);
+            }
         } else {
             throw new Error('Failed to reset setting');
         }
@@ -1076,7 +1124,25 @@ async function reloadEmployeeData() {
         // Show loading state
         const container = document.getElementById('orgChart');
         if (container) {
-            container.innerHTML = `<div class="loading"><div class="spinner"></div><p>${t('index.status.updating')}</p></div>`;
+            const loading = container.querySelector('.loading');
+            if (loading) {
+                loading.style.display = '';
+                const message = loading.querySelector('p');
+                if (message) {
+                    message.textContent = t('index.status.updating');
+                }
+                const spinner = loading.querySelector('.spinner');
+                if (spinner) {
+                    spinner.style.display = '';
+                } else {
+                    loading.insertAdjacentHTML('afterbegin', '<div class="spinner"></div>');
+                }
+            }
+
+            const existingSvg = container.querySelector('svg');
+            if (existingSvg) {
+                existingSvg.remove();
+            }
         }
         
         const response = await fetch(`${API_BASE_URL}/api/employees`);
@@ -1098,7 +1164,20 @@ async function reloadEmployeeData() {
         console.error('Error reloading employee data:', error);
         const container = document.getElementById('orgChart');
         if (container) {
-            container.innerHTML = `<div class="loading">${t('index.status.errorLoading')}</div>`;
+            const loading = container.querySelector('.loading');
+            if (loading) {
+                const spinner = loading.querySelector('.spinner');
+                if (spinner) {
+                    spinner.style.display = 'none';
+                }
+                const message = loading.querySelector('p');
+                if (message) {
+                    message.textContent = t('index.status.errorLoading');
+                } else {
+                    loading.textContent = t('index.status.errorLoading');
+                }
+                loading.style.display = '';
+            }
         }
     }
 }
