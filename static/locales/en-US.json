@@ -227,10 +227,10 @@
 				"hideDisabled": "Hide disabled users",
 				"hideGuests": "Hide guest users",
 				"hideNoTitle": "Hide employees with no job title",
-				"ignoredTitlesLabel": "Ignored job titles (comma-separated):",
-				"ignoredTitlesPlaceholder": "e.g., Intern, Contractor",
-				"ignoredDepartmentsLabel": "Ignored departments (comma-separated):",
-				"ignoredDepartmentsPlaceholder": "e.g., Consultant Group, Contractors"
+				"ignoredTitlesLabel": "Ignored job titles:",
+				"ignoredTitlesPlaceholder": "Search...",
+				"ignoredDepartmentsLabel": "Ignored departments:",
+				"ignoredDepartmentsPlaceholder": "Search..."
 			},
 			"multiLine": {
 				"label": "Multi-line Children Threshold",

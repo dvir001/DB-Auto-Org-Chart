@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title data-i18n="configure.pageTitle">Configuration - DB AutoOrgChart</title>
+    <title data-i18n="configure.pageTitle" data-i18n-params='{"chartTitle": {{ chart_title|tojson }} }'>{{ chart_title }} - {{ _('configure.pageTitleSuffix', default='Configuration') }}</title>
     <link rel="stylesheet" href="/static/configure.css">
 </head>
-<body>
+<body class="is-loading">
     <div class="container">
         <a href="/" class="nav-link" data-i18n="configure.navBack">← Back to Org Chart</a>
         
@@ -212,14 +212,32 @@
                         </label>
                         <span data-i18n="configure.behavior.filtering.hideNoTitle">Hide employees with no job title</span>
                     </div>
-                    <div class="config-controls config-controls--spaced">
-                        <span class="label-prefix" data-i18n="configure.behavior.filtering.ignoredTitlesLabel">Ignored job titles (comma-separated):</span>
-                        <input type="text" id="ignoredTitlesInput" placeholder="e.g., Intern, Contractor" class="text-input-wide" data-i18n-placeholder="configure.behavior.filtering.ignoredTitlesPlaceholder" />
+                    <div class="config-controls config-controls--spaced tag-picker-row">
+                        <div class="tag-picker-field">
+                            <span class="label-prefix" data-i18n="configure.behavior.filtering.ignoredTitlesLabel">Ignored job titles</span>
+                            <div class="tag-picker" id="ignoredTitlesPicker" data-target-input="ignoredTitlesInput">
+                                <div class="tag-picker__control">
+                                    <div class="tag-picker__tags" data-role="tag-container"></div>
+                                    <input type="text" class="tag-picker__input" id="ignoredTitlesSearch" autocomplete="off" placeholder="Search job titles..." data-i18n-placeholder="configure.behavior.filtering.ignoredTitlesPlaceholder">
+                                </div>
+                                <div class="tag-picker__dropdown" data-role="dropdown" hidden></div>
+                            </div>
+                            <input type="hidden" id="ignoredTitlesInput">
+                        </div>
                         <button class="btn btn-secondary" type="button" data-config-action="reset-ignored-titles" data-i18n="configure.buttons.resetDefault">Reset to Default</button>
                     </div>
-                    <div class="config-controls config-controls--spaced">
-                        <span class="label-prefix" data-i18n="configure.behavior.filtering.ignoredDepartmentsLabel">Ignored departments (comma-separated):</span>
-                        <input type="text" id="ignoredDepartmentsInput" placeholder="e.g., Consultant Group, Contractors" class="text-input-wide" data-i18n-placeholder="configure.behavior.filtering.ignoredDepartmentsPlaceholder" />
+                    <div class="config-controls config-controls--spaced tag-picker-row">
+                        <div class="tag-picker-field">
+                            <span class="label-prefix" data-i18n="configure.behavior.filtering.ignoredDepartmentsLabel">Ignored departments</span>
+                            <div class="tag-picker" id="ignoredDepartmentsPicker" data-target-input="ignoredDepartmentsInput">
+                                <div class="tag-picker__control">
+                                    <div class="tag-picker__tags" data-role="tag-container"></div>
+                                    <input type="text" class="tag-picker__input" id="ignoredDepartmentsSearch" autocomplete="off" placeholder="Search departments..." data-i18n-placeholder="configure.behavior.filtering.ignoredDepartmentsPlaceholder">
+                                </div>
+                                <div class="tag-picker__dropdown" data-role="dropdown" hidden></div>
+                            </div>
+                            <input type="hidden" id="ignoredDepartmentsInput">
+                        </div>
                         <button class="btn btn-secondary" type="button" data-config-action="reset-ignored-departments" data-i18n="configure.buttons.resetDefault">Reset to Default</button>
                     </div>
                 </div>

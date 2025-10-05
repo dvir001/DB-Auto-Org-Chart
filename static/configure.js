@@ -31,6 +31,402 @@ const EXPORT_COLUMN_DEFAULTS = {
     manager: 'show'
 };
 
+const tagPickers = {};
+let filterMetadata = { jobTitles: [], departments: [] };
+
+function parseListString(value) {
+    if (!value) {
+        return [];
+    }
+    if (Array.isArray(value)) {
+        return value
+            .map(item => (typeof item === 'string' ? item.trim() : `${item}`.trim()))
+            .filter(item => item.length > 0);
+    }
+    const trimmed = String(value).trim();
+    if (!trimmed) {
+        return [];
+    }
+    if (trimmed.startsWith('[')) {
+        try {
+            const parsed = JSON.parse(trimmed);
+            if (Array.isArray(parsed)) {
+                return parsed
+                    .map(item => (typeof item === 'string' ? item.trim() : `${item}`.trim()))
+                    .filter(item => item.length > 0);
+            }
+        } catch (error) {
+            console.warn('Failed to parse list JSON', error);
+        }
+    }
+    return trimmed
+        .split(/\s*[;,]+\s*/)
+        .map(item => item.trim())
+        .filter(item => item.length > 0);
+}
+
+class TagPicker {
+    constructor({ pickerId, hiddenInputId, options = [], placeholder = '' }) {
+        this.root = document.getElementById(pickerId);
+        this.hiddenInput = document.getElementById(hiddenInputId);
+        if (!this.root || !this.hiddenInput) {
+            this.enabled = false;
+            return;
+        }
+
+        this.enabled = true;
+        this.options = Array.isArray(options) ? options.slice() : [];
+        this.options = this.options.filter(Boolean);
+        this.options.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+
+        this.tagContainer = this.root.querySelector('[data-role="tag-container"]');
+        this.dropdown = this.root.querySelector('[data-role="dropdown"]');
+        this.input = this.root.querySelector('.tag-picker__input');
+        if (placeholder && this.input) {
+            this.input.placeholder = placeholder;
+        }
+
+        this.selected = [];
+        this.selectedSet = new Set();
+        this.filteredOptions = [];
+
+        this.handleDocumentClick = this.handleDocumentClick.bind(this);
+        this.handleDropdownClick = this.handleDropdownClick.bind(this);
+        this.handleTagClick = this.handleTagClick.bind(this);
+        this.handleInput = this.handleInput.bind(this);
+    this.handleKeyDown = this.handleKeyDown.bind(this);
+    this.focusInputSoon = this.focusInputSoon.bind(this);
+
+        if (this.tagContainer) {
+            this.tagContainer.addEventListener('click', this.handleTagClick);
+        }
+        if (this.dropdown) {
+            this.dropdown.addEventListener('click', this.handleDropdownClick);
+        }
+        if (this.input) {
+            this.input.addEventListener('input', this.handleInput);
+            this.input.addEventListener('focus', () => this.openDropdown());
+            this.input.addEventListener('keydown', this.handleKeyDown);
+        }
+
+        document.addEventListener('click', this.handleDocumentClick);
+        this.renderTags();
+        this.closeDropdown();
+        this.updateHiddenInput();
+    }
+
+    destroy() {
+        if (!this.enabled) {
+            return;
+        }
+        document.removeEventListener('click', this.handleDocumentClick);
+        this.enabled = false;
+    }
+
+    setOptions(options) {
+        if (!this.enabled) {
+            return;
+        }
+        this.options = Array.isArray(options) ? options.slice() : [];
+        this.options = this.options.filter(Boolean);
+        this.options.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+        this.refreshDropdown();
+    }
+
+    setValue(values) {
+        if (!this.enabled) {
+            return;
+        }
+        this.selected = [];
+        this.selectedSet = new Set();
+        (values || []).forEach(value => {
+            const normalized = (value || '').trim();
+            if (!normalized) {
+                return;
+            }
+            const key = normalized.toLowerCase();
+            if (!this.selectedSet.has(key)) {
+                this.selected.push(normalized);
+                this.selectedSet.add(key);
+            }
+        });
+        this.renderTags();
+        this.updateHiddenInput();
+        if (this.input) {
+            this.input.value = '';
+        }
+        this.closeDropdown();
+    }
+
+    getValue() {
+        if (!this.enabled) {
+            return [];
+        }
+        return this.selected.slice();
+    }
+
+    clear() {
+        this.setValue([]);
+    }
+
+    handleInput() {
+        this.refreshDropdown();
+        this.openDropdown();
+    }
+
+    handleKeyDown(event) {
+        if (event.key === 'Backspace' && this.input && !this.input.value && this.selected.length > 0) {
+            const last = this.selected[this.selected.length - 1];
+            this.removeValue(last);
+            event.preventDefault();
+        } else if ((event.key === 'Enter' || event.key === 'Tab') && this.input) {
+            const query = this.input.value.trim();
+            if (!query) {
+                return;
+            }
+            if (this.filteredOptions.length > 0) {
+                this.addValue(this.filteredOptions[0]);
+            } else {
+                this.addValue(query);
+            }
+            event.preventDefault();
+        }
+    }
+
+    handleDropdownClick(event) {
+        const option = event.target.closest('[data-value]');
+        if (!option) {
+            return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        const value = option.getAttribute('data-value') || '';
+        this.addValue(value);
+    }
+
+    handleTagClick(event) {
+        const removeBtn = event.target.closest('.tag-picker__remove');
+        if (!removeBtn) {
+            return;
+        }
+        const value = removeBtn.getAttribute('data-value') || '';
+        this.removeValue(value);
+    }
+
+    handleDocumentClick(event) {
+        if (!this.root) {
+            return;
+        }
+        if (!this.root.contains(event.target)) {
+            this.closeDropdown();
+        }
+    }
+
+    addValue(rawValue) {
+        if (!this.enabled) {
+            return;
+        }
+        const normalized = (rawValue || '').trim();
+        if (!normalized) {
+            return;
+        }
+        const key = normalized.toLowerCase();
+        if (this.selectedSet.has(key)) {
+            if (this.input) {
+                this.input.value = '';
+            }
+            this.closeDropdown();
+            return;
+        }
+        this.selected.push(normalized);
+        this.selectedSet.add(key);
+        this.renderTags();
+        this.updateHiddenInput();
+        if (this.input) {
+            this.input.value = '';
+        }
+        this.refreshDropdown();
+        this.openDropdown();
+        this.focusInputSoon();
+    }
+
+    removeValue(rawValue) {
+        if (!this.enabled) {
+            return;
+        }
+        const normalized = (rawValue || '').trim();
+        if (!normalized) {
+            return;
+        }
+        const key = normalized.toLowerCase();
+        if (!this.selectedSet.has(key)) {
+            return;
+        }
+        this.selected = this.selected.filter(item => item.toLowerCase() !== key);
+        this.selectedSet.delete(key);
+        this.renderTags();
+        this.updateHiddenInput();
+        this.refreshDropdown();
+        this.openDropdown();
+        this.focusInputSoon();
+    }
+
+    renderTags() {
+        if (!this.tagContainer) {
+            return;
+        }
+        this.tagContainer.innerHTML = '';
+        if (this.selected.length === 0) {
+            return;
+        }
+        this.selected.forEach(value => {
+            const tag = document.createElement('span');
+            tag.className = 'tag-picker__tag';
+
+            const label = document.createElement('span');
+            label.textContent = value;
+            tag.appendChild(label);
+
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'tag-picker__remove';
+            removeBtn.setAttribute('aria-label', `Remove ${value}`);
+            removeBtn.dataset.value = value;
+            removeBtn.innerHTML = '&times;';
+            tag.appendChild(removeBtn);
+
+            this.tagContainer.appendChild(tag);
+        });
+    }
+
+    refreshDropdown() {
+        if (!this.dropdown) {
+            return;
+        }
+        const query = this.input ? this.input.value.trim().toLowerCase() : '';
+        const available = this.options.filter(option => !this.selectedSet.has(option.toLowerCase()));
+        let filtered = available;
+        if (query) {
+            filtered = available.filter(option => option.toLowerCase().includes(query));
+        }
+        this.filteredOptions = filtered.slice(0, 60);
+
+        this.dropdown.innerHTML = '';
+        if (this.filteredOptions.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'tag-picker__option tag-picker__option--empty';
+            empty.textContent = query ? 'No matches found' : 'No options available';
+            this.dropdown.appendChild(empty);
+            return;
+        }
+
+        this.filteredOptions.forEach(option => {
+            const optionElement = document.createElement('div');
+            optionElement.className = 'tag-picker__option';
+            optionElement.dataset.value = option;
+
+            const title = document.createElement('span');
+            title.className = 'tag-picker__option-title';
+            title.textContent = option;
+            optionElement.appendChild(title);
+
+            this.dropdown.appendChild(optionElement);
+        });
+    }
+
+    openDropdown() {
+        if (!this.dropdown) {
+            return;
+        }
+        this.dropdown.hidden = false;
+    }
+
+    closeDropdown() {
+        if (!this.dropdown) {
+            return;
+        }
+        this.dropdown.hidden = true;
+    }
+
+    updateHiddenInput() {
+        if (!this.hiddenInput) {
+            return;
+        }
+        try {
+            this.hiddenInput.value = JSON.stringify(this.selected);
+        } catch (error) {
+            console.warn('Failed to serialize picker values', error);
+            this.hiddenInput.value = this.selected.join(', ');
+        }
+    }
+
+    focusInputSoon() {
+        if (!this.input) {
+            return;
+        }
+        requestAnimationFrame(() => {
+            this.input.focus();
+        });
+    }
+}
+
+async function loadFilterMetadata() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/metadata/options`, { credentials: 'same-origin' });
+        if (!response.ok) {
+            return { jobTitles: [], departments: [] };
+        }
+        const data = await response.json();
+        return {
+            jobTitles: Array.isArray(data.jobTitles) ? data.jobTitles : [],
+            departments: Array.isArray(data.departments) ? data.departments : []
+        };
+    } catch (error) {
+        console.error('Failed to load filter metadata', error);
+        return { jobTitles: [], departments: [] };
+    }
+}
+
+function initializeTagPickers(metadata) {
+    tagPickers.ignoredTitles = new TagPicker({
+        pickerId: 'ignoredTitlesPicker',
+        hiddenInputId: 'ignoredTitlesInput',
+        options: metadata.jobTitles,
+        placeholder: document.getElementById('ignoredTitlesSearch')?.getAttribute('placeholder') || ''
+    });
+
+    tagPickers.ignoredDepartments = new TagPicker({
+        pickerId: 'ignoredDepartmentsPicker',
+        hiddenInputId: 'ignoredDepartmentsInput',
+        options: metadata.departments,
+        placeholder: document.getElementById('ignoredDepartmentsSearch')?.getAttribute('placeholder') || ''
+    });
+}
+
+function getIgnoredTitlesValue() {
+    const hidden = document.getElementById('ignoredTitlesInput');
+    if (!hidden) {
+        return '[]';
+    }
+    const value = hidden.value;
+    if (value && value.trim()) {
+        return value.trim();
+    }
+    return '[]';
+}
+
+function getIgnoredDepartmentsValue() {
+    const hidden = document.getElementById('ignoredDepartmentsInput');
+    if (!hidden) {
+        return '[]';
+    }
+    const value = hidden.value;
+    if (value && value.trim()) {
+        return value.trim();
+    }
+    return '[]';
+}
+
 async function loadSettings() {
     try {
         const response = await fetch(`${API_BASE_URL}/api/settings`);
@@ -160,12 +556,24 @@ function applySettings(settings) {
     }
 
     if (settings.ignoredDepartments !== undefined) {
-        const el = document.getElementById('ignoredDepartmentsInput');
-        if (el) el.value = settings.ignoredDepartments;
+        const values = parseListString(settings.ignoredDepartments);
+        if (tagPickers.ignoredDepartments && tagPickers.ignoredDepartments.setValue) {
+            tagPickers.ignoredDepartments.setOptions(filterMetadata.departments || []);
+            tagPickers.ignoredDepartments.setValue(values);
+        } else {
+            const el = document.getElementById('ignoredDepartmentsInput');
+            if (el) el.value = values.join(', ');
+        }
     }
     if (settings.ignoredTitles !== undefined) {
-        const el = document.getElementById('ignoredTitlesInput');
-        if (el) el.value = settings.ignoredTitles;
+        const values = parseListString(settings.ignoredTitles);
+        if (tagPickers.ignoredTitles && tagPickers.ignoredTitles.setValue) {
+            tagPickers.ignoredTitles.setOptions(filterMetadata.jobTitles || []);
+            tagPickers.ignoredTitles.setValue(values);
+        } else {
+            const el = document.getElementById('ignoredTitlesInput');
+            if (el) el.value = values.join(', ');
+        }
     }
 
     if (settings.printOrientation) {
@@ -285,9 +693,6 @@ function adjustColor(color, amount) {
     const b = Math.max(0, Math.min(255, (num & 0x0000ff) + amount));
     return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
 }
-
-initTimePicker();
-loadSettings();
 
 async function uploadLogoFile(file) {
     if (!file) return;
@@ -497,13 +902,21 @@ function resetMultiLineSettings() {
 }
 
 function resetIgnoredDepartments() {
-    const el = document.getElementById('ignoredDepartmentsInput');
-    if (el) el.value = '';
+    if (tagPickers.ignoredDepartments && typeof tagPickers.ignoredDepartments.clear === 'function') {
+        tagPickers.ignoredDepartments.clear();
+    } else {
+        const el = document.getElementById('ignoredDepartmentsInput');
+        if (el) el.value = '';
+    }
 }
 
 function resetIgnoredTitles() {
-    const el = document.getElementById('ignoredTitlesInput');
-    if (el) el.value = '';
+    if (tagPickers.ignoredTitles && typeof tagPickers.ignoredTitles.clear === 'function') {
+        tagPickers.ignoredTitles.clear();
+    } else {
+        const el = document.getElementById('ignoredTitlesInput');
+        if (el) el.value = '';
+    }
 }
 
 async function resetAllSettings() {
@@ -518,12 +931,11 @@ async function resetAllSettings() {
         document.getElementById('searchHighlight').checked = true;
         document.getElementById('highlightNewEmployees').checked = true;
         document.getElementById('newEmployeeMonths').value = '3';
-        document.getElementById('hideDisabledUsers').checked = true;
-        document.getElementById('hideGuestUsers').checked = true;
-        document.getElementById('hideNoTitle').checked = true;
-        document.getElementById('ignoredDepartmentsInput').value = '';
-        const titlesInput = document.getElementById('ignoredTitlesInput');
-        if (titlesInput) titlesInput.value = '';
+    document.getElementById('hideDisabledUsers').checked = true;
+    document.getElementById('hideGuestUsers').checked = true;
+    document.getElementById('hideNoTitle').checked = true;
+    resetIgnoredDepartments();
+    resetIgnoredTitles();
         document.getElementById('printOrientation').value = 'landscape';
         document.getElementById('printSize').value = 'a4';
         const mlThreshold = document.getElementById('multiLineChildrenThreshold');
@@ -584,8 +996,8 @@ async function saveAllSettings() {
         hideDisabledUsers: document.getElementById('hideDisabledUsers').checked,
         hideGuestUsers: document.getElementById('hideGuestUsers').checked,
         hideNoTitle: document.getElementById('hideNoTitle').checked,
-        ignoredDepartments: (document.getElementById('ignoredDepartmentsInput')?.value || '').trim(),
-        ignoredTitles: (document.getElementById('ignoredTitlesInput')?.value || '').trim(),
+        ignoredDepartments: getIgnoredDepartmentsValue(),
+        ignoredTitles: getIgnoredTitlesValue(),
         printOrientation: document.getElementById('printOrientation').value,
         printSize: document.getElementById('printSize').value,
         multiLineChildrenThreshold: parseInt(document.getElementById('multiLineChildrenThreshold')?.value || '20', 10),
@@ -671,9 +1083,18 @@ function registerConfigActions() {
     });
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    loadSettings();
+document.addEventListener('DOMContentLoaded', async () => {
+    initTimePicker();
     registerConfigActions();
+
+    const metadata = await loadFilterMetadata();
+    filterMetadata = metadata || { jobTitles: [], departments: [] };
+    initializeTagPickers(filterMetadata);
+    await loadSettings();
+
+    requestAnimationFrame(() => {
+        document.body.classList.remove('is-loading');
+    });
 
     const logoDropZone = document.getElementById('logoDropZone');
     if (logoDropZone) {

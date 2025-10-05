@@ -265,37 +265,61 @@ def load_settings():
     defaults = DEFAULT_SETTINGS.copy()
     return _apply_environment_overrides(defaults)
 
-# Helpers: ignored departments parsing and matching
-def parse_ignored_departments(settings):
-    raw = (settings.get('ignoredDepartments') or '').strip()
-    # No legacy fallback: if user leaves it blank, do not ignore anything
-    return {d.strip().lower() for d in raw.split(',') if d.strip()}
-
-_dept_sep_re = re.compile(r"\s*[|/;,]+\s*")
+# Helpers: ignored titles/departments parsing and matching
+_filter_legacy_split_re = re.compile(r"\s*[;,]+\s*")
 _trim_edge_punct = re.compile(r"^[\s\-–—|]+|[\s\-–—|]+$")
 
-def department_tokens(dept):
-    d = (dept or '').strip()
-    if not d:
-        return []
-    parts = _dept_sep_re.split(d)
-    tokens = []
-    for p in parts:
-        t = _trim_edge_punct.sub('', p).strip().lower()
-        if t:
-            tokens.append(t)
-    return tokens
+def normalize_filter_value(value):
+    if not value:
+        return ''
+    cleaned = _trim_edge_punct.sub('', str(value))
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    return cleaned.strip().lower()
+
+def parse_filter_values(raw_value):
+    if raw_value is None:
+        return set()
+
+    values = None
+
+    if isinstance(raw_value, str):
+        text = raw_value.strip()
+        if not text:
+            return set()
+        if text.startswith('['):
+            try:
+                decoded = json.loads(text)
+                if isinstance(decoded, (list, tuple, set)):
+                    values = list(decoded)
+            except json.JSONDecodeError:
+                values = None
+        if values is None:
+            values = _filter_legacy_split_re.split(text)
+    elif isinstance(raw_value, (list, tuple, set)):
+        values = list(raw_value)
+    else:
+        return set()
+
+    normalized = set()
+    for part in values:
+        normalized_value = normalize_filter_value(part)
+        if normalized_value:
+            normalized.add(normalized_value)
+    return normalized
+
+def parse_ignored_departments(settings):
+    raw = settings.get('ignoredDepartments', '')
+    return parse_filter_values(raw)
+
+def parse_ignored_titles(settings):
+    raw = settings.get('ignoredTitles', '')
+    return parse_filter_values(raw)
 
 def department_is_ignored(department, ignored_set):
     if not ignored_set:
         return False
-    tokens = department_tokens(department)
-    for t in tokens:
-        if t in ignored_set:
-            return True
-    # Also check full normalized string in case user entered it as-is
-    full = ' '.join(tokens)
-    return full in ignored_set
+    normalized = normalize_filter_value(department)
+    return normalized in ignored_set
 
 def save_settings(settings):
     """Save settings to file"""
@@ -373,8 +397,7 @@ def fetch_all_employees():
     hide_disabled_users = settings.get('hideDisabledUsers', True)
     hide_guest_users = settings.get('hideGuestUsers', True)
     hide_no_title = settings.get('hideNoTitle', True)
-    ignored_titles_raw = (settings.get('ignoredTitles') or '').lower()
-    ignored_title_tokens = {t.strip() for t in ignored_titles_raw.split(',') if t.strip()}
+    ignored_title_values = parse_ignored_titles(settings)
     
     headers = {
         'Authorization': f'Bearer {token}',
@@ -417,9 +440,9 @@ def fetch_all_employees():
                     # Skip users without a job title (if setting is enabled)
                     if hide_no_title and job_title_val.strip() == '':
                         continue
-                    # Skip ignored titles (substring match)
-                    lowered_title = job_title_val.lower()
-                    if ignored_title_tokens and any(tok in lowered_title for tok in ignored_title_tokens):
+                    # Skip ignored titles (exact match)
+                    lowered_title = normalize_filter_value(job_title_val)
+                    if ignored_title_values and lowered_title in ignored_title_values:
                         continue
                         
                     if user.get('displayName'):
@@ -814,6 +837,36 @@ def flatten_hierarchy_to_employee_list(root_node):
         _walk(root_node)
 
     return employees
+
+
+def get_employee_list_for_metadata():
+    employees = load_cached_employees()
+    if employees:
+        return employees
+
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, 'r') as data_file:
+                hierarchy = json.load(data_file)
+            if hierarchy:
+                return flatten_hierarchy_to_employee_list(hierarchy)
+        except Exception as error:
+            logger.error(f"Failed to read hierarchy for metadata: {error}")
+
+    return []
+
+
+def collect_unique_field_values(employees, field_name):
+    unique = {}
+    for employee in employees or []:
+        value = (employee.get(field_name) or '').strip()
+        if not value:
+            continue
+        key = value.lower()
+        if key not in unique:
+            unique[key] = value
+
+    return sorted(unique.values(), key=lambda item: item.lower())
 
 def schedule_updates():
     global scheduler_running
@@ -1253,6 +1306,19 @@ def handle_settings():
         except Exception as e:
             logger.error(f"Error updating settings: {e}")
             return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/metadata/options')
+@require_auth
+def get_metadata_options():
+    employees = get_employee_list_for_metadata()
+    job_titles = collect_unique_field_values(employees, 'title')
+    departments = collect_unique_field_values(employees, 'department')
+
+    return jsonify({
+        'jobTitles': job_titles,
+        'departments': departments
+    })
 
 @app.route('/api/set-top-user', methods=['POST'])
 @limiter.limit("20 per minute")
