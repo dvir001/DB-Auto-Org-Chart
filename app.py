@@ -234,6 +234,7 @@ DEFAULT_SETTINGS = {
     'hideNoTitle': True,
     'hideConsultantGroup': True,
     # Comma-separated list of department names to ignore (case-insensitive)
+    'ignoredEmployees': '',
     'ignoredDepartments': 'Consultant Group',
     # Comma-separated list of job titles to ignore (case-insensitive, substring match)
     'ignoredTitles': ''
@@ -325,11 +326,43 @@ def parse_ignored_titles(settings):
     raw = settings.get('ignoredTitles', '')
     return parse_filter_values(raw)
 
+def parse_ignored_employees(settings):
+    raw = settings.get('ignoredEmployees', '')
+    return parse_filter_values(raw)
+
 def department_is_ignored(department, ignored_set):
     if not ignored_set:
         return False
     normalized = normalize_filter_value(department)
     return normalized in ignored_set
+
+
+def employee_is_ignored(name, email, user_principal_name, ignored_values):
+    if not ignored_values:
+        return False
+
+    candidates = set()
+
+    for value in (name, email, user_principal_name):
+        normalized = normalize_filter_value(value)
+        if normalized:
+            candidates.add(normalized)
+
+    contact_values = [value for value in (email, user_principal_name) if value]
+    for contact in contact_values:
+        if name:
+            for combo in (
+                f"{name} <{contact}>",
+                f"{name} ({contact})",
+                f"{name} - {contact}",
+                f"{contact} ({name})",
+                f"{contact} - {name}"
+            ):
+                normalized = normalize_filter_value(combo)
+                if normalized:
+                    candidates.add(normalized)
+
+    return any(candidate in ignored_values for candidate in candidates)
 
 def save_settings(settings):
     """Save settings to file"""
@@ -408,6 +441,7 @@ def fetch_all_employees():
     hide_guest_users = settings.get('hideGuestUsers', True)
     hide_no_title = settings.get('hideNoTitle', True)
     ignored_title_values = parse_ignored_titles(settings)
+    ignored_employee_values = parse_ignored_employees(settings)
     
     headers = {
         'Authorization': f'Bearer {token}',
@@ -446,6 +480,13 @@ def fetch_all_employees():
                     if hide_guest_users and user.get('userType', '').lower() == 'guest':
                         continue
                     
+                    display_name = user.get('displayName') or ''
+                    primary_email = user.get('mail') or ''
+                    user_principal_name = user.get('userPrincipalName') or ''
+
+                    if employee_is_ignored(display_name, primary_email, user_principal_name, ignored_employee_values):
+                        continue
+
                     job_title_val = user.get('jobTitle') or ''
                     # Skip users without a job title (if setting is enabled)
                     if hide_no_title and job_title_val.strip() == '':
@@ -455,7 +496,7 @@ def fetch_all_employees():
                     if ignored_title_values and lowered_title in ignored_title_values:
                         continue
                         
-                    if user.get('displayName'):
+                    if display_name:
                         business_phones = user.get('businessPhones') or []
                         if isinstance(business_phones, list):
                             business_phone = next((phone for phone in business_phones if phone), '')
@@ -501,12 +542,14 @@ def fetch_all_employees():
                         
                         full_address = ', '.join(address_components) if address_components else ''
                         
+                        email_value = primary_email or user_principal_name or ''
+
                         employee = {
                             'id': user.get('id'),
-                            'name': user.get('displayName') or 'Unknown',
+                            'name': display_name or 'Unknown',
                             'title': user.get('jobTitle') or 'No Title',
                             'department': user.get('department') or 'No Department',
-                            'email': user.get('mail') or '',
+                            'email': email_value,
                             'phone': user.get('mobilePhone') or '',
                             'businessPhone': business_phone,
                             'location': user.get('officeLocation') or '',
@@ -520,6 +563,7 @@ def fetch_all_employees():
                             'hireDate': hire_date.isoformat() if hire_date else None,
                             'isNewEmployee': is_new,
                             'photoUrl': f'/api/photo/{user.get("id")}',
+                            'userPrincipalName': user_principal_name,
                             'children': []
                         }
                         employees.append(employee)
@@ -757,7 +801,24 @@ def update_employee_data():
         if employees:
             # Apply department filtering based on settings
             settings = load_settings()
+            ignored_employee_set = parse_ignored_employees(settings)
             ignored_set = parse_ignored_departments(settings)
+
+            if ignored_employee_set:
+                before = len(employees)
+                employees = [
+                    emp for emp in employees
+                    if not employee_is_ignored(
+                        emp.get('name'),
+                        emp.get('email'),
+                        emp.get('userPrincipalName'),
+                        ignored_employee_set
+                    )
+                ]
+                if before != len(employees):
+                    logger.info(
+                        f"Filtered ignored employees; {before}->{len(employees)} remaining"
+                    )
 
             if ignored_set:
                 before = len(employees)
@@ -877,6 +938,33 @@ def collect_unique_field_values(employees, field_name):
             unique[key] = value
 
     return sorted(unique.values(), key=lambda item: item.lower())
+
+
+def collect_employee_option_labels(employees):
+    options = {}
+    for employee in employees or []:
+        name = (employee.get('name') or '').strip()
+        email = (employee.get('email') or '').strip()
+        user_principal_name = (employee.get('userPrincipalName') or '').strip()
+
+        contact = email or user_principal_name
+
+        if not name and not contact:
+            continue
+
+        if name and contact:
+            label = f"{name} <{contact}>"
+        else:
+            label = name or contact
+
+        primary_key = normalize_filter_value(contact) or normalize_filter_value(name) or normalize_filter_value(label)
+        if not primary_key:
+            continue
+
+        if primary_key not in options:
+            options[primary_key] = label
+
+    return sorted(options.values(), key=lambda item: item.lower())
 
 def schedule_updates():
     global scheduler_running
@@ -1329,10 +1417,12 @@ def get_metadata_options():
     employees = get_employee_list_for_metadata()
     job_titles = collect_unique_field_values(employees, 'title')
     departments = collect_unique_field_values(employees, 'department')
+    employee_options = collect_employee_option_labels(employees)
 
     return jsonify({
         'jobTitles': job_titles,
-        'departments': departments
+        'departments': departments,
+        'employees': employee_options
     })
 
 @app.route('/api/set-top-user', methods=['POST'])

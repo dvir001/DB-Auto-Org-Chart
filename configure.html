@@ -240,6 +240,20 @@
                         </div>
                         <button class="btn btn-secondary" type="button" data-config-action="reset-ignored-departments" data-i18n="configure.buttons.resetDefault">Reset to Default</button>
                     </div>
+                    <div class="config-controls config-controls--spaced tag-picker-row">
+                        <div class="tag-picker-field">
+                            <span class="label-prefix" data-i18n="configure.behavior.filtering.ignoredEmployeesLabel">Ignored employees</span>
+                            <div class="tag-picker" id="ignoredEmployeesPicker" data-target-input="ignoredEmployeesInput">
+                                <div class="tag-picker__control">
+                                    <div class="tag-picker__tags" data-role="tag-container"></div>
+                                    <input type="text" class="tag-picker__input" id="ignoredEmployeesSearch" autocomplete="off" placeholder="Search employees..." data-i18n-placeholder="configure.behavior.filtering.ignoredEmployeesPlaceholder">
+                                </div>
+                                <div class="tag-picker__dropdown" data-role="dropdown" hidden></div>
+                            </div>
+                            <input type="hidden" id="ignoredEmployeesInput">
+                        </div>
+                        <button class="btn btn-secondary" type="button" data-config-action="reset-ignored-employees" data-i18n="configure.buttons.resetDefault">Reset to Default</button>
+                    </div>
                 </div>
 
                 <div class="config-item">

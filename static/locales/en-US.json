@@ -230,7 +230,9 @@
 				"ignoredTitlesLabel": "Ignored job titles:",
 				"ignoredTitlesPlaceholder": "Search...",
 				"ignoredDepartmentsLabel": "Ignored departments:",
-				"ignoredDepartmentsPlaceholder": "Search..."
+				"ignoredDepartmentsPlaceholder": "Search...",
+				"ignoredEmployeesLabel": "Ignored employees:",
+				"ignoredEmployeesPlaceholder": "Search..."
 			},
 			"multiLine": {
 				"label": "Multi-line Children Threshold",

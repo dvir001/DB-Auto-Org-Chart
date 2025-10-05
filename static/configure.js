@@ -32,7 +32,7 @@ const EXPORT_COLUMN_DEFAULTS = {
 };
 
 const tagPickers = {};
-let filterMetadata = { jobTitles: [], departments: [] };
+let filterMetadata = { jobTitles: [], departments: [], employees: [] };
 
 function parseListString(value) {
     if (!value) {
@@ -379,7 +379,8 @@ async function loadFilterMetadata() {
         const data = await response.json();
         return {
             jobTitles: Array.isArray(data.jobTitles) ? data.jobTitles : [],
-            departments: Array.isArray(data.departments) ? data.departments : []
+            departments: Array.isArray(data.departments) ? data.departments : [],
+            employees: Array.isArray(data.employees) ? data.employees : []
         };
     } catch (error) {
         console.error('Failed to load filter metadata', error);
@@ -401,6 +402,13 @@ function initializeTagPickers(metadata) {
         options: metadata.departments,
         placeholder: document.getElementById('ignoredDepartmentsSearch')?.getAttribute('placeholder') || ''
     });
+
+    tagPickers.ignoredEmployees = new TagPicker({
+        pickerId: 'ignoredEmployeesPicker',
+        hiddenInputId: 'ignoredEmployeesInput',
+        options: metadata.employees,
+        placeholder: document.getElementById('ignoredEmployeesSearch')?.getAttribute('placeholder') || ''
+    });
 }
 
 function getIgnoredTitlesValue() {
@@ -417,6 +425,18 @@ function getIgnoredTitlesValue() {
 
 function getIgnoredDepartmentsValue() {
     const hidden = document.getElementById('ignoredDepartmentsInput');
+    if (!hidden) {
+        return '[]';
+    }
+    const value = hidden.value;
+    if (value && value.trim()) {
+        return value.trim();
+    }
+    return '[]';
+}
+
+function getIgnoredEmployeesValue() {
+    const hidden = document.getElementById('ignoredEmployeesInput');
     if (!hidden) {
         return '[]';
     }
@@ -572,6 +592,16 @@ function applySettings(settings) {
             tagPickers.ignoredTitles.setValue(values);
         } else {
             const el = document.getElementById('ignoredTitlesInput');
+            if (el) el.value = values.join(', ');
+        }
+    }
+    if (settings.ignoredEmployees !== undefined) {
+        const values = parseListString(settings.ignoredEmployees);
+        if (tagPickers.ignoredEmployees && tagPickers.ignoredEmployees.setValue) {
+            tagPickers.ignoredEmployees.setOptions(filterMetadata.employees || []);
+            tagPickers.ignoredEmployees.setValue(values);
+        } else {
+            const el = document.getElementById('ignoredEmployeesInput');
             if (el) el.value = values.join(', ');
         }
     }
@@ -919,6 +949,15 @@ function resetIgnoredTitles() {
     }
 }
 
+function resetIgnoredEmployees() {
+    if (tagPickers.ignoredEmployees && typeof tagPickers.ignoredEmployees.clear === 'function') {
+        tagPickers.ignoredEmployees.clear();
+    } else {
+        const el = document.getElementById('ignoredEmployeesInput');
+        if (el) el.value = '';
+    }
+}
+
 async function resetAllSettings() {
     if (confirm('Are you sure you want to reset all settings to defaults? This cannot be undone.')) {
         document.getElementById('chartTitle').value = 'Organization Chart';
@@ -936,6 +975,7 @@ async function resetAllSettings() {
     document.getElementById('hideNoTitle').checked = true;
     resetIgnoredDepartments();
     resetIgnoredTitles();
+    resetIgnoredEmployees();
         document.getElementById('printOrientation').value = 'landscape';
         document.getElementById('printSize').value = 'a4';
         const mlThreshold = document.getElementById('multiLineChildrenThreshold');
@@ -998,6 +1038,7 @@ async function saveAllSettings() {
         hideNoTitle: document.getElementById('hideNoTitle').checked,
         ignoredDepartments: getIgnoredDepartmentsValue(),
         ignoredTitles: getIgnoredTitlesValue(),
+    ignoredEmployees: getIgnoredEmployeesValue(),
         printOrientation: document.getElementById('printOrientation').value,
         printSize: document.getElementById('printSize').value,
         multiLineChildrenThreshold: parseInt(document.getElementById('multiLineChildrenThreshold')?.value || '20', 10),
@@ -1067,6 +1108,7 @@ function registerConfigActions() {
         'reset-collapse-level': resetCollapseLevel,
         'reset-ignored-titles': resetIgnoredTitles,
         'reset-ignored-departments': resetIgnoredDepartments,
+    'reset-ignored-employees': resetIgnoredEmployees,
         'reset-multiline-settings': resetMultiLineSettings,
         'reset-export-columns': resetExportColumns,
         'trigger-update': triggerUpdate,
@@ -1088,7 +1130,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     registerConfigActions();
 
     const metadata = await loadFilterMetadata();
-    filterMetadata = metadata || { jobTitles: [], departments: [] };
+    filterMetadata = metadata || { jobTitles: [], departments: [], employees: [] };
     initializeTagPickers(filterMetadata);
     await loadSettings();
 
