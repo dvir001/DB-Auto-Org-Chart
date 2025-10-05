@@ -529,6 +529,10 @@ function showHeaderContent() {
     if (headerContent) {
         headerContent.classList.remove('loading');
     }
+    const header = document.querySelector('.header');
+    if (header) {
+        header.classList.remove('is-loading');
+    }
     
     // Also show default logo if settings failed
     const logo = document.querySelector('.header-logo');
@@ -759,6 +763,10 @@ async function applySettings() {
     const headerContent = document.querySelector('.header-content');
     if (headerContent) {
         headerContent.classList.remove('loading');
+    }
+    const header = document.querySelector('.header');
+    if (header) {
+        header.classList.remove('is-loading');
     }
 
     // Reflect Compact Teams toggle state

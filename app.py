@@ -239,6 +239,16 @@ DEFAULT_SETTINGS = {
     'ignoredTitles': ''
 }
 
+
+def translate_placeholder(key, default=None, **kwargs):
+    """Basic translation helper used by templates until full i18n is wired."""
+    if default is not None:
+        try:
+            return default.format(**kwargs)
+        except Exception:
+            return default
+    return key
+
 def _apply_environment_overrides(settings):
     settings = settings.copy()
 
@@ -1027,12 +1037,17 @@ def configure():
     template_content = get_template('configure.html')
     settings = load_settings()
     favicon_path = settings.get('faviconPath', '/favicon.ico')
+    chart_title = (settings.get('chartTitle') or '').strip() or 'DB AutoOrgChart'
     
     # Inject favicon link into template
     favicon_link = f'<link rel="icon" type="image/x-icon" href="{favicon_path}">'
     template_content = template_content.replace('</head>', f'    {favicon_link}\n</head>')
     
-    return render_template_string(template_content)
+    return render_template_string(
+        template_content,
+        chart_title=chart_title,
+        _=translate_placeholder
+    )
 
 
 @app.route('/reports')

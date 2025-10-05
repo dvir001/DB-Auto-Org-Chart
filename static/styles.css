@@ -24,20 +24,102 @@ body {
 .header {
     background: linear-gradient(135deg, #0078d4 0%, #0b559f 100%);
     color: white;
-    padding: 8px 20px;
+    padding: 10px 20px;
+    position: relative;
+    display: flex;
     align-items: center;
-    justify-content: space-between;
+    min-height: 80px;
+    overflow: hidden;
 }
 
 .header-content {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 16px;
     max-height: 160px;
-    z-index: 1000;
+    z-index: 1;
+    width: 100%;
 }
 
-/* Hide header content until settings are loaded to prevent flash of default content */
+.header.is-loading .header-content {
+    visibility: hidden;
+}
+
+.header-skeleton {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: inherit;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.header:not(.is-loading) .header-skeleton {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.skeleton-logo,
+.skeleton-line,
+.skeleton-pill {
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.15) 25%, rgba(255, 255, 255, 0.35) 50%, rgba(255, 255, 255, 0.18) 75%);
+    background-size: 220px 100%;
+    animation: header-skeleton-shimmer 1.6s linear infinite;
+    border-radius: 999px;
+}
+
+.skeleton-logo {
+    width: 128px;
+    height: 32px;
+    border-radius: 10px;
+}
+
+.skeleton-text {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.skeleton-line {
+    height: 16px;
+    border-radius: 8px;
+}
+
+.skeleton-line--title {
+    width: clamp(180px, 28vw, 260px);
+}
+
+.skeleton-line--subtitle {
+    width: clamp(150px, 18vw, 220px);
+    opacity: 0.75;
+}
+
+.skeleton-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.skeleton-pill {
+    width: 102px;
+    height: 30px;
+}
+
+@keyframes header-skeleton-shimmer {
+    0% {
+        background-position: -220px 0;
+    }
+    100% {
+        background-position: 220px 0;
+    }
+}
+
 .header-content.loading {
     visibility: hidden;
 }
@@ -46,6 +128,14 @@ body {
     height: 28px;
     max-width: 140px;
     object-fit: contain;
+}
+
+.header-text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-right: auto;
+    min-width: 0;
 }
 
 /* Hide logo specifically until settings are loaded */
@@ -67,6 +157,7 @@ body {
 .header-actions {
     display: flex;
     gap: 8px;
+    flex-wrap: wrap;
 }
 
 .header-link {
