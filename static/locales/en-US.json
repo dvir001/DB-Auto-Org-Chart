@@ -308,6 +308,7 @@
 			"options": {
 				"missingManager": "Employees without managers",
 				"filteredLicensed": "Licensed users hidden by filters",
+				"filteredUsers": "Users hidden by filters",
 				"disabledLicensed": "Disabled users with active licenses"
 			}
 		},
@@ -373,6 +374,12 @@
 					"ignoredDepartment": "Department filtered",
 					"ignoredEmployee": "User filtered"
 				}
+			},
+			"filteredUsers": {
+				"summaryLabel": "Users hidden by filters",
+				"tableTitle": "Users hidden by org chart filters",
+				"empty": "No users are currently hidden by your filters.",
+				"countSummary": "Showing {count} users hidden by filters"
 			}
 		},
 		"errors": {

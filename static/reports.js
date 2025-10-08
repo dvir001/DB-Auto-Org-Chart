@@ -2,6 +2,15 @@ const API_BASE_URL = window.location.origin;
 let currentReportKey = 'missing-manager';
 let latestRecords = [];
 
+const FILTER_REASON_I18N_KEYS = {
+    filter_disabled: 'reports.types.filteredLicensed.reason.disabled',
+    filter_guest: 'reports.types.filteredLicensed.reason.guest',
+    filter_no_title: 'reports.types.filteredLicensed.reason.noTitle',
+    filter_ignored_title: 'reports.types.filteredLicensed.reason.ignoredTitle',
+    filter_ignored_department: 'reports.types.filteredLicensed.reason.ignoredDepartment',
+    filter_ignored_employee: 'reports.types.filteredLicensed.reason.ignoredEmployee',
+};
+
 const REPORT_CONFIGS = {
     'missing-manager': {
         dataPath: '/api/reports/missing-manager',
@@ -77,34 +86,50 @@ const REPORT_CONFIGS = {
             {
                 key: 'filterReasons',
                 labelKey: 'reports.types.filteredLicensed.columns.filterReasons',
-                render: (record, t) => {
-                    const reasons = record.filterReasons || [];
-                    if (!reasons.length) {
-                        return defaultCellValue([]);
-                    }
-                    const reasonLabels = {
-                        filter_disabled: 'reports.types.filteredLicensed.reason.disabled',
-                        filter_guest: 'reports.types.filteredLicensed.reason.guest',
-                        filter_no_title: 'reports.types.filteredLicensed.reason.noTitle',
-                        filter_ignored_title: 'reports.types.filteredLicensed.reason.ignoredTitle',
-                        filter_ignored_department: 'reports.types.filteredLicensed.reason.ignoredDepartment',
-                        filter_ignored_employee: 'reports.types.filteredLicensed.reason.ignoredEmployee',
-                    };
-
-                    const container = document.createElement('div');
-                    container.className = 'reason-badges';
-                    reasons.forEach((reasonKey) => {
-                        const badge = document.createElement('span');
-                        badge.className = 'badge badge--neutral';
-                        badge.textContent = t(reasonLabels[reasonKey] || reasonKey);
-                        container.appendChild(badge);
-                    });
-                    return container;
-                },
+                render: renderFilterReasonsCell,
+            },
+        ],
+    },
+    'filtered-users': {
+        dataPath: '/api/reports/filtered-users',
+        exportPath: '/api/reports/filtered-users/export',
+        summaryLabelKey: 'reports.types.filteredUsers.summaryLabel',
+        tableTitleKey: 'reports.types.filteredUsers.tableTitle',
+        emptyKey: 'reports.types.filteredUsers.empty',
+        countSummaryKey: 'reports.types.filteredUsers.countSummary',
+        buildStatusParams: (records) => ({ count: records.length }),
+        columns: [
+            { key: 'name', labelKey: 'reports.table.columns.name' },
+            { key: 'title', labelKey: 'reports.table.columns.title' },
+            { key: 'department', labelKey: 'reports.table.columns.department' },
+            { key: 'email', labelKey: 'reports.table.columns.email' },
+            {
+                key: 'filterReasons',
+                labelKey: 'reports.types.filteredLicensed.columns.filterReasons',
+                render: renderFilterReasonsCell,
             },
         ],
     },
 };
+
+function renderFilterReasonsCell(record, t) {
+    const reasons = record.filterReasons || [];
+    if (!reasons.length) {
+        return defaultCellValue([]);
+    }
+
+    const container = document.createElement('div');
+    container.className = 'reason-badges';
+
+    reasons.forEach((reasonKey) => {
+        const badge = document.createElement('span');
+        badge.className = 'badge badge--neutral';
+        badge.textContent = t(FILTER_REASON_I18N_KEYS[reasonKey] || reasonKey);
+        container.appendChild(badge);
+    });
+
+    return container;
+}
 
 function qs(id) {
     return document.getElementById(id);

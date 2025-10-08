@@ -162,6 +162,7 @@ MISSING_MANAGER_FILE = os.path.join(DATA_DIR, 'missing_manager_records.json')
 EMPLOYEE_LIST_FILE = os.path.join(DATA_DIR, 'employee_list.json')
 DISABLED_LICENSE_FILE = os.path.join(DATA_DIR, 'disabled_with_license_records.json')
 FILTERED_LICENSE_FILE = os.path.join(DATA_DIR, 'filtered_with_license_records.json')
+FILTERED_USERS_FILE = os.path.join(DATA_DIR, 'filtered_user_records.json')
 
 # Configuration for file uploads (removed SVG for security)
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
@@ -455,6 +456,7 @@ def fetch_all_employees(token=None):
 
     employees = []
     filtered_with_license = []
+    filtered_users = []
 
     sku_map = fetch_subscribed_sku_map(token)
 
@@ -522,6 +524,26 @@ def fetch_all_employees(token=None):
                         filtered_reasons.append('filter_ignored_employee')
 
                     if filtered_reasons:
+                        base_record = {
+                            'id': user.get('id'),
+                            'name': display_name or 'Unknown',
+                            'title': job_title_val or 'No Title',
+                            'department': department_val or 'No Department',
+                            'email': primary_email or user_principal_name or '',
+                            'userPrincipalName': user_principal_name,
+                            'phone': user.get('mobilePhone') or '',
+                            'businessPhone': business_phone,
+                            'location': user.get('officeLocation') or '',
+                            'city': user.get('city') or '',
+                            'state': user.get('state') or '',
+                            'country': user.get('country') or '',
+                            'usageLocation': user.get('usageLocation') or '',
+                            'accountEnabled': user.get('accountEnabled', True),
+                            'userType': user.get('userType') or '',
+                            'filterReasons': filtered_reasons
+                        }
+                        filtered_users.append(base_record)
+
                         if assigned_licenses:
                             license_sku_ids = []
                             license_labels = []
@@ -531,31 +553,20 @@ def fetch_all_employees(token=None):
                                     continue
                                 sku_key = str(sku_id).lower()
                                 license_sku_ids.append(str(sku_id))
-                                friendly_name = sku_map.get(sku_key) or sku_map.get(sku_key.upper()) or str(sku_id)
+                                friendly_name = (
+                                    sku_map.get(sku_key)
+                                    or sku_map.get(sku_key.upper())
+                                    or str(sku_id)
+                                )
                                 license_labels.append(friendly_name)
 
                             license_labels = sorted(set(license_labels), key=lambda item: item.lower())
 
                             filtered_with_license.append({
-                                'id': user.get('id'),
-                                'name': display_name or 'Unknown',
-                                'title': job_title_val or 'No Title',
-                                'department': department_val or 'No Department',
-                                'email': primary_email or user_principal_name or '',
-                                'userPrincipalName': user_principal_name,
-                                'phone': user.get('mobilePhone') or '',
-                                'businessPhone': business_phone,
-                                'location': user.get('officeLocation') or '',
-                                'city': user.get('city') or '',
-                                'state': user.get('state') or '',
-                                'country': user.get('country') or '',
-                                'usageLocation': user.get('usageLocation') or '',
-                                'accountEnabled': user.get('accountEnabled', True),
-                                'userType': user.get('userType') or '',
+                                **base_record,
                                 'licenseCount': len(license_sku_ids),
                                 'licenseSkus': license_labels,
-                                'licenseSkuIds': license_sku_ids,
-                                'filterReasons': filtered_reasons
+                                'licenseSkuIds': license_sku_ids
                             })
                         continue
 
@@ -637,8 +648,13 @@ def fetch_all_employees(token=None):
             logger.error(f"Unexpected error: {e}")
             break
     
-    logger.info(f"Fetched {len(employees)} employees from Graph API (filtered {len(filtered_with_license)} with licenses)")
-    return employees, filtered_with_license
+    logger.info(
+        "Fetched %s employees from Graph API (filtered total %s, with licenses %s)",
+        len(employees),
+        len(filtered_users),
+        len(filtered_with_license)
+    )
+    return employees, filtered_with_license, filtered_users
 
 
 def fetch_subscribed_sku_map(token):
@@ -993,7 +1009,7 @@ def update_employee_data():
         settings = load_settings()
         months_threshold = settings.get('newEmployeeMonths', 3)
 
-        employees, filtered_with_license = fetch_all_employees(token=token)
+        employees, filtered_with_license, filtered_users = fetch_all_employees(token=token)
 
         if employees:
             ignored_employee_set = parse_ignored_employees(settings)
@@ -1067,6 +1083,16 @@ def update_employee_data():
                 logger.error(f"[{datetime.now()}] Could not build hierarchy from employee data")
         else:
             logger.error(f"[{datetime.now()}] No employees fetched from Graph API")
+
+        try:
+            filtered_user_records = filtered_users or []
+            with open(FILTERED_USERS_FILE, 'w') as report_file:
+                json.dump(filtered_user_records, report_file, indent=2)
+            logger.info(
+                f"Updated filtered users report cache with {len(filtered_user_records)} records"
+            )
+        except Exception as report_error:
+            logger.error(f"Failed to write filtered users report cache: {report_error}")
 
         try:
             filtered_license_records = filtered_with_license or []
@@ -1494,7 +1520,7 @@ def get_employees():
                 employees = flatten_hierarchy_to_employee_list(data)
             if not employees:
                 logger.info("Employee cache unavailable; fetching employees from Graph API for top user override")
-                employees, _ = fetch_all_employees()
+                employees, _, _ = fetch_all_employees()
                 if employees:
                     try:
                         with open(EMPLOYEE_LIST_FILE, 'w') as cache_file:
@@ -1558,7 +1584,7 @@ def get_employees():
         
         if not data:
             logger.warning("No hierarchical data available")
-            employees, _ = fetch_all_employees()
+            employees, _, _ = fetch_all_employees()
             if employees:
                 data = {
                     'id': 'root',
@@ -1689,7 +1715,7 @@ def test_hierarchy(email):
         import tempfile
         
         # Fetch fresh employees
-        employees, _ = fetch_all_employees()
+        employees, _, _ = fetch_all_employees()
         if not employees:
             return jsonify({'error': 'No employees found'}), 404
             
@@ -2158,6 +2184,30 @@ def _load_filtered_license_data(force_refresh=False):
         return []
 
 
+def _load_filtered_user_data(force_refresh=False):
+    try:
+        if force_refresh or not os.path.exists(FILTERED_USERS_FILE):
+            logger.info("Refreshing filtered users report cache")
+            update_employee_data()
+
+        if not os.path.exists(FILTERED_USERS_FILE):
+            logger.warning("Filtered users report cache not found after refresh")
+            return []
+
+        with open(FILTERED_USERS_FILE, 'r') as report_file:
+            data = json.load(report_file)
+            if isinstance(data, list):
+                return data
+            logger.warning("Unexpected filtered users report format; ignoring contents")
+            return []
+    except json.JSONDecodeError as decode_error:
+        logger.error(f"Failed to parse filtered users report cache: {decode_error}")
+        return []
+    except Exception as error:
+        logger.error(f"Unexpected error loading filtered users report cache: {error}")
+        return []
+
+
 @app.route('/api/reports/missing-manager')
 @require_auth
 def get_missing_manager_report():
@@ -2317,6 +2367,92 @@ def export_disabled_licensed_report():
         )
     except Exception as e:
         logger.error(f"Error exporting disabled licensed report: {e}")
+        return jsonify({'error': 'Failed to export report'}), 500
+
+
+@app.route('/api/reports/filtered-users')
+@require_auth
+def get_filtered_users_report():
+    try:
+        refresh = request.args.get('refresh', 'false').lower() == 'true'
+        records = _load_filtered_user_data(force_refresh=refresh)
+        generated_at = None
+        if os.path.exists(FILTERED_USERS_FILE):
+            generated_at = datetime.fromtimestamp(os.path.getmtime(FILTERED_USERS_FILE)).isoformat()
+
+        return jsonify({
+            'records': records,
+            'count': len(records),
+            'generatedAt': generated_at
+        })
+    except Exception as e:
+        logger.error(f"Error loading filtered users report: {e}")
+        return jsonify({'error': 'Failed to load report data'}), 500
+
+
+@app.route('/api/reports/filtered-users/export')
+@require_auth
+def export_filtered_users_report():
+    if not Workbook:
+        return jsonify({'error': 'XLSX export not available - openpyxl not installed'}), 500
+
+    try:
+        refresh = request.args.get('refresh', 'false').lower() == 'true'
+        records = _load_filtered_user_data(force_refresh=refresh)
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Filtered Users"
+
+        headers = [
+            ('name', 'Name'),
+            ('email', 'Email'),
+            ('department', 'Department'),
+            ('title', 'Title'),
+            ('filterReasons', 'Filter Reasons')
+        ]
+
+        reason_labels = {
+            'filter_disabled': 'Hidden: disabled user',
+            'filter_guest': 'Hidden: guest account',
+            'filter_no_title': 'Hidden: missing title',
+            'filter_ignored_title': 'Hidden: ignored title',
+            'filter_ignored_department': 'Hidden: ignored department',
+            'filter_ignored_employee': 'Hidden: ignored user'
+        }
+
+        for column_index, (_, header_text) in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=column_index, value=header_text)
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+            cell.alignment = Alignment(horizontal="center")
+
+        for row_index, record in enumerate(records, start=2):
+            for column_index, (key, _) in enumerate(headers, 1):
+                value = record.get(key)
+                if key == 'filterReasons' and isinstance(value, list):
+                    converted = [reason_labels.get(reason, reason) for reason in value]
+                    value = ", ".join(converted)
+                ws.cell(row=row_index, column=column_index, value=value)
+
+        for col in range(1, len(headers) + 1):
+            column_letter = get_column_letter(col)
+            ws.column_dimensions[column_letter].width = 24
+
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+
+        filename = f"filtered-users-{datetime.now().strftime('%Y-%m-%d')}.xlsx"
+
+        return send_file(
+            output,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+    except Exception as e:
+        logger.error(f"Error exporting filtered users report: {e}")
         return jsonify({'error': 'Failed to export report'}), 500
 
 
