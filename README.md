@@ -7,6 +7,7 @@
 - Frontend refactor: all inline scripts/styles removed, `configure` and `search_test` now load modular JS/CSS bundles with shared CSS variables and safer DOM updates.
 - Export & print tooling: one-click exports for the visible chart in SVG/PNG/PDF, a server-backed `/api/export-xlsx` endpoint wired to `Export to XLSX` UI controls, and a print-optimised window.
 - Discovery & filtering perks: hide/show subtrees per user with persistent local storage, quick reset of hidden teams, enriched search/top-level selection helpers, configurable filters to drop disabled or guest accounts from the dataset by default, and the Compact Teams toggle available to every viewer.
+- Admin insight upgrades: refreshed reporting dashboard with missing-manager, disabled-but-licensed, and filter-hidden licensed user summaries plus one-click XLSX exports.
 - Operational polish: unused static assets trimmed, scheduler + data directories validated on startup, and logging made more actionable for Azure Graph interactions.
 
 DB-AutoOrgChart is an application which connects to your Azure AD/Entra via Graph API, retrieves the appropriate information (employee name, title, department, 'reports to' etc.) then builds an interactive Organisation Chart based upon that information. It can be run as an App Service in Azure / Google Cloud etc or you can run it locally. NOTE: You will need the appropriate permissions in Azure to set up Graph API which is a requirement for this application to function. You only need to do this once, so someone with those permissions can set it up for you then provide the environment variables to you.
@@ -19,6 +20,7 @@ In short, these are the main features of DB-AutoOrgChart:
 - Interactive D3.js-based org chart with zoom and pan
 - Detailed employee information panel
 - Print-friendly org chart export
+- Admin reporting dashboard with refreshable XLSX exports (missing managers, disabled accounts holding licenses, filtered licensed users)
 - Automatic daily updates at 20:00
 - Color-coded hierarchy levels
 - Responsive design for mobile and desktop
@@ -46,6 +48,7 @@ It makes one API call per day at 20:00 and saves the acquired data within employ
   - In your app registration, open **API permissions**
   - Add a permission ➜ **Microsoft Graph** ➜ **Application permissions**
   - Select **User.Read.All**
+  - Select **LicenseAssignment.Read.All** *(required for the reporting dashboard to list licensed users)*
   - Click **Grant admin consent** (requires admin privileges)
 
 3. **Create a client secret**

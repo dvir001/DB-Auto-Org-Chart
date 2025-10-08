@@ -1,8 +1,117 @@
 const API_BASE_URL = window.location.origin;
+let currentReportKey = 'missing-manager';
 let latestRecords = [];
+
+const REPORT_CONFIGS = {
+    'missing-manager': {
+        dataPath: '/api/reports/missing-manager',
+        exportPath: '/api/reports/missing-manager/export',
+        summaryLabelKey: 'reports.summary.totalLabel',
+        tableTitleKey: 'reports.table.title',
+        emptyKey: 'reports.table.empty',
+        countSummaryKey: 'reports.table.countSummary',
+        buildStatusParams: (records) => ({ count: records.length }),
+        columns: [
+            { key: 'name', labelKey: 'reports.table.columns.name' },
+            { key: 'title', labelKey: 'reports.table.columns.title' },
+            { key: 'department', labelKey: 'reports.table.columns.department' },
+            { key: 'email', labelKey: 'reports.table.columns.email' },
+            { key: 'managerName', labelKey: 'reports.table.columns.manager' },
+            {
+                key: 'reason',
+                labelKey: 'reports.table.columns.reason',
+                render: (record, t) => createReasonBadge(record.reason, t),
+            },
+        ],
+    },
+    'disabled-licensed': {
+        dataPath: '/api/reports/disabled-licensed',
+        exportPath: '/api/reports/disabled-licensed/export',
+        summaryLabelKey: 'reports.types.disabledLicensed.summaryLabel',
+        tableTitleKey: 'reports.types.disabledLicensed.tableTitle',
+        emptyKey: 'reports.types.disabledLicensed.empty',
+        countSummaryKey: 'reports.types.disabledLicensed.countSummary',
+        showLicenseSummary: true,
+        licenseSummaryLabelKey: 'reports.summary.licensesLabel',
+        buildStatusParams: (records) => ({
+            count: records.length,
+            licenses: records.reduce((total, item) => total + (item.licenseCount || 0), 0),
+        }),
+        columns: [
+            { key: 'name', labelKey: 'reports.table.columns.name' },
+            { key: 'title', labelKey: 'reports.table.columns.title' },
+            { key: 'department', labelKey: 'reports.table.columns.department' },
+            { key: 'email', labelKey: 'reports.table.columns.email' },
+            { key: 'licenseCount', labelKey: 'reports.table.columns.licenseCount' },
+            {
+                key: 'licenseSkus',
+                labelKey: 'reports.table.columns.licenses',
+                render: (record) => (record.licenseSkus || []).join(', '),
+            },
+        ],
+    },
+    'filtered-licensed': {
+        dataPath: '/api/reports/filtered-licensed',
+        exportPath: '/api/reports/filtered-licensed/export',
+        summaryLabelKey: 'reports.types.filteredLicensed.summaryLabel',
+        tableTitleKey: 'reports.types.filteredLicensed.tableTitle',
+        emptyKey: 'reports.types.filteredLicensed.empty',
+        countSummaryKey: 'reports.types.filteredLicensed.countSummary',
+        showLicenseSummary: true,
+        licenseSummaryLabelKey: 'reports.summary.licensesLabel',
+        buildStatusParams: (records) => ({
+            count: records.length,
+            licenses: records.reduce((total, item) => total + (item.licenseCount || 0), 0),
+        }),
+        columns: [
+            { key: 'name', labelKey: 'reports.table.columns.name' },
+            { key: 'title', labelKey: 'reports.table.columns.title' },
+            { key: 'department', labelKey: 'reports.table.columns.department' },
+            { key: 'email', labelKey: 'reports.table.columns.email' },
+            { key: 'licenseCount', labelKey: 'reports.table.columns.licenseCount' },
+            {
+                key: 'licenseSkus',
+                labelKey: 'reports.table.columns.licenses',
+                render: (record) => (record.licenseSkus || []).join(', '),
+            },
+            {
+                key: 'filterReasons',
+                labelKey: 'reports.types.filteredLicensed.columns.filterReasons',
+                render: (record, t) => {
+                    const reasons = record.filterReasons || [];
+                    if (!reasons.length) {
+                        return defaultCellValue([]);
+                    }
+                    const reasonLabels = {
+                        filter_disabled: 'reports.types.filteredLicensed.reason.disabled',
+                        filter_guest: 'reports.types.filteredLicensed.reason.guest',
+                        filter_no_title: 'reports.types.filteredLicensed.reason.noTitle',
+                        filter_ignored_title: 'reports.types.filteredLicensed.reason.ignoredTitle',
+                        filter_ignored_department: 'reports.types.filteredLicensed.reason.ignoredDepartment',
+                        filter_ignored_employee: 'reports.types.filteredLicensed.reason.ignoredEmployee',
+                    };
+
+                    const container = document.createElement('div');
+                    container.className = 'reason-badges';
+                    reasons.forEach((reasonKey) => {
+                        const badge = document.createElement('span');
+                        badge.className = 'badge badge--neutral';
+                        badge.textContent = t(reasonLabels[reasonKey] || reasonKey);
+                        container.appendChild(badge);
+                    });
+                    return container;
+                },
+            },
+        ],
+    },
+};
 
 function qs(id) {
     return document.getElementById(id);
+}
+
+function getTranslator() {
+    return window.i18n?.t || ((key) => key);
 }
 
 function formatDate(value) {
@@ -34,28 +143,41 @@ function formatDate(value) {
     }
 }
 
-function toggleLoading(isLoading) {
+function applyReportContext(config) {
+    const t = getTranslator();
+    const labelEl = qs('primarySummaryLabel');
+    if (labelEl) {
+        labelEl.textContent = t(config.summaryLabelKey);
+    }
+    const titleEl = qs('tableTitle');
+    if (titleEl) {
+        titleEl.textContent = t(config.tableTitleKey);
+    }
+}
+
+function toggleLoading(isLoading, config, records = []) {
     const refreshBtn = qs('refreshReportBtn');
     const exportBtn = qs('exportReportBtn');
     const statusEl = qs('tableStatus');
-    const t = window.i18n?.t || ((key) => key);
+    const t = getTranslator();
 
     if (refreshBtn) {
         refreshBtn.disabled = isLoading;
         refreshBtn.setAttribute('aria-busy', String(isLoading));
     }
     if (exportBtn) {
-        exportBtn.disabled = isLoading || latestRecords.length === 0;
+        exportBtn.disabled = isLoading || records.length === 0;
     }
     if (statusEl) {
-        const key = isLoading ? 'reports.table.loading' : 'reports.table.updated';
-        statusEl.textContent = t(key);
+        statusEl.textContent = isLoading
+            ? t('reports.table.loading')
+            : t(config.countSummaryKey, config.buildStatusParams(records));
     }
 }
 
 function showError(messageKey, detail) {
     const banner = qs('errorBanner');
-    const t = window.i18n?.t || ((key) => key);
+    const t = getTranslator();
     if (!banner) {
         return;
     }
@@ -72,10 +194,15 @@ function clearError() {
     }
 }
 
-function renderSummary(records, generatedAt) {
-    const countEl = qs('missingCount');
+function renderSummary(records, generatedAt, config) {
+    applyReportContext(config);
+    const countEl = qs('primarySummaryValue');
     const generatedEl = qs('generatedAt');
-    const t = window.i18n?.t || ((key) => key);
+    const licenseCard = qs('licenseSummaryCard');
+    const licenseLabel = qs('licenseSummaryLabel');
+    const licenseValue = qs('licenseSummaryValue');
+    const t = getTranslator();
+    const summaryMetrics = config.buildStatusParams ? config.buildStatusParams(records) : { count: records.length };
 
     if (countEl) {
         countEl.textContent = records.length.toLocaleString();
@@ -87,6 +214,30 @@ function renderSummary(records, generatedAt) {
             generatedEl.textContent = t('reports.summary.generatedPending');
         }
     }
+
+    if (licenseCard && licenseLabel && licenseValue) {
+        if (config.showLicenseSummary) {
+            const labelKey = config.licenseSummaryLabelKey || 'reports.summary.licensesLabel';
+            licenseLabel.textContent = t(labelKey);
+            const totalLicenses = summaryMetrics.licenses ?? 0;
+            licenseValue.textContent = Number.isFinite(totalLicenses)
+                ? totalLicenses.toLocaleString()
+                : '—';
+            licenseCard.classList.remove('is-hidden');
+        } else {
+            licenseCard.classList.add('is-hidden');
+        }
+    }
+}
+
+function defaultCellValue(value) {
+    if (Array.isArray(value)) {
+        return value.length ? value.join(', ') : '—';
+    }
+    if (value === null || value === undefined || value === '') {
+        return '—';
+    }
+    return value;
 }
 
 function reasonBadgeClass(reason) {
@@ -100,13 +251,36 @@ function reasonBadgeClass(reason) {
     }
 }
 
-function renderTable(records) {
-    const tbody = qs('reportTableBody');
-    const t = window.i18n?.t || ((key) => key);
+function createReasonBadge(reason, t) {
+    const badge = document.createElement('span');
+    badge.className = reasonBadgeClass(reason);
+    const labels = {
+        no_manager: 'reports.table.reasonLabels.no_manager',
+        manager_not_found: 'reports.table.reasonLabels.manager_not_found',
+        detached: 'reports.table.reasonLabels.detached',
+    };
+    const labelKey = labels[reason] || 'reports.table.reasonLabels.unknown';
+    badge.textContent = t(labelKey);
+    return badge;
+}
 
-    if (!tbody) {
+function renderTable(records, config) {
+    const thead = qs('reportTableHead');
+    const tbody = qs('reportTableBody');
+    const t = getTranslator();
+
+    if (!thead || !tbody) {
         return;
     }
+
+    thead.innerHTML = '';
+    const headerRow = document.createElement('tr');
+    config.columns.forEach((column) => {
+        const th = document.createElement('th');
+        th.textContent = t(column.labelKey);
+        headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
 
     tbody.innerHTML = '';
 
@@ -114,59 +288,43 @@ function renderTable(records) {
         const emptyRow = document.createElement('tr');
         emptyRow.className = 'empty-row';
         const cell = document.createElement('td');
-        cell.colSpan = 8;
-        cell.textContent = t('reports.table.empty');
+        cell.colSpan = config.columns.length;
+        cell.textContent = t(config.emptyKey);
         emptyRow.appendChild(cell);
         tbody.appendChild(emptyRow);
         return;
     }
 
-    const reasonLabelFor = (reason) => {
-        const labels = {
-            no_manager: 'reports.table.reasonLabels.no_manager',
-            manager_not_found: 'reports.table.reasonLabels.manager_not_found',
-            detached: 'reports.table.reasonLabels.detached',
-        };
-        const key = labels[reason] || 'reports.table.reasonLabels.unknown';
-        return t(key);
-    };
-
     records.forEach((record) => {
         const row = document.createElement('tr');
-        const cells = [
-            record.name || '—',
-            record.title || '—',
-            record.department || '—',
-            record.email || '—',
-            record.phone || '—',
-            record.location || '—',
-            record.managerName || '—',
-        ];
-
-        cells.forEach((value) => {
+        config.columns.forEach((column) => {
             const cell = document.createElement('td');
-            cell.textContent = value;
+            let value;
+            if (column.render) {
+                value = column.render(record, t);
+            } else {
+                value = defaultCellValue(record[column.key]);
+            }
+
+            if (value instanceof HTMLElement) {
+                cell.appendChild(value);
+            } else {
+                cell.textContent = value || '—';
+            }
+
             row.appendChild(cell);
         });
-
-        const reasonCell = document.createElement('td');
-        const badge = document.createElement('span');
-        badge.className = reasonBadgeClass(record.reason);
-        badge.textContent = reasonLabelFor(record.reason);
-        reasonCell.appendChild(badge);
-        row.appendChild(reasonCell);
-
         tbody.appendChild(row);
     });
 }
 
 async function loadReport({ refresh = false } = {}) {
-    const t = window.i18n?.t || ((key) => key);
-    toggleLoading(true);
+    const config = REPORT_CONFIGS[currentReportKey] || REPORT_CONFIGS['missing-manager'];
+    toggleLoading(true, config);
     clearError();
 
     try {
-        const url = new URL('/api/reports/missing-manager', API_BASE_URL);
+        const url = new URL(config.dataPath, API_BASE_URL);
         if (refresh) {
             url.searchParams.set('refresh', 'true');
         }
@@ -176,35 +334,30 @@ async function loadReport({ refresh = false } = {}) {
         }
         const payload = await response.json();
         latestRecords = Array.isArray(payload.records) ? payload.records : [];
-        renderSummary(latestRecords, payload.generatedAt);
-        renderTable(latestRecords);
-        toggleLoading(false);
-        const statusEl = qs('tableStatus');
-        if (statusEl) {
-            const countText = t('reports.table.countSummary', { count: latestRecords.length });
-            statusEl.textContent = countText;
-        }
+        renderSummary(latestRecords, payload.generatedAt, config);
+        renderTable(latestRecords, config);
+        toggleLoading(false, config, latestRecords);
     } catch (error) {
-        toggleLoading(false);
+        toggleLoading(false, config, []);
         showError('reports.errors.loadFailed', error.message);
-        renderSummary([], null);
-        renderTable([]);
+        renderSummary([], null, config);
+        renderTable([], config);
     }
 }
 
 async function exportReport() {
-    const t = window.i18n?.t || ((key) => key);
+    const config = REPORT_CONFIGS[currentReportKey] || REPORT_CONFIGS['missing-manager'];
     clearError();
 
     try {
-        const url = new URL('/api/reports/missing-manager/export', API_BASE_URL);
+        const url = new URL(config.exportPath, API_BASE_URL);
         const response = await fetch(url, { credentials: 'include' });
         if (!response.ok) {
             throw new Error(`${response.status}`);
         }
 
         const blob = await response.blob();
-        let filename = `missing-managers-${new Date().toISOString().slice(0, 10)}.xlsx`;
+        let filename = `report-${new Date().toISOString().slice(0, 10)}.xlsx`;
         const disposition = response.headers.get('Content-Disposition') || response.headers.get('content-disposition');
         if (disposition) {
             const match = disposition.match(/filename="?([^";]+)"?/i);
@@ -227,23 +380,55 @@ async function exportReport() {
 }
 
 async function initializeReportsPage() {
-    await window.i18n?.ready;
-    const t = window.i18n?.t || ((key) => key);
+    const htmlElement = document.documentElement;
+    const i18nReadyPromise = window.i18n?.ready;
 
-    const refreshBtn = qs('refreshReportBtn');
-    if (refreshBtn) {
-        refreshBtn.addEventListener('click', () => loadReport({ refresh: true }));
-        refreshBtn.title = t('reports.buttons.refreshTooltip');
+    try {
+        if (i18nReadyPromise && typeof i18nReadyPromise.then === 'function') {
+            try {
+                await i18nReadyPromise;
+            } catch (error) {
+                console.error('Failed to load translations for reports page:', error);
+            }
+        }
+
+        const reportSelect = qs('reportTypeSelect');
+        if (reportSelect) {
+            reportSelect.value = currentReportKey;
+            reportSelect.addEventListener('change', () => {
+                currentReportKey = reportSelect.value;
+                const config = REPORT_CONFIGS[currentReportKey] || REPORT_CONFIGS['missing-manager'];
+                renderSummary([], null, config);
+                renderTable([], config);
+                loadReport().catch((error) => {
+                    console.error('Failed to load report:', error);
+                });
+            });
+        }
+
+        const refreshBtn = qs('refreshReportBtn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => loadReport({ refresh: true }));
+            const t = getTranslator();
+            refreshBtn.title = t('reports.buttons.refreshTooltip');
+        }
+
+        const exportBtn = qs('exportReportBtn');
+        if (exportBtn) {
+            exportBtn.addEventListener('click', exportReport);
+            const t = getTranslator();
+            exportBtn.title = t('reports.buttons.exportTooltip');
+            exportBtn.disabled = true;
+        }
+
+        const initialConfig = REPORT_CONFIGS[currentReportKey];
+        renderSummary([], null, initialConfig);
+        renderTable([], initialConfig);
+
+        await loadReport();
+    } finally {
+        htmlElement.classList.remove('i18n-loading');
     }
-
-    const exportBtn = qs('exportReportBtn');
-    if (exportBtn) {
-        exportBtn.addEventListener('click', exportReport);
-        exportBtn.title = t('reports.buttons.exportTooltip');
-        exportBtn.disabled = true;
-    }
-
-    await loadReport();
 }
 
 document.addEventListener('DOMContentLoaded', () => {

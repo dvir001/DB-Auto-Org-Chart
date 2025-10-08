@@ -10,6 +10,12 @@ body {
     margin: 0;
     padding: 0;
     overflow: hidden;
+    opacity: 1;
+    transition: opacity 0.2s ease-in-out;
+}
+
+html.i18n-loading body {
+    opacity: 0;
 }
 
 .container {

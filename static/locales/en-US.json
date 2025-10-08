@@ -303,6 +303,14 @@
 			"title": "Admin Reports",
 			"subtitle": "Analyze data quality and export insights"
 		},
+		"selector": {
+			"label": "Report type",
+			"options": {
+				"missingManager": "Employees without managers",
+				"filteredLicensed": "Licensed users hidden by filters",
+				"disabledLicensed": "Disabled users with active licenses"
+			}
+		},
 		"buttons": {
 			"refresh": "Refresh Data",
 			"refreshTooltip": "Regenerate the report with the latest directory data",
@@ -310,15 +318,16 @@
 			"exportTooltip": "Download this report as an Excel workbook"
 		},
 		"summary": {
-			"totalLabel": "Total Users Missing Manager",
+			"totalLabel": "Employees without managers",
 			"generatedLabel": "Last Generated",
-			"generatedPending": "Pending"
+			"generatedPending": "Pending",
+			"licensesLabel": "Total Licenses"
 		},
 		"table": {
-			"title": "Employees without Managers",
+			"title": "Employees without managers",
 			"loading": "Loading report...",
 			"updated": "Report loaded",
-			"countSummary": "Showing {count} employees",
+			"countSummary": "Showing {count} employees without managers",
 			"empty": "No users are currently missing manager information. Great job!",
 			"columns": {
 				"name": "Name",
@@ -326,16 +335,44 @@
 				"department": "Department",
 				"email": "Email",
 				"phone": "Phone",
-				"businessPhone": "Business Phone",
 				"location": "Location",
 				"manager": "Manager",
-				"reason": "Reason"
+				"reason": "Reason",
+				"userPrincipalName": "User Principal Name",
+				"usageLocation": "Usage Location",
+				"licenseCount": "License Count",
+				"licenses": "Licenses"
 			},
 			"reasonLabels": {
-				"no_manager": "No manager assigned",
-				"manager_not_found": "Manager not found in data",
-				"detached": "Detached from hierarchy",
+				"no_manager": "No manager",
+				"manager_not_found": "Manager not found",
+				"detached": "Detached hierarchy",
 				"unknown": "Unknown reason"
+			}
+		},
+		"types": {
+			"disabledLicensed": {
+				"summaryLabel": "Disabled users still holding licenses",
+				"tableTitle": "Disabled users still assigned licenses",
+				"empty": "No disabled users currently hold licenses.",
+				"countSummary": "Showing {count} disabled users holding {licenses} licenses"
+			},
+			"filteredLicensed": {
+				"summaryLabel": "Licensed users hidden by filters",
+				"tableTitle": "Licensed users hidden by org chart filters",
+				"empty": "No licensed users are currently hidden by your filters.",
+				"countSummary": "Showing {count} hidden licensed users holding {licenses} licenses",
+				"columns": {
+					"filterReasons": "Reason"
+				},
+				"reason": {
+					"disabled": "Disabled",
+					"guest": "Guest",
+					"noTitle": "Title missing",
+					"ignoredTitle": "Title filtered",
+					"ignoredDepartment": "Department filtered",
+					"ignoredEmployee": "User filtered"
+				}
 			}
 		},
 		"errors": {

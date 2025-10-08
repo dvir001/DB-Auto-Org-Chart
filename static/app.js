@@ -1093,22 +1093,27 @@ async function checkAuthentication() {
 }
 
 async function init() {
-    isAuthenticated = await checkAuthentication();
-    if (isAuthenticated) {
-        userCompactPreference = null;
-    } else {
-        loadStoredCompactPreference();
-    }
-    loadStoredEmployeeCountPreference();
-    loadStoredProfileImagePreference();
-    loadStoredNamePreference();
-    loadStoredDepartmentPreference();
-    loadStoredJobTitlePreference();
-    await waitForTranslations();
-    await updateAuthDependentUI();
-    await loadSettings();
-    
+    const htmlElement = document.documentElement;
+
     try {
+        isAuthenticated = await checkAuthentication();
+        if (isAuthenticated) {
+            userCompactPreference = null;
+        } else {
+            loadStoredCompactPreference();
+        }
+        loadStoredEmployeeCountPreference();
+        loadStoredProfileImagePreference();
+        loadStoredNamePreference();
+        loadStoredDepartmentPreference();
+        loadStoredJobTitlePreference();
+
+        await waitForTranslations();
+        htmlElement.classList.remove('i18n-loading');
+
+        await updateAuthDependentUI();
+        await loadSettings();
+
         const response = await fetch(`${API_BASE_URL}/api/employees`);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -1144,6 +1149,8 @@ async function init() {
                 loading.style.display = '';
             }
         }
+    } finally {
+        htmlElement.classList.remove('i18n-loading');
     }
 }
 
