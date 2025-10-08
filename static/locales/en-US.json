@@ -46,6 +46,9 @@
 				"profileTitle": "Toggle profile images",
 				"profileHide": "Hide profile images",
 				"profileShow": "Show profile images",
+				"nameTitle": "Toggle name visibility",
+				"nameHide": "Hide names",
+				"nameShow": "Show names",
 				"departmentTitle": "Toggle department visibility",
 				"departmentHide": "Hide departments",
 				"departmentShow": "Show departments",
@@ -98,6 +101,8 @@
 		"employee": {
 			"noTitle": "No title available",
 			"detail": {
+				"nameHidden": "Name hidden",
+				"nameUnknown": "Unknown name",
 				"department": "Department",
 				"departmentUnknown": "Department unavailable",
 				"email": "Email",

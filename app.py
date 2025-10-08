@@ -201,6 +201,7 @@ DEFAULT_SETTINGS = {
     'collapseLevel': '2',
     'searchAutoExpand': True,
     'searchHighlight': True,
+    'showNames': True,
     'showDepartments': True,
     'showJobTitles': True,
     'showEmployeeCount': True,

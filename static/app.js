@@ -25,6 +25,9 @@ let serverShowDepartments = null;
 const SHOW_JOB_TITLES_PREFERENCE_KEY = 'orgChart.showJobTitles';
 let userShowJobTitlesPreference = null;
 let serverShowJobTitles = null;
+const SHOW_NAMES_PREFERENCE_KEY = 'orgChart.showNames';
+let userShowNamesPreference = null;
+let serverShowNames = null;
 let currentDetailEmployeeId = null;
 
 async function waitForTranslations() {
@@ -247,6 +250,39 @@ function clearJobTitlePreference() {
     }
 }
 
+function loadStoredNamePreference() {
+    userShowNamesPreference = null;
+    try {
+        const stored = localStorage.getItem(SHOW_NAMES_PREFERENCE_KEY);
+        if (stored === 'true') {
+            userShowNamesPreference = true;
+        } else if (stored === 'false') {
+            userShowNamesPreference = false;
+        }
+    } catch (error) {
+        console.warn('Unable to access name visibility preference storage:', error);
+        userShowNamesPreference = null;
+    }
+}
+
+function storeNamePreference(value) {
+    userShowNamesPreference = value;
+    try {
+        localStorage.setItem(SHOW_NAMES_PREFERENCE_KEY, String(value));
+    } catch (error) {
+        console.warn('Unable to persist name visibility preference:', error);
+    }
+}
+
+function clearNamePreference() {
+    userShowNamesPreference = null;
+    try {
+        localStorage.removeItem(SHOW_NAMES_PREFERENCE_KEY);
+    } catch (error) {
+        console.warn('Unable to clear name visibility preference storage:', error);
+    }
+}
+
 function getEffectiveJobTitlesEnabled() {
     const serverEnabled = (serverShowJobTitles != null)
         ? serverShowJobTitles
@@ -255,6 +291,45 @@ function getEffectiveJobTitlesEnabled() {
         return userShowJobTitlesPreference;
     }
     return serverEnabled;
+}
+
+function getEffectiveNamesEnabled() {
+    const serverEnabled = (serverShowNames != null)
+        ? serverShowNames
+        : (!appSettings || appSettings.showNames !== false);
+    if (userShowNamesPreference !== null) {
+        return userShowNamesPreference;
+    }
+    return serverEnabled;
+}
+
+function getVisibleNameText(person, { includeFallback = true, fallback } = {}) {
+    const rawName = (person && typeof person.name === 'string') ? person.name.trim() : '';
+    if (!isNameVisible()) {
+        if (!includeFallback) {
+            return '';
+        }
+        if (fallback) {
+            return fallback;
+        }
+        const translation = t('index.employee.detail.nameHidden');
+        return translation === 'index.employee.detail.nameHidden' ? 'Name hidden' : translation;
+    }
+    if (rawName) {
+        return person.name;
+    }
+    if (!includeFallback) {
+        return '';
+    }
+    if (fallback) {
+        return fallback;
+    }
+    const translation = t('index.employee.detail.nameUnknown');
+    return translation === 'index.employee.detail.nameUnknown' ? 'Unknown name' : translation;
+}
+
+function isNameVisible() {
+    return !appSettings || appSettings.showNames !== false;
 }
 
 function isJobTitleVisible() {
@@ -507,10 +582,14 @@ async function loadSettings() {
         const response = await fetch(`${API_BASE_URL}/api/settings`);
         if (response.ok) {
             appSettings = await response.json();
+            if (!Object.prototype.hasOwnProperty.call(appSettings, 'showNames')) {
+                appSettings.showNames = true;
+            }
             serverShowEmployeeCount = appSettings.showEmployeeCount !== false;
             serverShowProfileImages = appSettings.showProfileImages !== false;
             serverShowDepartments = appSettings.showDepartments !== false;
             serverShowJobTitles = appSettings.showJobTitles !== false;
+            serverShowNames = appSettings.showNames !== false;
             await applySettings();
         } else {
             // If settings fail to load, still show header content with defaults
@@ -633,6 +712,11 @@ function setupStaticEventListeners() {
     const profileBtn = document.getElementById('profileImageToggleBtn');
     if (profileBtn) {
         profileBtn.addEventListener('click', toggleProfileImages);
+    }
+
+    const nameBtn = document.getElementById('nameToggleBtn');
+    if (nameBtn) {
+        nameBtn.addEventListener('click', toggleNameVisibility);
     }
 
     const departmentBtn = document.getElementById('departmentToggleBtn');
@@ -819,6 +903,19 @@ async function applySettings() {
         profileBtn.setAttribute('aria-label', profileTitle);
     }
 
+    const showNames = getEffectiveNamesEnabled();
+    appSettings.showNames = showNames;
+    const nameBtn = document.getElementById('nameToggleBtn');
+    if (nameBtn) {
+        nameBtn.classList.toggle('active', showNames);
+        nameBtn.setAttribute('aria-pressed', String(showNames));
+        const nameHide = t('index.toolbar.layout.nameHide', { defaultValue: 'Hide Names' });
+        const nameShow = t('index.toolbar.layout.nameShow', { defaultValue: 'Show Names' });
+        const nameTitle = showNames ? nameHide : nameShow;
+        nameBtn.title = nameTitle;
+        nameBtn.setAttribute('aria-label', nameTitle);
+    }
+
     const showDepartments = getEffectiveDepartmentsEnabled();
     appSettings.showDepartments = showDepartments;
     const departmentBtn = document.getElementById('departmentToggleBtn');
@@ -844,6 +941,8 @@ async function applySettings() {
         titleBtn.title = titleToggle;
         titleBtn.setAttribute('aria-label', titleToggle);
     }
+
+    await ensureIdentityFieldMinimum({ source: 'apply-settings', skipUpdateAuth: true });
 
     await updateAuthDependentUI();
 }
@@ -944,6 +1043,18 @@ async function updateAuthDependentUI() {
         profileBtn.setAttribute('aria-label', profileTitle);
     }
 
+    const nameBtn = document.getElementById('nameToggleBtn');
+    if (nameBtn) {
+        const showNames = getEffectiveNamesEnabled();
+        nameBtn.classList.toggle('active', showNames);
+        nameBtn.setAttribute('aria-pressed', String(showNames));
+        const nameHide = t('index.toolbar.layout.nameHide', { defaultValue: 'Hide Names' });
+        const nameShow = t('index.toolbar.layout.nameShow', { defaultValue: 'Show Names' });
+        const nameTitle = showNames ? nameHide : nameShow;
+        nameBtn.title = nameTitle;
+        nameBtn.setAttribute('aria-label', nameTitle);
+    }
+
     const departmentBtn = document.getElementById('departmentToggleBtn');
     if (departmentBtn) {
         const showDepartments = getEffectiveDepartmentsEnabled();
@@ -990,6 +1101,7 @@ async function init() {
     }
     loadStoredEmployeeCountPreference();
     loadStoredProfileImagePreference();
+    loadStoredNamePreference();
     loadStoredDepartmentPreference();
     loadStoredJobTitlePreference();
     await waitForTranslations();
@@ -1176,6 +1288,115 @@ async function toggleProfileImages() {
     await updateAuthDependentUI();
 }
 
+function getRawIdentityVisibilityState() {
+    if (!appSettings) {
+        return {
+            names: true,
+            titles: true,
+            departments: true
+        };
+    }
+    return {
+        names: appSettings.showNames !== false,
+        titles: appSettings.showJobTitles !== false,
+        departments: appSettings.showDepartments !== false
+    };
+}
+
+function getIdentityVisibilityState() {
+    const baseState = getRawIdentityVisibilityState();
+    const enforcer = window.identityVisibility && typeof window.identityVisibility.enforceIdentityVisibility === 'function'
+        ? window.identityVisibility.enforceIdentityVisibility
+        : null;
+
+    if (!enforcer) {
+        return baseState;
+    }
+
+    try {
+        const enforcedState = enforcer({ ...baseState });
+        if (enforcedState && typeof enforcedState === 'object') {
+            return {
+                names: enforcedState.names !== false,
+                titles: enforcedState.titles !== false,
+                departments: enforcedState.departments !== false
+            };
+        }
+    } catch (error) {
+        console.warn('identityVisibility enforcement failed:', error);
+    }
+
+    return baseState;
+}
+
+async function ensureIdentityFieldMinimum({ source, skipUpdateAuth = false } = {}) {
+    const rawState = getRawIdentityVisibilityState();
+    const enforcedState = getIdentityVisibilityState();
+    let changed = false;
+
+    if (enforcedState.names !== rawState.names) {
+        await setNameVisibility(enforcedState.names, {
+            enforceMinimum: false,
+            reason: source || 'enforce',
+            skipUpdateAuth: true
+        });
+        changed = true;
+    }
+
+    if (!skipUpdateAuth && changed) {
+        await updateAuthDependentUI();
+    }
+
+    return changed;
+}
+
+async function setNameVisibility(newValue, { enforceMinimum = true, reason = 'user', skipUpdateAuth = false } = {}) {
+    await waitForTranslations();
+    const btn = document.getElementById('nameToggleBtn');
+
+    if (!appSettings) {
+        appSettings = {};
+    }
+
+    appSettings.showNames = newValue;
+
+    if (serverShowNames != null && newValue === serverShowNames) {
+        clearNamePreference();
+    } else {
+        storeNamePreference(newValue);
+    }
+
+    if (btn) {
+        btn.classList.toggle('active', newValue);
+        btn.setAttribute('aria-pressed', String(newValue));
+        const nameHide = t('index.toolbar.layout.nameHide', { defaultValue: 'Hide Names' });
+        const nameShow = t('index.toolbar.layout.nameShow', { defaultValue: 'Show Names' });
+        const label = newValue ? nameHide : nameShow;
+        btn.title = label;
+        btn.setAttribute('aria-label', label);
+    }
+
+    if (root) {
+        update(root);
+    }
+
+    refreshSearchResultsPresentation();
+    refreshEmployeeDetailPanel();
+
+    if (enforceMinimum) {
+        await ensureIdentityFieldMinimum({ source: reason, skipUpdateAuth: true });
+    }
+
+    if (!skipUpdateAuth) {
+        await updateAuthDependentUI();
+    }
+}
+
+async function toggleNameVisibility() {
+    const currentValue = getEffectiveNamesEnabled();
+    await setNameVisibility(!currentValue, { reason: 'toggle' });
+}
+
 async function toggleDepartmentVisibility() {
     await waitForTranslations();
     const btn = document.getElementById('departmentToggleBtn');
@@ -1210,6 +1431,8 @@ async function toggleDepartmentVisibility() {
 
     refreshSearchResultsPresentation();
     refreshEmployeeDetailPanel();
+
+    await ensureIdentityFieldMinimum({ source: 'department-toggle', skipUpdateAuth: true });
 
     await updateAuthDependentUI();
 }
@@ -1248,6 +1471,8 @@ async function toggleJobTitleVisibility() {
 
     refreshSearchResultsPresentation();
     refreshEmployeeDetailPanel();
+
+    await ensureIdentityFieldMinimum({ source: 'job-title-toggle', skipUpdateAuth: true });
 
     await updateAuthDependentUI();
 }
@@ -1296,7 +1521,8 @@ function initializeTopUserSearch() {
     if (appSettings.topUserEmail) {
         const currentUser = allEmployees.find(emp => emp.email === appSettings.topUserEmail);
         if (currentUser) {
-            searchInput.value = currentUser.name;
+            const displayName = getVisibleNameText(currentUser, { includeFallback: true });
+            searchInput.value = displayName;
             selectedUser = currentUser;
         }
     }
@@ -1353,12 +1579,15 @@ function displayTopUserResults(employees, container, input) {
     employees.forEach(employee => {
         const item = document.createElement('div');
         item.className = 'search-result-item';
+        item.dataset.name = employee.name || '';
         item.dataset.title = employee.title || '';
         item.dataset.department = employee.department || '';
 
         const nameDiv = document.createElement('div');
         nameDiv.className = 'search-result-name';
-        nameDiv.textContent = employee.name || '';
+        const nameText = getVisibleNameText(employee, { includeFallback: true });
+        nameDiv.textContent = nameText;
+        nameDiv.hidden = !nameText;
 
         const metaDiv = document.createElement('div');
         metaDiv.className = 'search-result-title';
@@ -1368,7 +1597,8 @@ function displayTopUserResults(employees, container, input) {
         item.appendChild(metaDiv);
         
         item.addEventListener('click', function() {
-            input.value = employee.name;
+            const displayName = getVisibleNameText(employee, { includeFallback: true });
+            input.value = displayName;
             input._selectedUser = employee;
             container.classList.remove('active');
         });
@@ -1851,6 +2081,14 @@ function update(source) {
         applyProfileImageAttributes(nodeEnter.append('image'));
     }
 
+    const namesInitiallyVisible = isNameVisible();
+    const titlesInitiallyVisible = isJobTitleVisible();
+    const departmentsInitiallyVisible = isDepartmentVisible();
+    const initialTitleY = namesInitiallyVisible ? 5 : -10;
+    const initialDepartmentY = namesInitiallyVisible
+        ? (titlesInitiallyVisible ? 18 : 5)
+        : (titlesInitiallyVisible ? 5 : -10);
+
     nodeEnter.append('text')
         .attr('class', 'node-text')
         .attr('x', getLabelOffsetX())
@@ -1858,13 +2096,14 @@ function update(source) {
         .attr('text-anchor', getLabelAnchor())
         .style('font-weight', 'bold')
         .style('font-size', d => getNameFontSizePx(d.data.name))
-        .text(d => d.data.name);
+        .text(d => d.data.name)
+        .style('display', namesInitiallyVisible ? null : 'none');
 
-    if (isJobTitleVisible()) {
+    if (titlesInitiallyVisible) {
         nodeEnter.append('text')
             .attr('class', 'node-title')
             .attr('x', getLabelOffsetX())
-            .attr('y', 5)
+            .attr('y', initialTitleY)
             .attr('text-anchor', getLabelAnchor())
             .style('font-size', d => getTitleFontSizePx(getVisibleJobTitleText(d.data, { includeFallback: true })))
             .text(d => {
@@ -1873,11 +2112,11 @@ function update(source) {
             });
     }
 
-    if (isDepartmentVisible()) {
+    if (departmentsInitiallyVisible) {
         nodeEnter.append('text')
             .attr('class', 'node-department')
             .attr('x', getLabelOffsetX())
-            .attr('y', isJobTitleVisible() ? 18 : 5)
+            .attr('y', initialDepartmentY)
             .attr('text-anchor', getLabelAnchor())
             .style('font-size', d => getDepartmentFontSizePx(getVisibleDepartmentText(d.data, { includeFallback: true, fallback: 'Not specified' })))
             .style('font-style', 'italic')
@@ -2017,15 +2256,21 @@ function update(source) {
         nodeMerge.selectAll('image.profile-image').remove();
     }
 
-    nodeMerge.select('.node-text')
-        .attr('x', getLabelOffsetX())
-        .attr('text-anchor', getLabelAnchor())
-        .style('font-size', d => getNameFontSizePx(d.data.name))
-        .text(d => d.data.name);
-
+    const namesVisible = isNameVisible();
     const titlesVisible = isJobTitleVisible();
     const departmentsVisible = isDepartmentVisible();
-    const departmentY = titlesVisible ? 18 : 5;
+    const titleY = namesVisible ? 5 : -10;
+    const departmentY = namesVisible
+        ? (titlesVisible ? 18 : 5)
+        : (titlesVisible ? 5 : -10);
+
+    nodeMerge.select('.node-text')
+        .attr('x', getLabelOffsetX())
+        .attr('y', -10)
+        .attr('text-anchor', getLabelAnchor())
+        .style('font-size', d => getNameFontSizePx(d.data.name))
+        .text(d => d.data.name)
+        .style('display', namesVisible ? null : 'none');
 
     nodeMerge.each(function(d) {
         const nodeSelection = d3.select(this);
@@ -2040,7 +2285,7 @@ function update(source) {
             const displayTitle = rawTitle ? getTrimmedTitle(rawTitle) : '';
             titleSelection
                 .attr('x', getLabelOffsetX())
-                .attr('y', 5)
+                .attr('y', titleY)
                 .attr('text-anchor', getLabelAnchor())
                 .style('font-size', getTitleFontSizePx(rawTitle || ''))
                 .text(displayTitle)
@@ -2868,6 +3113,7 @@ async function createExportSVG(exportFullChart = false) {
     });
     await Promise.all(imagePromises);
 
+    const namesVisible = isNameVisible();
     const titlesVisible = isJobTitleVisible();
     const departmentsVisible = isDepartmentVisible();
 
@@ -2941,13 +3187,15 @@ async function createExportSVG(exportFullChart = false) {
         const textWidth = appSettings.showProfileImages !== false ? nodeWidth - 58 : nodeWidth - 20;
         
         // Name
-        const nameText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        nameText.setAttribute('class', 'node-text');
-        nameText.setAttribute('x', textX);
-        nameText.setAttribute('y', -10);
-        nameText.setAttribute('text-anchor', textAnchor);
-        nameText.textContent = d.data.name;
-        nodeG.appendChild(nameText);
+        if (namesVisible) {
+            const nameText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            nameText.setAttribute('class', 'node-text');
+            nameText.setAttribute('x', textX);
+            nameText.setAttribute('y', -10);
+            nameText.setAttribute('text-anchor', textAnchor);
+            nameText.textContent = getVisibleNameText(d.data, { includeFallback: true });
+            nodeG.appendChild(nameText);
+        }
         
         // Title
         const rawTitle = getVisibleJobTitleText(d.data, { includeFallback: true });
@@ -2955,7 +3203,7 @@ async function createExportSVG(exportFullChart = false) {
             const titleElement = document.createElementNS('http://www.w3.org/2000/svg', 'text');
             titleElement.setAttribute('class', 'node-title');
             titleElement.setAttribute('x', textX);
-            titleElement.setAttribute('y', 5);
+            titleElement.setAttribute('y', namesVisible ? 5 : -10);
             titleElement.setAttribute('text-anchor', textAnchor);
 
             const words = rawTitle.split(/\s+/).filter(Boolean);
@@ -3003,7 +3251,10 @@ async function createExportSVG(exportFullChart = false) {
             const deptText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
             deptText.setAttribute('class', 'node-department');
             deptText.setAttribute('x', textX);
-            deptText.setAttribute('y', titlesVisible && rawTitle ? 28 : 5);
+            const departmentY = namesVisible
+                ? (titlesVisible && rawTitle ? 28 : 5)
+                : (titlesVisible && rawTitle ? 5 : -10);
+            deptText.setAttribute('y', departmentY);
             deptText.setAttribute('text-anchor', textAnchor);
             deptText.textContent = departmentText;
             nodeG.appendChild(deptText);
@@ -3116,17 +3367,21 @@ function showEmployeeDetail(employee) {
     const managerHeading = t('index.employee.detail.manager');
     const jobTitleDisplay = getVisibleJobTitleText(employee, { includeFallback: true });
     const departmentDisplay = getVisibleDepartmentText(employee, { includeFallback: true, fallback: departmentUnknown });
-
-    const initials = (employee.name || '')
-        .split(' ')
-        .map(n => n[0])
-        .join('')
-        .substring(0, 2)
-        .toUpperCase();
+    const namesVisible = isNameVisible();
+    const displayName = getVisibleNameText(employee, { includeFallback: true });
+    const avatarAlt = namesVisible ? (employee.name || '') : displayName;
+    const initials = namesVisible
+        ? (employee.name || '')
+            .split(' ')
+            .map(n => n[0])
+            .join('')
+            .substring(0, 2)
+            .toUpperCase()
+        : '';
 
     const employeeAvatar = renderAvatar({
         imageUrl: employee.photoUrl && employee.photoUrl.includes('/api/photo/') ? employee.photoUrl : '',
-        name: employee.name,
+        name: avatarAlt,
         initials,
         imageClass: 'employee-avatar-image',
         fallbackClass: 'employee-avatar-fallback'
@@ -3141,12 +3396,15 @@ function showEmployeeDetail(employee) {
             ${employeeAvatar}
         </div>
         <div class="employee-name">
-            <h2>${escapeHtml(employee.name)}</h2>
+            ${displayName ? `<h2>${escapeHtml(displayName)}</h2>` : ''}
         </div>
         ${titleMarkup}
     `;
 
-    let infoHTML = `
+    let infoHTML = '';
+
+    if (namesVisible) {
+        infoHTML += `
         <div class="info-item">
             <div class="info-label">${emailLabel}</div>
             <div class="info-value">
@@ -3161,6 +3419,10 @@ function showEmployeeDetail(employee) {
             <div class="info-label">${businessPhoneLabel}</div>
             <div class="info-value">${escapeHtml(employee.businessPhone || businessPhoneUnknown)}</div>
         </div>
+        `;
+    }
+
+    infoHTML += `
         ${employee.hireDate ? `
         <div class="info-item">
             <div class="info-label">${hireDateLabel}</div>
@@ -3193,16 +3455,20 @@ function showEmployeeDetail(employee) {
     if (employee.managerId && window.currentOrgData) {
         const manager = findManagerById(window.currentOrgData, employee.managerId);
         if (manager) {
-            const managerInitials = (manager.name || '')
-                .split(' ')
-                .map(n => n[0])
-                .join('')
-                .substring(0, 2)
-                .toUpperCase();
+            const managerDisplayName = getVisibleNameText(manager, { includeFallback: true });
+            const managerAvatarAlt = namesVisible ? (manager.name || '') : managerDisplayName;
+            const managerInitials = namesVisible
+                ? (manager.name || '')
+                    .split(' ')
+                    .map(n => n[0])
+                    .join('')
+                    .substring(0, 2)
+                    .toUpperCase()
+                : '';
 
             const managerAvatar = renderAvatar({
                 imageUrl: manager.photoUrl && manager.photoUrl.includes('/api/photo/') ? manager.photoUrl : '',
-                name: manager.name,
+                name: managerAvatarAlt,
                 initials: managerInitials,
                 imageClass: 'manager-avatar-image',
                 fallbackClass: 'manager-avatar-fallback'
@@ -3221,7 +3487,7 @@ function showEmployeeDetail(employee) {
                             ${managerAvatar}
                         </div>
                         <div class="manager-details">
-                            <div class="manager-name">${escapeHtml(manager.name)}</div>
+                            <div class="manager-name">${escapeHtml(managerDisplayName)}</div>
                             ${managerTitleMarkup}
                         </div>
                     </div>
@@ -3237,16 +3503,20 @@ function showEmployeeDetail(employee) {
             <div class="direct-reports">
                 <h3>${directReportsLabel}</h3>
                 ${directReports.map(report => {
-                    const reportInitials = (report.name || '')
-                        .split(' ')
-                        .map(n => n[0])
-                        .join('')
-                        .substring(0, 2)
-                        .toUpperCase();
+                    const reportDisplayName = getVisibleNameText(report, { includeFallback: true });
+                    const reportAvatarAlt = namesVisible ? (report.name || '') : reportDisplayName;
+                    const reportInitials = namesVisible
+                        ? (report.name || '')
+                            .split(' ')
+                            .map(n => n[0])
+                            .join('')
+                            .substring(0, 2)
+                            .toUpperCase()
+                        : '';
 
                     const reportAvatar = renderAvatar({
                         imageUrl: report.photoUrl && report.photoUrl.includes('/api/photo/') ? report.photoUrl : '',
-                        name: report.name,
+                        name: reportAvatarAlt,
                         initials: reportInitials,
                         imageClass: 'report-avatar-image',
                         fallbackClass: 'report-avatar-fallback'
@@ -3263,7 +3533,7 @@ function showEmployeeDetail(employee) {
                                 ${reportAvatar}
                             </div>
                             <div class="report-details">
-                                <div class="report-name">${escapeHtml(report.name)}</div>
+                                <div class="report-name">${escapeHtml(reportDisplayName)}</div>
                                 ${reportTitleMarkup}
                             </div>
                         </div>
@@ -3398,12 +3668,15 @@ function displaySearchResults(results) {
         const item = document.createElement('div');
         item.className = 'search-result-item';
         item.dataset.employeeId = emp.id;
+        item.dataset.name = emp.name || '';
         item.dataset.title = emp.title || '';
         item.dataset.department = emp.department || '';
 
         const name = document.createElement('div');
         name.className = 'search-result-name';
-        name.textContent = emp.name || '';
+        const nameText = getVisibleNameText(emp, { includeFallback: true });
+        name.textContent = nameText;
+        name.hidden = !nameText;
 
         const title = document.createElement('div');
         title.className = 'search-result-title';
@@ -3420,11 +3693,17 @@ function refreshSearchResultsPresentation() {
     if (searchResults) {
         searchResults.querySelectorAll('.search-result-item').forEach(item => {
             const meta = item.querySelector('.search-result-title');
+            const nameElement = item.querySelector('.search-result-name');
             if (!meta) return;
             populateResultMeta(meta, {
                 title: item.dataset.title || '',
                 department: item.dataset.department || ''
             });
+            if (nameElement) {
+                const nameText = getVisibleNameText({ name: item.dataset.name || '' }, { includeFallback: true });
+                nameElement.textContent = nameText;
+                nameElement.hidden = !nameText;
+            }
         });
     }
 
@@ -3432,11 +3711,17 @@ function refreshSearchResultsPresentation() {
     if (topUserResults) {
         topUserResults.querySelectorAll('.search-result-item').forEach(item => {
             const meta = item.querySelector('.search-result-title');
+            const nameElement = item.querySelector('.search-result-name');
             if (!meta) return;
             populateResultMeta(meta, {
                 title: item.dataset.title || '',
                 department: item.dataset.department || ''
             });
+            if (nameElement) {
+                const nameText = getVisibleNameText({ name: item.dataset.name || '' }, { includeFallback: true });
+                nameElement.textContent = nameText;
+                nameElement.hidden = !nameText;
+            }
         });
     }
 }
