@@ -6,7 +6,7 @@ from flask_session import Session
 import atexit
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import requests
 import threading
 import time
@@ -163,6 +163,9 @@ EMPLOYEE_LIST_FILE = os.path.join(DATA_DIR, 'employee_list.json')
 DISABLED_LICENSE_FILE = os.path.join(DATA_DIR, 'disabled_with_license_records.json')
 FILTERED_LICENSE_FILE = os.path.join(DATA_DIR, 'filtered_with_license_records.json')
 FILTERED_USERS_FILE = os.path.join(DATA_DIR, 'filtered_user_records.json')
+DISABLED_USERS_FILE = os.path.join(DATA_DIR, 'disabled_user_records.json')
+RECENTLY_DISABLED_FILE = os.path.join(DATA_DIR, 'recently_disabled_employees.json')
+RECENTLY_HIRED_FILE = os.path.join(DATA_DIR, 'recently_hired_employees.json')
 
 # Configuration for file uploads (removed SVG for security)
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
@@ -368,6 +371,127 @@ def employee_is_ignored(name, email, user_principal_name, ignored_values):
 
     return any(candidate in ignored_values for candidate in candidates)
 
+
+def parse_graph_datetime(value):
+    if not value:
+        return None
+
+    if isinstance(value, datetime):
+        dt = value
+    elif isinstance(value, (int, float)):
+        try:
+            dt = datetime.fromtimestamp(value, tz=timezone.utc)
+        except Exception:
+            return None
+    elif isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        try:
+            if text.endswith('Z'):
+                text = text[:-1] + '+00:00'
+            dt = datetime.fromisoformat(text)
+        except ValueError:
+            dt = None
+            for fmt in ('%Y-%m-%d', '%Y-%m-%d %H:%M:%S'):
+                try:
+                    dt = datetime.strptime(text, fmt)
+                    break
+                except ValueError:
+                    dt = None
+            if dt is None:
+                return None
+    else:
+        return None
+
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+
+    return dt
+
+
+def datetime_to_iso(dt):
+    if not isinstance(dt, datetime):
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc).isoformat()
+
+
+def calculate_days_since(moment):
+    dt = parse_graph_datetime(moment)
+    if not dt:
+        return None
+    now = datetime.now(timezone.utc)
+    delta = now - dt.astimezone(timezone.utc)
+    return max(delta.days, 0)
+
+
+def collect_recently_disabled_employees(records, days=365):
+    if not records:
+        return []
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    recent = []
+
+    for record in records:
+        observed_value = (
+            record.get('firstSeenDisabledAt')
+            or record.get('disabledDate')
+        )
+        disabled_at = parse_graph_datetime(observed_value)
+        if not disabled_at or disabled_at < cutoff:
+            continue
+
+        updated = record.copy()
+        updated['disabledDate'] = datetime_to_iso(disabled_at)
+        updated['disabledDays'] = calculate_days_since(disabled_at)
+        if not updated.get('firstSeenDisabledAt'):
+            updated['firstSeenDisabledAt'] = updated['disabledDate']
+        recent.append(updated)
+
+    recent.sort(key=lambda item: item.get('disabledDate') or '')
+    return recent
+
+
+def collect_recently_hired_employees(employees, days=365):
+    if not employees:
+        return []
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    manager_lookup = {emp.get('id'): emp for emp in employees if emp.get('id')}
+    recent = []
+
+    for employee in employees:
+        hire_date = parse_graph_datetime(employee.get('hireDate') or employee.get('employeeHireDate'))
+        if not hire_date or hire_date < cutoff:
+            continue
+
+        record = {
+            'id': employee.get('id'),
+            'name': employee.get('name'),
+            'title': employee.get('title'),
+            'department': employee.get('department'),
+            'email': employee.get('email'),
+            'userPrincipalName': employee.get('userPrincipalName'),
+            'phone': employee.get('phone') or '',
+            'businessPhone': employee.get('businessPhone') or '',
+            'location': employee.get('location') or employee.get('officeLocation') or '',
+            'hireDate': datetime_to_iso(hire_date),
+            'daysSinceHire': calculate_days_since(hire_date),
+            'managerName': '',
+        }
+
+        manager_id = employee.get('managerId')
+        if manager_id and manager_id in manager_lookup:
+            record['managerName'] = manager_lookup[manager_id].get('name') or ''
+
+        recent.append(record)
+
+    recent.sort(key=lambda item: item.get('hireDate') or '')
+    return recent
+
+
 def save_settings(settings):
     """Save settings to file"""
     try:
@@ -437,7 +561,8 @@ def fetch_all_employees(token=None):
     token = token or get_access_token()
     if not token:
         logger.error("Failed to get access token")
-        return [], []
+        logger.warning("Using cached employee data because access token retrieval failed")
+        return _load_fetch_all_employees_fallback()
 
     # Load settings to check filtering preferences
     settings = load_settings()
@@ -457,6 +582,7 @@ def fetch_all_employees(token=None):
     employees = []
     filtered_with_license = []
     filtered_users = []
+    fetch_failed = False
 
     sku_map = fetch_subscribed_sku_map(token)
 
@@ -509,6 +635,28 @@ def fetch_all_employees(token=None):
                     assigned_licenses = user.get('assignedLicenses') or []
                     user_type = (user.get('userType') or '').lower()
 
+                    license_sku_ids = []
+                    license_labels = []
+                    if assigned_licenses:
+                        seen_labels = set()
+                        for license_entry in assigned_licenses:
+                            sku_id = license_entry.get('skuId')
+                            if not sku_id:
+                                continue
+                            sku_key = str(sku_id).lower()
+                            license_sku_ids.append(str(sku_id))
+                            friendly_name = (
+                                sku_map.get(sku_key)
+                                or sku_map.get(sku_key.upper())
+                                or str(sku_id)
+                            )
+                            normalized_label = friendly_name.lower()
+                            if normalized_label not in seen_labels:
+                                seen_labels.add(normalized_label)
+                                license_labels.append(friendly_name)
+
+                        license_labels.sort(key=lambda item: item.lower())
+
                     filtered_reasons = []
                     if hide_disabled_users and not user.get('accountEnabled', True):
                         filtered_reasons.append('filter_disabled')
@@ -539,35 +687,16 @@ def fetch_all_employees(token=None):
                             'country': user.get('country') or '',
                             'usageLocation': user.get('usageLocation') or '',
                             'accountEnabled': user.get('accountEnabled', True),
-                            'userType': user.get('userType') or '',
-                            'filterReasons': filtered_reasons
+                            'userType': user_type,
+                            'filterReasons': filtered_reasons,
+                            'licenseCount': len(license_sku_ids),
+                            'licenseSkus': license_labels,
+                            'licenseSkuIds': license_sku_ids,
                         }
                         filtered_users.append(base_record)
 
-                        if assigned_licenses:
-                            license_sku_ids = []
-                            license_labels = []
-                            for license_entry in assigned_licenses:
-                                sku_id = license_entry.get('skuId')
-                                if not sku_id:
-                                    continue
-                                sku_key = str(sku_id).lower()
-                                license_sku_ids.append(str(sku_id))
-                                friendly_name = (
-                                    sku_map.get(sku_key)
-                                    or sku_map.get(sku_key.upper())
-                                    or str(sku_id)
-                                )
-                                license_labels.append(friendly_name)
-
-                            license_labels = sorted(set(license_labels), key=lambda item: item.lower())
-
-                            filtered_with_license.append({
-                                **base_record,
-                                'licenseCount': len(license_sku_ids),
-                                'licenseSkus': license_labels,
-                                'licenseSkuIds': license_sku_ids
-                            })
+                        if license_sku_ids:
+                            filtered_with_license.append(dict(base_record))
                         continue
 
                     if display_name:
@@ -638,13 +767,16 @@ def fetch_all_employees(token=None):
             
             users_url = data.get('@odata.nextLink')
         except requests.exceptions.RequestException as e:
+            fetch_failed = True
             logger.error(f"Error fetching employees: {e}")
-            if response.status_code == 401:
+            status_code = getattr(getattr(e, 'response', None), 'status_code', None)
+            if status_code == 401:
                 logger.error("Authentication failed. Please check your credentials.")
-            elif response.status_code == 403:
+            elif status_code == 403:
                 logger.error("Permission denied. Ensure User.Read.All permission is granted.")
             break
         except Exception as e:
+            fetch_failed = True
             logger.error(f"Unexpected error: {e}")
             break
     
@@ -654,7 +786,50 @@ def fetch_all_employees(token=None):
         len(filtered_users),
         len(filtered_with_license)
     )
+
+    if fetch_failed or not employees:
+        fallback_employees, fallback_filtered_with_license, fallback_filtered_users = _load_fetch_all_employees_fallback()
+        if fallback_employees:
+            logger.warning(
+                "Using cached employee fallback after Graph fetch %s (%s records)",
+                "failure" if fetch_failed else "returning no data",
+                len(fallback_employees)
+            )
+            employees = fallback_employees
+            if fallback_filtered_with_license:
+                filtered_with_license = fallback_filtered_with_license
+            if fallback_filtered_users:
+                filtered_users = fallback_filtered_users
+        elif fetch_failed:
+            logger.warning("Graph fetch failed and no cached employee data is available")
+
     return employees, filtered_with_license, filtered_users
+
+
+def _load_fetch_all_employees_fallback():
+    cached_employees = load_cached_employees() or []
+
+    def _load_cached_list(path, description):
+        if not os.path.exists(path):
+            logger.debug(f"No cached {description} found at {path}")
+            return []
+        try:
+            with open(path, 'r') as cache_file:
+                data = json.load(cache_file)
+        except Exception as error:
+            logger.error(f"Failed to load cached {description} from {path}: {error}")
+            return []
+
+        if not isinstance(data, list):
+            logger.warning(f"Cached {description} at {path} is not a list; ignoring contents")
+            return []
+
+        return data
+
+    cached_filtered_with_license = _load_cached_list(FILTERED_LICENSE_FILE, 'filtered licensed users')
+    cached_filtered_users = _load_cached_list(FILTERED_USERS_FILE, 'filtered users')
+
+    return cached_employees, cached_filtered_with_license, cached_filtered_users
 
 
 def fetch_subscribed_sku_map(token):
@@ -688,16 +863,14 @@ def fetch_subscribed_sku_map(token):
     return sku_map
 
 
-def collect_disabled_licensed_users(*, token=None, settings=None):
-    """Return disabled users that still hold licenses without applying org chart filters."""
+def _collect_disabled_users(*, token=None, settings=None):
+    """Return disabled user records with optional license metadata."""
 
     token = token or get_access_token()
     if not token:
-        logger.error("Failed to get access token for disabled license report")
+        logger.error("Failed to get access token for disabled user reports")
         return []
 
-    # Intentionally ignore application-level filters (guest/ignored titles/departments/etc.)
-    # so administrators can review every disabled-but-licensed account straight from Graph.
     sku_map = fetch_subscribed_sku_map(token)
 
     headers = {
@@ -708,7 +881,7 @@ def collect_disabled_licensed_users(*, token=None, settings=None):
     select_fields = (
         'id,displayName,jobTitle,department,mail,userPrincipalName,mobilePhone,'
         'businessPhones,officeLocation,city,state,country,usageLocation,streetAddress,'
-        'postalCode,accountEnabled,userType,assignedLicenses'
+        'postalCode,employeeHireDate,employeeLeaveDateTime,accountEnabled,userType,assignedLicenses'
     )
 
     users_url = f'{GRAPH_API_ENDPOINT}/users?$select={select_fields}&$filter=accountEnabled eq false'
@@ -721,15 +894,11 @@ def collect_disabled_licensed_users(*, token=None, settings=None):
             data = response.json()
 
             for user in data.get('value', []):
-                assigned_licenses = user.get('assignedLicenses') or []
-                if not assigned_licenses:
-                    continue
-
                 display_name = user.get('displayName') or ''
                 primary_email = user.get('mail') or ''
                 user_principal_name = user.get('userPrincipalName') or ''
-
                 job_title_val = user.get('jobTitle') or ''
+                department_val = user.get('department') or 'No Department'
 
                 business_phones = user.get('businessPhones') or []
                 if isinstance(business_phones, list):
@@ -737,6 +906,7 @@ def collect_disabled_licensed_users(*, token=None, settings=None):
                 else:
                     business_phone = business_phones or ''
 
+                assigned_licenses = user.get('assignedLicenses') or []
                 license_sku_ids = []
                 license_labels = []
                 for license_entry in assigned_licenses:
@@ -745,19 +915,25 @@ def collect_disabled_licensed_users(*, token=None, settings=None):
                         continue
                     sku_key = str(sku_id).lower()
                     license_sku_ids.append(str(sku_id))
-                    friendly_name = sku_map.get(sku_key) or sku_map.get(sku_key.upper()) or str(sku_id)
+                    friendly_name = (
+                        sku_map.get(sku_key)
+                        or sku_map.get(sku_key.upper())
+                        or str(sku_id)
+                    )
                     license_labels.append(friendly_name)
 
-                if not license_sku_ids:
-                    continue
+                license_labels = sorted(set(license_labels), key=lambda item: item.lower()) if license_labels else []
 
-                license_labels = sorted(set(license_labels), key=lambda item: item.lower())
+                disabled_at = parse_graph_datetime(user.get('employeeLeaveDateTime'))
+                disabled_iso = datetime_to_iso(disabled_at) if disabled_at else None
+
+                hire_date = parse_graph_datetime(user.get('employeeHireDate'))
 
                 record = {
                     'id': user.get('id'),
                     'name': display_name or 'Unknown',
                     'title': job_title_val or 'No Title',
-                    'department': user.get('department') or 'No Department',
+                    'department': department_val,
                     'email': primary_email or user_principal_name or '',
                     'userPrincipalName': user_principal_name,
                     'phone': user.get('mobilePhone') or '',
@@ -768,10 +944,13 @@ def collect_disabled_licensed_users(*, token=None, settings=None):
                     'country': user.get('country') or '',
                     'usageLocation': user.get('usageLocation') or '',
                     'accountEnabled': user.get('accountEnabled', True),
-                    'userType': user.get('userType') or '',
+                    'userType': (user.get('userType') or '').lower(),
                     'licenseCount': len(license_sku_ids),
                     'licenseSkus': license_labels,
-                    'licenseSkuIds': license_sku_ids
+                    'licenseSkuIds': license_sku_ids,
+                    'hireDate': datetime_to_iso(hire_date) if hire_date else None,
+                    'disabledDate': disabled_iso,
+                    'disabledDays': calculate_days_since(disabled_at),
                 }
 
                 records.append(record)
@@ -781,11 +960,64 @@ def collect_disabled_licensed_users(*, token=None, settings=None):
             logger.error(f"Error fetching disabled users: {error}")
             break
         except Exception as error:
-            logger.error(f"Unexpected error while collecting disabled license report: {error}")
+            logger.error(f"Unexpected error while collecting disabled user data: {error}")
             break
 
-    logger.info(f"Collected {len(records)} disabled users with active licenses")
+    logger.info(f"Collected {len(records)} disabled users")
     return records
+
+
+def collect_disabled_users(*, token=None, settings=None, previous_records=None):
+    raw_records = _collect_disabled_users(token=token, settings=settings)
+
+    previous_map = {}
+    if previous_records:
+        for entry in previous_records:
+            entry_id = entry.get('id')
+            if entry_id:
+                previous_map[entry_id] = entry
+
+    now_iso = datetime_to_iso(datetime.now(timezone.utc))
+
+    for record in raw_records:
+        record_id = record.get('id')
+        existing = previous_map.get(record_id) if record_id else None
+
+        observed_source = record.get('disabledDate')
+        existing_observed = None
+
+        if existing:
+            existing_observed = (
+                existing.get('firstSeenDisabledAt')
+                or existing.get('disabledDate')
+            )
+
+        if observed_source:
+            first_seen = observed_source
+        elif existing_observed:
+            first_seen = existing_observed
+        else:
+            first_seen = now_iso
+
+        record['firstSeenDisabledAt'] = first_seen
+
+        if not record.get('disabledDate'):
+            record['disabledDate'] = first_seen
+
+        record['disabledDays'] = calculate_days_since(first_seen)
+
+    return raw_records
+
+
+def collect_disabled_licensed_users(*, token=None, settings=None, previous_records=None):
+    raw_records = collect_disabled_users(
+        token=token,
+        settings=settings,
+        previous_records=previous_records
+    )
+    licensed_records = [record for record in raw_records if (record.get('licenseCount') or 0) > 0]
+    logger.info(f"Filtered {len(licensed_records)} disabled users with active licenses")
+    return licensed_records
 
 def build_org_hierarchy(employees, *, top_user_email_override=None, settings=None):
     if not employees:
@@ -1081,6 +1313,16 @@ def update_employee_data():
                     logger.error(f"Failed to write missing manager report cache: {report_error}")
             else:
                 logger.error(f"[{datetime.now()}] Could not build hierarchy from employee data")
+
+            try:
+                recently_hired_records = collect_recently_hired_employees(employees, days=365)
+                with open(RECENTLY_HIRED_FILE, 'w') as report_file:
+                    json.dump(recently_hired_records, report_file, indent=2)
+                logger.info(
+                    f"Updated recently hired employees report cache with {len(recently_hired_records)} records"
+                )
+            except Exception as report_error:
+                logger.error(f"Failed to write recently hired employees report cache: {report_error}")
         else:
             logger.error(f"[{datetime.now()}] No employees fetched from Graph API")
 
@@ -1105,7 +1347,34 @@ def update_employee_data():
             logger.error(f"Failed to write filtered licensed users report cache: {report_error}")
 
         try:
-            disabled_license_records = collect_disabled_licensed_users(token=token, settings=settings) or []
+            existing_disabled_records = []
+            if os.path.exists(DISABLED_USERS_FILE):
+                try:
+                    with open(DISABLED_USERS_FILE, 'r') as previous_file:
+                        data = json.load(previous_file)
+                        if isinstance(data, list):
+                            existing_disabled_records = data
+                except Exception as previous_error:
+                    logger.warning(f"Unable to load existing disabled users cache: {previous_error}")
+
+            disabled_user_records = collect_disabled_users(
+                token=token,
+                settings=settings,
+                previous_records=existing_disabled_records
+            ) or []
+            with open(DISABLED_USERS_FILE, 'w') as report_file:
+                json.dump(disabled_user_records, report_file, indent=2)
+            logger.info(
+                f"Updated disabled users report cache with {len(disabled_user_records)} records"
+            )
+        except Exception as report_error:
+            logger.error(f"Failed to write disabled users report cache: {report_error}")
+
+        try:
+            disabled_license_records = [
+                record for record in disabled_user_records if (record.get('licenseCount') or 0) > 0
+            ]
+
             with open(DISABLED_LICENSE_FILE, 'w') as report_file:
                 json.dump(disabled_license_records, report_file, indent=2)
             logger.info(
@@ -1113,6 +1382,16 @@ def update_employee_data():
             )
         except Exception as report_error:
             logger.error(f"Failed to write disabled licensed users report cache: {report_error}")
+
+        try:
+            recently_disabled_records = collect_recently_disabled_employees(disabled_user_records, days=365)
+            with open(RECENTLY_DISABLED_FILE, 'w') as report_file:
+                json.dump(recently_disabled_records, report_file, indent=2)
+            logger.info(
+                f"Updated recently disabled employees report cache with {len(recently_disabled_records)} records"
+            )
+        except Exception as report_error:
+            logger.error(f"Failed to write recently disabled employees report cache: {report_error}")
     except Exception as e:
         logger.error(f"[{datetime.now()}] Error updating employee data: {e}")
 
@@ -2160,6 +2439,78 @@ def _load_disabled_license_data(force_refresh=False):
         return []
 
 
+def _load_disabled_users_data(force_refresh=False):
+    try:
+        if force_refresh or not os.path.exists(DISABLED_USERS_FILE):
+            logger.info("Refreshing disabled users report cache")
+            update_employee_data()
+
+        if not os.path.exists(DISABLED_USERS_FILE):
+            logger.warning("Disabled users report cache not found after refresh")
+            return []
+
+        with open(DISABLED_USERS_FILE, 'r') as report_file:
+            data = json.load(report_file)
+            if isinstance(data, list):
+                return data
+            logger.warning("Unexpected disabled users report format; ignoring contents")
+            return []
+    except json.JSONDecodeError as decode_error:
+        logger.error(f"Failed to parse disabled users report cache: {decode_error}")
+        return []
+    except Exception as error:
+        logger.error(f"Unexpected error loading disabled users report cache: {error}")
+        return []
+
+
+def _load_recently_disabled_data(force_refresh=False):
+    try:
+        if force_refresh or not os.path.exists(RECENTLY_DISABLED_FILE):
+            logger.info("Refreshing recently disabled employees report cache")
+            update_employee_data()
+
+        if not os.path.exists(RECENTLY_DISABLED_FILE):
+            logger.warning("Recently disabled employees report cache not found after refresh")
+            return []
+
+        with open(RECENTLY_DISABLED_FILE, 'r') as report_file:
+            data = json.load(report_file)
+            if isinstance(data, list):
+                return data
+            logger.warning("Unexpected recently disabled employees report format; ignoring contents")
+            return []
+    except json.JSONDecodeError as decode_error:
+        logger.error(f"Failed to parse recently disabled employees report cache: {decode_error}")
+        return []
+    except Exception as error:
+        logger.error(f"Unexpected error loading recently disabled employees report cache: {error}")
+        return []
+
+
+def _load_recently_hired_data(force_refresh=False):
+    try:
+        if force_refresh or not os.path.exists(RECENTLY_HIRED_FILE):
+            logger.info("Refreshing recently hired employees report cache")
+            update_employee_data()
+
+        if not os.path.exists(RECENTLY_HIRED_FILE):
+            logger.warning("Recently hired employees report cache not found after refresh")
+            return []
+
+        with open(RECENTLY_HIRED_FILE, 'r') as report_file:
+            data = json.load(report_file)
+            if isinstance(data, list):
+                return data
+            logger.warning("Unexpected recently hired employees report format; ignoring contents")
+            return []
+    except json.JSONDecodeError as decode_error:
+        logger.error(f"Failed to parse recently hired employees report cache: {decode_error}")
+        return []
+    except Exception as error:
+        logger.error(f"Unexpected error loading recently hired employees report cache: {error}")
+        return []
+
+
 def _load_filtered_license_data(force_refresh=False):
     try:
         if force_refresh or not os.path.exists(FILTERED_LICENSE_FILE):
@@ -2206,6 +2557,94 @@ def _load_filtered_user_data(force_refresh=False):
     except Exception as error:
         logger.error(f"Unexpected error loading filtered users report cache: {error}")
         return []
+
+
+def _apply_disabled_filters(records, *, licensed_only=False, recent_days=None, include_guests=False):
+    if recent_days is not None:
+        try:
+            recent_days = int(recent_days)
+        except (TypeError, ValueError):
+            recent_days = None
+
+    cutoff = None
+    if recent_days and recent_days > 0:
+        cutoff = datetime.now(timezone.utc) - timedelta(days=recent_days)
+
+    filtered = []
+
+    for record in records or []:
+        if licensed_only and (record.get('licenseCount') or 0) == 0:
+            continue
+
+        user_type = (record.get('userType') or '').lower()
+        if not include_guests and user_type == 'guest':
+            continue
+
+        if cutoff is not None:
+            observed = parse_graph_datetime(
+                record.get('firstSeenDisabledAt')
+                or record.get('disabledDate')
+            )
+            if not observed or observed < cutoff:
+                continue
+
+        filtered.append(record)
+
+    return filtered
+
+
+def _calculate_license_totals(records):
+    return sum(record.get('licenseCount') or 0 for record in records or [])
+
+
+def _apply_filtered_user_filters(records, *, licensed_only=False, include_guests=False):
+    if not records:
+        return []
+
+    filtered = []
+
+    for record in records:
+        if licensed_only and (record.get('licenseCount') or 0) == 0:
+            continue
+
+        user_type = (record.get('userType') or '').lower()
+        if not include_guests and user_type == 'guest':
+            continue
+
+        filtered.append(record)
+
+    return filtered
+
+
+def _get_disabled_records_from_request(*, force_refresh=False, apply_filters=True):
+    licensed_only = request.args.get('licensedOnly', 'false').lower() == 'true'
+    include_guests = request.args.get('includeGuests', 'false').lower() == 'true'
+    recent_days_raw = request.args.get('recentDays')
+    recent_days = None
+    if recent_days_raw not in (None, ''):
+        try:
+            recent_days = int(recent_days_raw)
+        except ValueError:
+            logger.warning(f"Invalid recentDays value provided: {recent_days_raw}")
+
+    records = _load_disabled_users_data(force_refresh=force_refresh)
+    filtered_records = (
+        _apply_disabled_filters(
+            records,
+            licensed_only=licensed_only,
+            recent_days=recent_days,
+            include_guests=include_guests
+        )
+        if apply_filters else records
+    )
+
+    filter_payload = {
+        'licensedOnly': licensed_only,
+        'recentDays': recent_days,
+        'includeGuests': include_guests
+    }
+
+    return filtered_records, filter_payload
 
 
 @app.route('/api/reports/missing-manager')
@@ -2293,20 +2732,340 @@ def export_missing_manager_report():
         return jsonify({'error': 'Failed to export report'}), 500
 
 
-@app.route('/api/reports/disabled-licensed')
+@app.route('/api/reports/disabled-users')
 @require_auth
-def get_disabled_licensed_report():
+def get_disabled_users_report():
     try:
         refresh = request.args.get('refresh', 'false').lower() == 'true'
-        records = _load_disabled_license_data(force_refresh=refresh)
+        filtered_records, applied_filters = _get_disabled_records_from_request(
+            force_refresh=refresh,
+            apply_filters=True
+        )
         generated_at = None
-        if os.path.exists(DISABLED_LICENSE_FILE):
-            generated_at = datetime.fromtimestamp(os.path.getmtime(DISABLED_LICENSE_FILE)).isoformat()
+        if os.path.exists(DISABLED_USERS_FILE):
+            generated_at = datetime.fromtimestamp(os.path.getmtime(DISABLED_USERS_FILE)).isoformat()
+
+        return jsonify({
+            'records': filtered_records,
+            'count': len(filtered_records),
+            'generatedAt': generated_at,
+            'appliedFilters': applied_filters
+        })
+    except Exception as e:
+        logger.error(f"Error loading disabled users report: {e}")
+        return jsonify({'error': 'Failed to load report data'}), 500
+
+
+@app.route('/api/reports/disabled-users/export')
+@require_auth
+def export_disabled_users_report():
+    if not Workbook:
+        return jsonify({'error': 'XLSX export not available - openpyxl not installed'}), 500
+
+    try:
+        refresh = request.args.get('refresh', 'false').lower() == 'true'
+        records, _ = _get_disabled_records_from_request(
+            force_refresh=refresh,
+            apply_filters=True
+        )
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Disabled Users"
+
+        headers = [
+            ('name', 'Name'),
+            ('email', 'Email'),
+            ('department', 'Department'),
+            ('title', 'Title'),
+            ('disabledDate', 'First Observed Disabled'),
+            ('disabledDays', 'Days Since Observed Disabled'),
+            ('licenseCount', 'License Count'),
+            ('licenseSkus', 'Licenses')
+        ]
+
+        for column_index, (_, header_text) in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=column_index, value=header_text)
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+            cell.alignment = Alignment(horizontal="center")
+
+        for row_index, record in enumerate(records, start=2):
+            for column_index, (key, _) in enumerate(headers, 1):
+                value = record.get(key)
+                if key == 'licenseSkus' and isinstance(value, list):
+                    value = ", ".join(value)
+                elif key == 'disabledDate' and value:
+                    dt = parse_graph_datetime(value)
+                    value = dt.date().isoformat() if dt else value
+                ws.cell(row=row_index, column=column_index, value=value)
+
+        for col in range(1, len(headers) + 1):
+            column_letter = get_column_letter(col)
+            ws.column_dimensions[column_letter].width = 24
+
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+
+        filename = f"disabled-users-{datetime.now().strftime('%Y-%m-%d')}.xlsx"
+
+        return send_file(
+            output,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+    except Exception as e:
+        logger.error(f"Error exporting disabled users report: {e}")
+        return jsonify({'error': 'Failed to export report'}), 500
+
+
+@app.route('/api/reports/disabled-this-year')
+@require_auth
+def get_recently_disabled_report():
+    try:
+        refresh = request.args.get('refresh', 'false').lower() == 'true'
+        all_records, base_filters = _get_disabled_records_from_request(
+            force_refresh=refresh,
+            apply_filters=False
+        )
+
+        recent_days_raw = request.args.get('recentDays')
+        if recent_days_raw in (None, ''):
+            recent_days = 365
+        else:
+            try:
+                recent_days = int(recent_days_raw)
+            except ValueError:
+                logger.warning(f"Invalid recentDays value provided for recently disabled report: {recent_days_raw}")
+                recent_days = 365
+
+        licensed_only = request.args.get('licensedOnly', 'false').lower() == 'true'
+        include_guests = request.args.get('includeGuests', 'false').lower() == 'true'
+
+        records = _apply_disabled_filters(
+            all_records,
+            licensed_only=licensed_only,
+            recent_days=recent_days,
+            include_guests=include_guests
+        )
+        generated_at = None
+        if os.path.exists(RECENTLY_DISABLED_FILE):
+            generated_at = datetime.fromtimestamp(os.path.getmtime(RECENTLY_DISABLED_FILE)).isoformat()
+
+        return jsonify({
+            'records': records,
+            'count': len(records),
+            'generatedAt': generated_at,
+            'appliedFilters': {
+                'licensedOnly': licensed_only,
+                'recentDays': recent_days,
+                'includeGuests': include_guests
+            }
+        })
+    except Exception as e:
+        logger.error(f"Error loading recently disabled report: {e}")
+        return jsonify({'error': 'Failed to load report data'}), 500
+
+
+@app.route('/api/reports/disabled-this-year/export')
+@require_auth
+def export_recently_disabled_report():
+    if not Workbook:
+        return jsonify({'error': 'XLSX export not available - openpyxl not installed'}), 500
+
+    try:
+        refresh = request.args.get('refresh', 'false').lower() == 'true'
+        all_records, _ = _get_disabled_records_from_request(
+            force_refresh=refresh,
+            apply_filters=False
+        )
+
+        recent_days_raw = request.args.get('recentDays')
+        if recent_days_raw in (None, ''):
+            recent_days = 365
+        else:
+            try:
+                recent_days = int(recent_days_raw)
+            except ValueError:
+                logger.warning(f"Invalid recentDays value provided for recently disabled export: {recent_days_raw}")
+                recent_days = 365
+
+        licensed_only = request.args.get('licensedOnly', 'false').lower() == 'true'
+        include_guests = request.args.get('includeGuests', 'false').lower() == 'true'
+
+        records = _apply_disabled_filters(
+            all_records,
+            licensed_only=licensed_only,
+            recent_days=recent_days,
+            include_guests=include_guests
+        )
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Disabled Last 365 Days"
+
+        headers = [
+            ('name', 'Name'),
+            ('email', 'Email'),
+            ('department', 'Department'),
+            ('title', 'Title'),
+            ('disabledDate', 'First Observed Disabled'),
+            ('disabledDays', 'Days Since Observed Disabled'),
+            ('licenseCount', 'License Count'),
+            ('licenseSkus', 'Licenses')
+        ]
+
+        for column_index, (_, header_text) in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=column_index, value=header_text)
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+            cell.alignment = Alignment(horizontal="center")
+
+        for row_index, record in enumerate(records, start=2):
+            for column_index, (key, _) in enumerate(headers, 1):
+                value = record.get(key)
+                if key == 'licenseSkus' and isinstance(value, list):
+                    value = ", ".join(value)
+                elif key == 'disabledDate' and value:
+                    dt = parse_graph_datetime(value)
+                    value = dt.date().isoformat() if dt else value
+                ws.cell(row=row_index, column=column_index, value=value)
+
+        for col in range(1, len(headers) + 1):
+            column_letter = get_column_letter(col)
+            ws.column_dimensions[column_letter].width = 24
+
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+
+        filename = f"disabled-last-365-days-{datetime.now().strftime('%Y-%m-%d')}.xlsx"
+
+        return send_file(
+            output,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+    except Exception as e:
+        logger.error(f"Error exporting recently disabled report: {e}")
+        return jsonify({'error': 'Failed to export report'}), 500
+
+
+@app.route('/api/reports/hired-this-year')
+@require_auth
+def get_recently_hired_report():
+    try:
+        refresh = request.args.get('refresh', 'false').lower() == 'true'
+        records = _load_recently_hired_data(force_refresh=refresh)
+        generated_at = None
+        if os.path.exists(RECENTLY_HIRED_FILE):
+            generated_at = datetime.fromtimestamp(os.path.getmtime(RECENTLY_HIRED_FILE)).isoformat()
 
         return jsonify({
             'records': records,
             'count': len(records),
             'generatedAt': generated_at
+        })
+    except Exception as e:
+        logger.error(f"Error loading recently hired report: {e}")
+        return jsonify({'error': 'Failed to load report data'}), 500
+
+
+@app.route('/api/reports/hired-this-year/export')
+@require_auth
+def export_recently_hired_report():
+    if not Workbook:
+        return jsonify({'error': 'XLSX export not available - openpyxl not installed'}), 500
+
+    try:
+        refresh = request.args.get('refresh', 'false').lower() == 'true'
+        records = _load_recently_hired_data(force_refresh=refresh)
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Hired Last 365 Days"
+
+        headers = [
+            ('name', 'Name'),
+            ('email', 'Email'),
+            ('department', 'Department'),
+            ('title', 'Title'),
+            ('hireDate', 'Hire Date'),
+            ('daysSinceHire', 'Days Since Hire'),
+            ('managerName', 'Manager'),
+            ('phone', 'Phone'),
+            ('businessPhone', 'Business Phone'),
+            ('location', 'Location')
+        ]
+
+        for column_index, (_, header_text) in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=column_index, value=header_text)
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+            cell.alignment = Alignment(horizontal="center")
+
+        for row_index, record in enumerate(records, start=2):
+            for column_index, (key, _) in enumerate(headers, 1):
+                value = record.get(key)
+                if key == 'hireDate' and value:
+                    value = format_hire_date(value)
+                ws.cell(row=row_index, column=column_index, value=value)
+
+        for col in range(1, len(headers) + 1):
+            column_letter = get_column_letter(col)
+            ws.column_dimensions[column_letter].width = 24
+
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+
+        filename = f"hired-last-365-days-{datetime.now().strftime('%Y-%m-%d')}.xlsx"
+
+        return send_file(
+            output,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+    except Exception as e:
+        logger.error(f"Error exporting recently hired report: {e}")
+        return jsonify({'error': 'Failed to export report'}), 500
+
+
+@app.route('/api/reports/disabled-licensed')
+@require_auth
+def get_disabled_licensed_report():
+    try:
+        refresh = request.args.get('refresh', 'false').lower() == 'true'
+        all_records, base_filters = _get_disabled_records_from_request(
+            force_refresh=refresh,
+            apply_filters=False
+        )
+
+        include_guests = request.args.get('includeGuests', 'false').lower() == 'true'
+        recent_days = base_filters.get('recentDays')
+        filtered_records = _apply_disabled_filters(
+            all_records,
+            licensed_only=True,
+            recent_days=recent_days,
+            include_guests=include_guests
+        )
+        generated_at = None
+        if os.path.exists(DISABLED_LICENSE_FILE):
+            generated_at = datetime.fromtimestamp(os.path.getmtime(DISABLED_LICENSE_FILE)).isoformat()
+
+        return jsonify({
+            'records': filtered_records,
+            'count': len(filtered_records),
+            'generatedAt': generated_at,
+            'appliedFilters': {
+                'licensedOnly': True,
+                'recentDays': recent_days,
+                'includeGuests': include_guests
+            }
         })
     except Exception as e:
         logger.error(f"Error loading disabled licensed report: {e}")
@@ -2321,7 +3080,18 @@ def export_disabled_licensed_report():
 
     try:
         refresh = request.args.get('refresh', 'false').lower() == 'true'
-        records = _load_disabled_license_data(force_refresh=refresh)
+        all_records, base_filters = _get_disabled_records_from_request(
+            force_refresh=refresh,
+            apply_filters=False
+        )
+        recent_days = base_filters.get('recentDays')
+        include_guests = request.args.get('includeGuests', 'false').lower() == 'true'
+        records = _apply_disabled_filters(
+            all_records,
+            licensed_only=True,
+            recent_days=recent_days,
+            include_guests=include_guests
+        )
 
         wb = Workbook()
         ws = wb.active
@@ -2375,15 +3145,26 @@ def export_disabled_licensed_report():
 def get_filtered_users_report():
     try:
         refresh = request.args.get('refresh', 'false').lower() == 'true'
+        licensed_only = request.args.get('licensedOnly', 'false').lower() == 'true'
+        include_guests = request.args.get('includeGuests', 'false').lower() == 'true'
         records = _load_filtered_user_data(force_refresh=refresh)
+        filtered_records = _apply_filtered_user_filters(
+            records,
+            licensed_only=licensed_only,
+            include_guests=include_guests
+        )
         generated_at = None
         if os.path.exists(FILTERED_USERS_FILE):
             generated_at = datetime.fromtimestamp(os.path.getmtime(FILTERED_USERS_FILE)).isoformat()
 
         return jsonify({
-            'records': records,
-            'count': len(records),
-            'generatedAt': generated_at
+            'records': filtered_records,
+            'count': len(filtered_records),
+            'generatedAt': generated_at,
+            'appliedFilters': {
+                'licensedOnly': licensed_only,
+                'includeGuests': include_guests
+            }
         })
     except Exception as e:
         logger.error(f"Error loading filtered users report: {e}")
@@ -2398,7 +3179,14 @@ def export_filtered_users_report():
 
     try:
         refresh = request.args.get('refresh', 'false').lower() == 'true'
+        licensed_only = request.args.get('licensedOnly', 'false').lower() == 'true'
+        include_guests = request.args.get('includeGuests', 'false').lower() == 'true'
         records = _load_filtered_user_data(force_refresh=refresh)
+        filtered_records = _apply_filtered_user_filters(
+            records,
+            licensed_only=licensed_only,
+            include_guests=include_guests
+        )
 
         wb = Workbook()
         ws = wb.active
@@ -2427,7 +3215,7 @@ def export_filtered_users_report():
             cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
             cell.alignment = Alignment(horizontal="center")
 
-        for row_index, record in enumerate(records, start=2):
+        for row_index, record in enumerate(filtered_records, start=2):
             for column_index, (key, _) in enumerate(headers, 1):
                 value = record.get(key)
                 if key == 'filterReasons' and isinstance(value, list):

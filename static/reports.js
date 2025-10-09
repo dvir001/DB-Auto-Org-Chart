@@ -33,15 +33,43 @@ const REPORT_CONFIGS = {
             },
         ],
     },
-    'disabled-licensed': {
-        dataPath: '/api/reports/disabled-licensed',
-        exportPath: '/api/reports/disabled-licensed/export',
-        summaryLabelKey: 'reports.types.disabledLicensed.summaryLabel',
-        tableTitleKey: 'reports.types.disabledLicensed.tableTitle',
-        emptyKey: 'reports.types.disabledLicensed.empty',
-        countSummaryKey: 'reports.types.disabledLicensed.countSummary',
+    'disabled-users': {
+        dataPath: '/api/reports/disabled-users',
+        exportPath: '/api/reports/disabled-users/export',
+        summaryLabelKey: 'reports.types.disabledUsers.summaryLabel',
+        tableTitleKey: 'reports.types.disabledUsers.tableTitle',
+        emptyKey: 'reports.types.disabledUsers.empty',
+        countSummaryKey: 'reports.types.disabledUsers.countSummary',
         showLicenseSummary: true,
         licenseSummaryLabelKey: 'reports.summary.licensesLabel',
+        filters: [
+            {
+                type: 'toggle',
+                key: 'licensedOnly',
+                labelKey: 'reports.filters.licensedOnly.label',
+                queryParam: 'licensedOnly',
+                default: false,
+            },
+            {
+                type: 'toggle',
+                key: 'includeGuests',
+                labelKey: 'reports.filters.includeGuests.label',
+                queryParam: 'includeGuests',
+                default: false,
+            },
+            {
+                type: 'segmented',
+                key: 'recentDays',
+                labelKey: 'reports.filters.recentDays.label',
+                queryParam: 'recentDays',
+                default: null,
+                options: [
+                    { value: null, labelKey: 'reports.filters.recentDays.options.all' },
+                    { value: 365, labelKey: 'reports.filters.recentDays.options.year' },
+                    { value: 90, labelKey: 'reports.filters.recentDays.options.ninety' },
+                ],
+            },
+        ],
         buildStatusParams: (records) => ({
             count: records.length,
             licenses: records.reduce((total, item) => total + (item.licenseCount || 0), 0),
@@ -51,6 +79,12 @@ const REPORT_CONFIGS = {
             { key: 'title', labelKey: 'reports.table.columns.title' },
             { key: 'department', labelKey: 'reports.table.columns.department' },
             { key: 'email', labelKey: 'reports.table.columns.email' },
+            {
+                key: 'disabledDate',
+                labelKey: 'reports.table.columns.disabledDate',
+                render: (record) => formatDisplayDate(record.disabledDate),
+            },
+            { key: 'disabledDays', labelKey: 'reports.table.columns.daysSinceDisabled' },
             { key: 'licenseCount', labelKey: 'reports.table.columns.licenseCount' },
             {
                 key: 'licenseSkus',
@@ -59,35 +93,26 @@ const REPORT_CONFIGS = {
             },
         ],
     },
-    'filtered-licensed': {
-        dataPath: '/api/reports/filtered-licensed',
-        exportPath: '/api/reports/filtered-licensed/export',
-        summaryLabelKey: 'reports.types.filteredLicensed.summaryLabel',
-        tableTitleKey: 'reports.types.filteredLicensed.tableTitle',
-        emptyKey: 'reports.types.filteredLicensed.empty',
-        countSummaryKey: 'reports.types.filteredLicensed.countSummary',
-        showLicenseSummary: true,
-        licenseSummaryLabelKey: 'reports.summary.licensesLabel',
-        buildStatusParams: (records) => ({
-            count: records.length,
-            licenses: records.reduce((total, item) => total + (item.licenseCount || 0), 0),
-        }),
+    'hired-this-year': {
+        dataPath: '/api/reports/hired-this-year',
+        exportPath: '/api/reports/hired-this-year/export',
+        summaryLabelKey: 'reports.types.hiredThisYear.summaryLabel',
+        tableTitleKey: 'reports.types.hiredThisYear.tableTitle',
+        emptyKey: 'reports.types.hiredThisYear.empty',
+        countSummaryKey: 'reports.types.hiredThisYear.countSummary',
+        buildStatusParams: (records) => ({ count: records.length }),
         columns: [
             { key: 'name', labelKey: 'reports.table.columns.name' },
             { key: 'title', labelKey: 'reports.table.columns.title' },
             { key: 'department', labelKey: 'reports.table.columns.department' },
             { key: 'email', labelKey: 'reports.table.columns.email' },
-            { key: 'licenseCount', labelKey: 'reports.table.columns.licenseCount' },
             {
-                key: 'licenseSkus',
-                labelKey: 'reports.table.columns.licenses',
-                render: (record) => (record.licenseSkus || []).join(', '),
+                key: 'hireDate',
+                labelKey: 'reports.table.columns.hireDate',
+                render: (record) => formatDisplayDate(record.hireDate),
             },
-            {
-                key: 'filterReasons',
-                labelKey: 'reports.types.filteredLicensed.columns.filterReasons',
-                render: renderFilterReasonsCell,
-            },
+            { key: 'daysSinceHire', labelKey: 'reports.table.columns.daysSinceHire' },
+            { key: 'managerName', labelKey: 'reports.table.columns.manager' },
         ],
     },
     'filtered-users': {
@@ -97,12 +122,39 @@ const REPORT_CONFIGS = {
         tableTitleKey: 'reports.types.filteredUsers.tableTitle',
         emptyKey: 'reports.types.filteredUsers.empty',
         countSummaryKey: 'reports.types.filteredUsers.countSummary',
-        buildStatusParams: (records) => ({ count: records.length }),
+        showLicenseSummary: true,
+        licenseSummaryLabelKey: 'reports.summary.licensesLabel',
+        filters: [
+            {
+                type: 'toggle',
+                key: 'licensedOnly',
+                labelKey: 'reports.filters.filteredLicensedOnly.label',
+                queryParam: 'licensedOnly',
+                default: false,
+            },
+            {
+                type: 'toggle',
+                key: 'includeGuests',
+                labelKey: 'reports.filters.includeGuests.label',
+                queryParam: 'includeGuests',
+                default: false,
+            },
+        ],
+        buildStatusParams: (records) => ({
+            count: records.length,
+            licenses: records.reduce((total, item) => total + (item.licenseCount || 0), 0),
+        }),
         columns: [
             { key: 'name', labelKey: 'reports.table.columns.name' },
             { key: 'title', labelKey: 'reports.table.columns.title' },
             { key: 'department', labelKey: 'reports.table.columns.department' },
             { key: 'email', labelKey: 'reports.table.columns.email' },
+            { key: 'licenseCount', labelKey: 'reports.table.columns.licenseCount' },
+            {
+                key: 'licenseSkus',
+                labelKey: 'reports.table.columns.licenses',
+                render: (record) => (record.licenseSkus || []).join(', '),
+            },
             {
                 key: 'filterReasons',
                 labelKey: 'reports.types.filteredLicensed.columns.filterReasons',
@@ -111,6 +163,192 @@ const REPORT_CONFIGS = {
         ],
     },
 };
+
+const reportFiltersState = {};
+
+function buildDefaultFilters(config) {
+    const defaults = {};
+    (config.filters || []).forEach((filter) => {
+        if (filter.type === 'toggle') {
+            defaults[filter.key] = Boolean(filter.default);
+        } else if (filter.type === 'segmented') {
+            defaults[filter.key] = filter.default ?? null;
+        } else {
+            defaults[filter.key] = filter.default;
+        }
+    });
+    return defaults;
+}
+
+function ensureFilterState(reportKey) {
+    if (!reportFiltersState[reportKey]) {
+        const config = REPORT_CONFIGS[reportKey];
+        reportFiltersState[reportKey] = config ? buildDefaultFilters(config) : {};
+    }
+    return reportFiltersState[reportKey];
+}
+
+function normalizeFilterValue(filter, value) {
+    if (filter.type === 'toggle') {
+        if (typeof value === 'string') {
+            const lowered = value.toLowerCase();
+            if (lowered === 'true') {
+                return true;
+            }
+            if (lowered === 'false') {
+                return false;
+            }
+        }
+        return Boolean(value);
+    }
+    if (filter.type === 'segmented') {
+        if (value === null || value === undefined || value === '') {
+            return null;
+        }
+        const parsed = Number(value);
+        return Number.isNaN(parsed) ? value : parsed;
+    }
+    return value;
+}
+
+function applyServerFilterState(reportKey, config, serverFilters) {
+    if (!config.filters || !serverFilters) {
+        return;
+    }
+    const state = ensureFilterState(reportKey);
+    config.filters.forEach((filter) => {
+        const hasKey = Object.prototype.hasOwnProperty.call(serverFilters, filter.key);
+        const rawValue = hasKey
+            ? serverFilters[filter.key]
+            : serverFilters[filter.queryParam || filter.key];
+        if (rawValue === undefined) {
+            return;
+        }
+        state[filter.key] = normalizeFilterValue(filter, rawValue);
+    });
+}
+
+function updateFilterValue(reportKey, filter, value) {
+    const state = ensureFilterState(reportKey);
+    const normalizedValue = filter.type === 'toggle' ? Boolean(value) : value;
+    const previous = state[filter.key];
+    if (filter.type === 'toggle') {
+        if (previous === normalizedValue) {
+            return;
+        }
+    } else if (filter.type === 'segmented') {
+        const normalizedPrev = previous === undefined ? null : previous;
+        const normalizedNext = normalizedValue === undefined ? null : normalizedValue;
+        if (normalizedPrev === normalizedNext) {
+            return;
+        }
+    }
+
+    state[filter.key] = normalizedValue;
+
+    if (reportKey === currentReportKey) {
+        const config = REPORT_CONFIGS[reportKey];
+        renderFilters(config, reportKey);
+        loadReport().catch((error) => {
+            console.error('Failed to load report with updated filters:', error);
+        });
+    }
+}
+
+function renderFilters(config, reportKey) {
+    const container = qs('reportFilters');
+    if (!container) {
+        return;
+    }
+
+    const filters = config.filters || [];
+    if (!filters.length) {
+        container.classList.add('is-hidden');
+        container.innerHTML = '';
+        return;
+    }
+
+    const t = getTranslator();
+    container.classList.remove('is-hidden');
+    container.innerHTML = '';
+
+    const title = document.createElement('span');
+    title.className = 'filter-toolbar__title';
+    title.textContent = t('reports.filters.title');
+    container.appendChild(title);
+
+    const state = ensureFilterState(reportKey);
+
+    filters.forEach((filter) => {
+        const group = document.createElement('div');
+        group.className = 'filter-group';
+
+        if (filter.type === 'toggle') {
+            const isActive = Boolean(state[filter.key]);
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = `filter-chip${isActive ? ' filter-chip--active' : ''}`;
+            button.textContent = t(filter.labelKey);
+            button.setAttribute('aria-pressed', String(isActive));
+            button.addEventListener('click', () => {
+                updateFilterValue(reportKey, filter, !isActive);
+            });
+            group.appendChild(button);
+        } else if (filter.type === 'segmented') {
+            const label = document.createElement('span');
+            label.className = 'filter-group__label';
+            label.textContent = t(filter.labelKey);
+            group.appendChild(label);
+
+            const currentValue = state[filter.key] ?? null;
+            (filter.options || []).forEach((option) => {
+                const optionValue = option.value ?? null;
+                const isSelected = currentValue === optionValue;
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = `filter-chip${isSelected ? ' filter-chip--active' : ''}`;
+                button.textContent = t(option.labelKey);
+                button.setAttribute('aria-pressed', String(isSelected));
+                button.addEventListener('click', () => {
+                    updateFilterValue(reportKey, filter, optionValue);
+                });
+                group.appendChild(button);
+            });
+        }
+
+        container.appendChild(group);
+    });
+}
+
+function applyFiltersToUrl(url, config, reportKey) {
+    const filters = config.filters || [];
+    if (!filters.length) {
+        return;
+    }
+
+    const state = ensureFilterState(reportKey);
+
+    filters.forEach((filter) => {
+        const paramName = filter.queryParam || filter.key;
+        const value = state[filter.key];
+
+        if (filter.type === 'toggle') {
+            if (value) {
+                url.searchParams.set(paramName, 'true');
+            } else {
+                url.searchParams.delete(paramName);
+            }
+        } else if (filter.type === 'segmented') {
+            if (value === null || value === undefined || value === '') {
+                url.searchParams.delete(paramName);
+            } else {
+                url.searchParams.set(paramName, value);
+            }
+        } else if (value !== undefined && value !== null && value !== '') {
+            url.searchParams.set(paramName, value);
+        }
+    });
+}
 
 function renderFilterReasonsCell(record, t) {
     const reasons = record.filterReasons || [];
@@ -163,6 +401,21 @@ function formatDate(value) {
         const offsetMins = pad(absOffset % 60);
 
         return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}${offsetSign}${offsetHours}:${offsetMins}`;
+    } catch (error) {
+        return value;
+    }
+}
+
+function formatDisplayDate(value) {
+    if (!value) {
+        return '—';
+    }
+    try {
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+            return value;
+        }
+        return date.toLocaleDateString();
     } catch (error) {
         return value;
     }
@@ -345,6 +598,7 @@ function renderTable(records, config) {
 
 async function loadReport({ refresh = false } = {}) {
     const config = REPORT_CONFIGS[currentReportKey] || REPORT_CONFIGS['missing-manager'];
+    renderFilters(config, currentReportKey);
     toggleLoading(true, config);
     clearError();
 
@@ -353,12 +607,17 @@ async function loadReport({ refresh = false } = {}) {
         if (refresh) {
             url.searchParams.set('refresh', 'true');
         }
+        applyFiltersToUrl(url, config, currentReportKey);
         const response = await fetch(url, { credentials: 'include' });
         if (!response.ok) {
             throw new Error(`${response.status}`);
         }
         const payload = await response.json();
         latestRecords = Array.isArray(payload.records) ? payload.records : [];
+        if (payload.appliedFilters) {
+            applyServerFilterState(currentReportKey, config, payload.appliedFilters);
+        }
+        renderFilters(config, currentReportKey);
         renderSummary(latestRecords, payload.generatedAt, config);
         renderTable(latestRecords, config);
         toggleLoading(false, config, latestRecords);
@@ -376,6 +635,7 @@ async function exportReport() {
 
     try {
         const url = new URL(config.exportPath, API_BASE_URL);
+        applyFiltersToUrl(url, config, currentReportKey);
         const response = await fetch(url, { credentials: 'include' });
         if (!response.ok) {
             throw new Error(`${response.status}`);
@@ -423,8 +683,10 @@ async function initializeReportsPage() {
             reportSelect.addEventListener('change', () => {
                 currentReportKey = reportSelect.value;
                 const config = REPORT_CONFIGS[currentReportKey] || REPORT_CONFIGS['missing-manager'];
+                ensureFilterState(currentReportKey);
                 renderSummary([], null, config);
                 renderTable([], config);
+                renderFilters(config, currentReportKey);
                 loadReport().catch((error) => {
                     console.error('Failed to load report:', error);
                 });
@@ -447,8 +709,10 @@ async function initializeReportsPage() {
         }
 
         const initialConfig = REPORT_CONFIGS[currentReportKey];
+    ensureFilterState(currentReportKey);
         renderSummary([], null, initialConfig);
         renderTable([], initialConfig);
+    renderFilters(initialConfig, currentReportKey);
 
         await loadReport();
     } finally {

@@ -307,9 +307,9 @@
 			"label": "Report type",
 			"options": {
 				"missingManager": "Employees without managers",
-				"filteredLicensed": "Licensed users hidden by filters",
-				"filteredUsers": "Users hidden by filters",
-				"disabledLicensed": "Disabled users with active licenses"
+				"disabledUsers": "Disabled users",
+				"hiredThisYear": "Employees hired in the last 365 days",
+				"filteredUsers": "Users hidden by filters"
 			}
 		},
 		"buttons": {
@@ -317,6 +317,26 @@
 			"refreshTooltip": "Regenerate the report with the latest directory data",
 			"export": "Export XLSX",
 			"exportTooltip": "Download this report as an Excel workbook"
+		},
+		"filters": {
+			"title": "Filters",
+			"licensedOnly": {
+				"label": "Licensed only"
+			},
+			"filteredLicensedOnly": {
+				"label": "Licensed only"
+			},
+			"recentDays": {
+				"label": "Observed disabled",
+				"options": {
+					"all": "All time",
+					"year": "Last 365 days",
+					"ninety": "Last 90 days"
+				}
+			},
+			"includeGuests": {
+				"label": "Include guest users"
+			}
 		},
 		"summary": {
 			"totalLabel": "Employees without managers",
@@ -341,6 +361,10 @@
 				"reason": "Reason",
 				"userPrincipalName": "User Principal Name",
 				"usageLocation": "Usage Location",
+				"disabledDate": "First Observed Disabled",
+				"daysSinceDisabled": "Days Since Observed Disabled",
+				"hireDate": "Hire Date",
+				"daysSinceHire": "Days Since Hire",
 				"licenseCount": "License Count",
 				"licenses": "Licenses"
 			},
@@ -352,6 +376,24 @@
 			}
 		},
 		"types": {
+			"disabledUsers": {
+				"summaryLabel": "Currently disabled users (first observed)",
+				"tableTitle": "All disabled users (first observed date)",
+				"empty": "No disabled users were found.",
+				"countSummary": "Showing {count} disabled users holding {licenses} licenses"
+			},
+			"disabledThisYear": {
+				"summaryLabel": "Users first observed disabled in the last 365 days",
+				"tableTitle": "Employees first observed disabled in the last 365 days",
+				"empty": "No users have been observed disabled in the last 365 days.",
+				"countSummary": "Showing {count} users observed disabled in the last 365 days holding {licenses} licenses"
+			},
+			"hiredThisYear": {
+				"summaryLabel": "Employees hired in the last 365 days",
+				"tableTitle": "Employees hired in the last 365 days",
+				"empty": "No employees have been hired in the last 365 days.",
+				"countSummary": "Showing {count} employees hired in the last 365 days"
+			},
 			"disabledLicensed": {
 				"summaryLabel": "Disabled users still holding licenses",
 				"tableTitle": "Disabled users still assigned licenses",

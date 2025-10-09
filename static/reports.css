@@ -170,6 +170,71 @@ html.i18n-loading body {
     padding: 24px;
 }
 
+.filter-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 16px;
+    align-items: center;
+}
+
+.filter-toolbar__title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-right: 8px;
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(15, 23, 42, 0.04);
+    border-radius: 999px;
+    padding: 6px 10px;
+}
+
+.filter-group__label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.filter-chip {
+    border: none;
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    background: rgba(15, 23, 42, 0.05);
+    color: #1f2937;
+    transition: background 0.2s ease, color 0.2s ease, transform 0.15s ease;
+}
+
+.filter-chip:hover {
+    background: rgba(15, 23, 42, 0.12);
+    transform: translateY(-1px);
+}
+
+.filter-chip:active {
+    transform: translateY(0);
+}
+
+.filter-chip--active {
+    background: var(--primary-color);
+    color: #ffffff;
+    box-shadow: 0 6px 16px rgba(0, 120, 212, 0.22);
+}
+
+.filter-chip--active:hover {
+    background: #0056a6;
+}
+
 .table-header {
     display: flex;
     align-items: baseline;
@@ -205,6 +270,8 @@ thead th {
     font-weight: 700;
     color: #374151;
     border-bottom: 2px solid #c7d2fe;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 tbody td {
@@ -212,6 +279,9 @@ tbody td {
     border-bottom: 1px solid #e5e7eb;
     font-size: 0.95rem;
     color: #1f2937;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    white-space: normal;
 }
 
 tbody tr:hover {
@@ -287,5 +357,9 @@ tbody tr:hover {
 
     .table-panel {
         padding: 16px;
+    }
+
+    .filter-toolbar {
+        gap: 8px;
     }
 }
