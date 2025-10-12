@@ -48,7 +48,7 @@ const REPORT_CONFIGS = {
                 key: 'licensedOnly',
                 labelKey: 'reports.filters.licensedOnly.label',
                 queryParam: 'licensedOnly',
-                default: false,
+                default: true,
             },
             {
                 type: 'toggle',
@@ -56,6 +56,13 @@ const REPORT_CONFIGS = {
                 labelKey: 'reports.filters.includeGuests.label',
                 queryParam: 'includeGuests',
                 default: false,
+            },
+            {
+                type: 'toggle',
+                key: 'includeMembers',
+                labelKey: 'reports.filters.includeMembers.label',
+                queryParam: 'includeMembers',
+                default: true,
             },
             {
                 type: 'segmented',
@@ -130,7 +137,7 @@ const REPORT_CONFIGS = {
                 key: 'licensedOnly',
                 labelKey: 'reports.filters.filteredLicensedOnly.label',
                 queryParam: 'licensedOnly',
-                default: false,
+                default: true,
             },
             {
                 type: 'toggle',
@@ -138,6 +145,13 @@ const REPORT_CONFIGS = {
                 labelKey: 'reports.filters.includeGuests.label',
                 queryParam: 'includeGuests',
                 default: false,
+            },
+            {
+                type: 'toggle',
+                key: 'includeMembers',
+                labelKey: 'reports.filters.includeMembers.label',
+                queryParam: 'includeMembers',
+                default: true,
             },
         ],
         buildStatusParams: (records) => ({
@@ -336,7 +350,7 @@ function applyFiltersToUrl(url, config, reportKey) {
             if (value) {
                 url.searchParams.set(paramName, 'true');
             } else {
-                url.searchParams.delete(paramName);
+                url.searchParams.set(paramName, 'false');
             }
         } else if (filter.type === 'segmented') {
             if (value === null || value === undefined || value === '') {

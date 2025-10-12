@@ -2559,7 +2559,7 @@ def _load_filtered_user_data(force_refresh=False):
         return []
 
 
-def _apply_disabled_filters(records, *, licensed_only=False, recent_days=None, include_guests=False):
+def _apply_disabled_filters(records, *, licensed_only=False, recent_days=None, include_guests=False, include_members=True):
     if recent_days is not None:
         try:
             recent_days = int(recent_days)
@@ -2573,11 +2573,16 @@ def _apply_disabled_filters(records, *, licensed_only=False, recent_days=None, i
     filtered = []
 
     for record in records or []:
-        if licensed_only and (record.get('licenseCount') or 0) == 0:
+        user_type = (record.get('userType') or '').lower()
+        
+        # Filter based on Azure AD userType first
+        if user_type == 'guest' and not include_guests:
+            continue
+        if user_type == 'member' and not include_members:
             continue
 
-        user_type = (record.get('userType') or '').lower()
-        if not include_guests and user_type == 'guest':
+        # Then filter by license status
+        if licensed_only and (record.get('licenseCount') or 0) == 0:
             continue
 
         if cutoff is not None:
@@ -2597,18 +2602,23 @@ def _calculate_license_totals(records):
     return sum(record.get('licenseCount') or 0 for record in records or [])
 
 
-def _apply_filtered_user_filters(records, *, licensed_only=False, include_guests=False):
+def _apply_filtered_user_filters(records, *, licensed_only=False, include_guests=False, include_members=True):
     if not records:
         return []
 
     filtered = []
 
     for record in records:
-        if licensed_only and (record.get('licenseCount') or 0) == 0:
+        user_type = (record.get('userType') or '').lower()
+        
+        # Filter based on Azure AD userType first
+        if user_type == 'guest' and not include_guests:
+            continue
+        if user_type == 'member' and not include_members:
             continue
 
-        user_type = (record.get('userType') or '').lower()
-        if not include_guests and user_type == 'guest':
+        # Then filter by license status
+        if licensed_only and (record.get('licenseCount') or 0) == 0:
             continue
 
         filtered.append(record)
@@ -2617,8 +2627,9 @@ def _apply_filtered_user_filters(records, *, licensed_only=False, include_guests
 
 
 def _get_disabled_records_from_request(*, force_refresh=False, apply_filters=True):
-    licensed_only = request.args.get('licensedOnly', 'false').lower() == 'true'
+    licensed_only = request.args.get('licensedOnly', 'true').lower() == 'true'
     include_guests = request.args.get('includeGuests', 'false').lower() == 'true'
+    include_members = request.args.get('includeMembers', 'true').lower() == 'true'
     recent_days_raw = request.args.get('recentDays')
     recent_days = None
     if recent_days_raw not in (None, ''):
@@ -2633,7 +2644,8 @@ def _get_disabled_records_from_request(*, force_refresh=False, apply_filters=Tru
             records,
             licensed_only=licensed_only,
             recent_days=recent_days,
-            include_guests=include_guests
+            include_guests=include_guests,
+            include_members=include_members
         )
         if apply_filters else records
     )
@@ -2641,7 +2653,8 @@ def _get_disabled_records_from_request(*, force_refresh=False, apply_filters=Tru
     filter_payload = {
         'licensedOnly': licensed_only,
         'recentDays': recent_days,
-        'includeGuests': include_guests
+        'includeGuests': include_guests,
+        'includeMembers': include_members
     }
 
     return filtered_records, filter_payload
@@ -3145,13 +3158,15 @@ def export_disabled_licensed_report():
 def get_filtered_users_report():
     try:
         refresh = request.args.get('refresh', 'false').lower() == 'true'
-        licensed_only = request.args.get('licensedOnly', 'false').lower() == 'true'
+        licensed_only = request.args.get('licensedOnly', 'true').lower() == 'true'
         include_guests = request.args.get('includeGuests', 'false').lower() == 'true'
+        include_members = request.args.get('includeMembers', 'true').lower() == 'true'
         records = _load_filtered_user_data(force_refresh=refresh)
         filtered_records = _apply_filtered_user_filters(
             records,
             licensed_only=licensed_only,
-            include_guests=include_guests
+            include_guests=include_guests,
+            include_members=include_members
         )
         generated_at = None
         if os.path.exists(FILTERED_USERS_FILE):
@@ -3163,7 +3178,8 @@ def get_filtered_users_report():
             'generatedAt': generated_at,
             'appliedFilters': {
                 'licensedOnly': licensed_only,
-                'includeGuests': include_guests
+                'includeGuests': include_guests,
+                'includeMembers': include_members
             }
         })
     except Exception as e:
@@ -3179,13 +3195,15 @@ def export_filtered_users_report():
 
     try:
         refresh = request.args.get('refresh', 'false').lower() == 'true'
-        licensed_only = request.args.get('licensedOnly', 'false').lower() == 'true'
+        licensed_only = request.args.get('licensedOnly', 'true').lower() == 'true'
         include_guests = request.args.get('includeGuests', 'false').lower() == 'true'
+        include_members = request.args.get('includeMembers', 'true').lower() == 'true'
         records = _load_filtered_user_data(force_refresh=refresh)
         filtered_records = _apply_filtered_user_filters(
             records,
             licensed_only=licensed_only,
-            include_guests=include_guests
+            include_guests=include_guests,
+            include_members=include_members
         )
 
         wb = Workbook()
