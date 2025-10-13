@@ -132,7 +132,7 @@
 		"submit": "Login"
 	},
 	"configure": {
-		"pageTitle": "Configuration - DB AutoOrgChart",
+		"pageTitle": "Configuration - SimpleOrgChart",
 		"navBack": "← Back to Org Chart",
 		"header": {
 			"title": "Configuration Settings",
@@ -297,7 +297,7 @@
 		}
 	},
 	"reports": {
-		"pageTitle": "Reports - DB AutoOrgChart",
+		"pageTitle": "Reports - SimpleOrgChart",
 		"navBack": "← Back to Org Chart",
 		"header": {
 			"title": "Admin Reports",
@@ -307,7 +307,7 @@
 			"label": "Report type",
 			"options": {
 				"missingManager": "Employees without managers",
-				"disabledUsers": "Disabled users",
+				"lastLogins": "Users by last sign-in activity",
 				"hiredThisYear": "Employees hired in the last 365 days",
 				"filteredUsers": "Users hidden by filters"
 			}
@@ -320,18 +320,34 @@
 		},
 		"filters": {
 			"title": "Filters",
+			"includeEnabled": {
+				"label": "Enabled"
+			},
+			"includeDisabled": {
+				"label": "Disabled"
+			},
+			"includeLicensed": {
+				"label": "Licensed"
+			},
+			"includeUnlicensed": {
+				"label": "Unlicensed"
+			},
 			"licensedOnly": {
 				"label": "Licensed"
 			},
 			"filteredLicensedOnly": {
 				"label": "Licensed"
 			},
-			"recentDays": {
-				"label": "Observed disabled",
+			"inactiveDays": {
+				"label": "Inactive for at least",
 				"options": {
-					"all": "All time",
-					"year": "Last 365 days",
-					"ninety": "Last 90 days"
+					"all": "All activity",
+					"thirty": "30 days",
+					"sixty": "60 days",
+					"ninety": "90 days",
+					"oneEighty": "180 days",
+					"year": "365 days",
+					"never": "Never signed in"
 				}
 			},
 			"includeGuests": {
@@ -364,44 +380,38 @@
 				"reason": "Reason",
 				"userPrincipalName": "User Principal Name",
 				"usageLocation": "Usage Location",
-				"disabledDate": "First Observed Disabled",
-				"daysSinceDisabled": "Days Since Observed Disabled",
 				"hireDate": "Hire Date",
 				"daysSinceHire": "Days Since Hire",
 				"licenseCount": "License Count",
-				"licenses": "Licenses"
+				"licenses": "Licenses",
+				"lastActivityDate": "Most recent sign-in",
+				"daysSinceMostRecentSignIn": "Days since most recent sign-in",
+				"lastInteractiveSignIn": "Last interactive sign-in",
+				"daysSinceInteractiveSignIn": "Days since interactive sign-in",
+				"lastNonInteractiveSignIn": "Last non-interactive sign-in",
+				"daysSinceNonInteractiveSignIn": "Days since non-interactive sign-in",
+				"neverSignedIn": "Never signed in"
 			},
 			"reasonLabels": {
 				"no_manager": "No manager",
 				"manager_not_found": "Manager not found",
 				"detached": "Detached hierarchy",
 				"unknown": "Unknown reason"
-			}
+			},
+			"neverSignedIn": "Never signed in"
 		},
 		"types": {
-			"disabledUsers": {
-				"summaryLabel": "Currently disabled users (first observed)",
-				"tableTitle": "All disabled users (first observed date)",
-				"empty": "No disabled users were found.",
-				"countSummary": "Showing {count} disabled users holding {licenses} licenses"
-			},
-			"disabledThisYear": {
-				"summaryLabel": "Users first observed disabled in the last 365 days",
-				"tableTitle": "Employees first observed disabled in the last 365 days",
-				"empty": "No users have been observed disabled in the last 365 days.",
-				"countSummary": "Showing {count} users observed disabled in the last 365 days holding {licenses} licenses"
+			"lastLogins": {
+				"summaryLabel": "Users by last sign-in activity",
+				"tableTitle": "Users by last sign-in activity",
+				"empty": "All monitored users have signed in within the selected period.",
+				"countSummary": "Showing {count} users matching the inactivity criteria"
 			},
 			"hiredThisYear": {
 				"summaryLabel": "Employees hired in the last 365 days",
 				"tableTitle": "Employees hired in the last 365 days",
 				"empty": "No employees have been hired in the last 365 days.",
 				"countSummary": "Showing {count} employees hired in the last 365 days"
-			},
-			"disabledLicensed": {
-				"summaryLabel": "Disabled users still holding licenses",
-				"tableTitle": "Disabled users still assigned licenses",
-				"empty": "No disabled users currently hold licenses.",
-				"countSummary": "Showing {count} disabled users holding {licenses} licenses"
 			},
 			"filteredLicensed": {
 				"summaryLabel": "Licensed users hidden by filters",

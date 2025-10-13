@@ -33,29 +33,43 @@ const REPORT_CONFIGS = {
             },
         ],
     },
-    'disabled-users': {
-        dataPath: '/api/reports/disabled-users',
-        exportPath: '/api/reports/disabled-users/export',
-        summaryLabelKey: 'reports.types.disabledUsers.summaryLabel',
-        tableTitleKey: 'reports.types.disabledUsers.tableTitle',
-        emptyKey: 'reports.types.disabledUsers.empty',
-        countSummaryKey: 'reports.types.disabledUsers.countSummary',
+    'last-logins': {
+        dataPath: '/api/reports/last-logins',
+        exportPath: '/api/reports/last-logins/export',
+        summaryLabelKey: 'reports.types.lastLogins.summaryLabel',
+        tableTitleKey: 'reports.types.lastLogins.tableTitle',
+        emptyKey: 'reports.types.lastLogins.empty',
+        countSummaryKey: 'reports.types.lastLogins.countSummary',
         showLicenseSummary: true,
         licenseSummaryLabelKey: 'reports.summary.licensesLabel',
         filters: [
             {
                 type: 'toggle',
-                key: 'licensedOnly',
-                labelKey: 'reports.filters.licensedOnly.label',
-                queryParam: 'licensedOnly',
+                key: 'includeEnabled',
+                labelKey: 'reports.filters.includeEnabled.label',
+                queryParam: 'includeEnabled',
                 default: true,
             },
             {
                 type: 'toggle',
-                key: 'includeGuests',
-                labelKey: 'reports.filters.includeGuests.label',
-                queryParam: 'includeGuests',
-                default: false,
+                key: 'includeDisabled',
+                labelKey: 'reports.filters.includeDisabled.label',
+                queryParam: 'includeDisabled',
+                default: true,
+            },
+            {
+                type: 'toggle',
+                key: 'includeLicensed',
+                labelKey: 'reports.filters.includeLicensed.label',
+                queryParam: 'includeLicensed',
+                default: true,
+            },
+            {
+                type: 'toggle',
+                key: 'includeUnlicensed',
+                labelKey: 'reports.filters.includeUnlicensed.label',
+                queryParam: 'includeUnlicensed',
+                default: true,
             },
             {
                 type: 'toggle',
@@ -65,15 +79,26 @@ const REPORT_CONFIGS = {
                 default: true,
             },
             {
+                type: 'toggle',
+                key: 'includeGuests',
+                labelKey: 'reports.filters.includeGuests.label',
+                queryParam: 'includeGuests',
+                default: true,
+            },
+            {
                 type: 'segmented',
-                key: 'recentDays',
-                labelKey: 'reports.filters.recentDays.label',
-                queryParam: 'recentDays',
+                key: 'inactiveDays',
+                labelKey: 'reports.filters.inactiveDays.label',
+                queryParam: 'inactiveDays',
                 default: null,
                 options: [
-                    { value: null, labelKey: 'reports.filters.recentDays.options.all' },
-                    { value: 365, labelKey: 'reports.filters.recentDays.options.year' },
-                    { value: 90, labelKey: 'reports.filters.recentDays.options.ninety' },
+                    { value: null, labelKey: 'reports.filters.inactiveDays.options.all' },
+                    { value: 30, labelKey: 'reports.filters.inactiveDays.options.thirty' },
+                    { value: 60, labelKey: 'reports.filters.inactiveDays.options.sixty' },
+                    { value: 90, labelKey: 'reports.filters.inactiveDays.options.ninety' },
+                    { value: 180, labelKey: 'reports.filters.inactiveDays.options.oneEighty' },
+                    { value: 365, labelKey: 'reports.filters.inactiveDays.options.year' },
+                    { value: 'never', labelKey: 'reports.filters.inactiveDays.options.never' },
                 ],
             },
         ],
@@ -87,11 +112,37 @@ const REPORT_CONFIGS = {
             { key: 'department', labelKey: 'reports.table.columns.department' },
             { key: 'email', labelKey: 'reports.table.columns.email' },
             {
-                key: 'disabledDate',
-                labelKey: 'reports.table.columns.disabledDate',
-                render: (record) => formatDisplayDate(record.disabledDate),
+                key: 'lastActivityDate',
+                labelKey: 'reports.table.columns.lastActivityDate',
+                render: renderDateTimeCell('lastActivityDate'),
             },
-            { key: 'disabledDays', labelKey: 'reports.table.columns.daysSinceDisabled' },
+            {
+                key: 'daysSinceLastActivity',
+                labelKey: 'reports.table.columns.daysSinceMostRecentSignIn',
+            },
+            {
+                key: 'lastInteractiveSignIn',
+                labelKey: 'reports.table.columns.lastInteractiveSignIn',
+                render: renderDateTimeCell('lastInteractiveSignIn'),
+            },
+            {
+                key: 'daysSinceInteractiveSignIn',
+                labelKey: 'reports.table.columns.daysSinceInteractiveSignIn',
+            },
+            {
+                key: 'lastNonInteractiveSignIn',
+                labelKey: 'reports.table.columns.lastNonInteractiveSignIn',
+                render: renderDateTimeCell('lastNonInteractiveSignIn'),
+            },
+            {
+                key: 'daysSinceNonInteractiveSignIn',
+                labelKey: 'reports.table.columns.daysSinceNonInteractiveSignIn',
+            },
+            {
+                key: 'neverSignedIn',
+                labelKey: 'reports.table.columns.neverSignedIn',
+                render: renderNeverSignedInCell,
+            },
             { key: 'licenseCount', labelKey: 'reports.table.columns.licenseCount' },
             {
                 key: 'licenseSkus',
@@ -134,9 +185,37 @@ const REPORT_CONFIGS = {
         filters: [
             {
                 type: 'toggle',
-                key: 'licensedOnly',
-                labelKey: 'reports.filters.filteredLicensedOnly.label',
-                queryParam: 'licensedOnly',
+                key: 'includeEnabled',
+                labelKey: 'reports.filters.includeEnabled.label',
+                queryParam: 'includeEnabled',
+                default: true,
+            },
+            {
+                type: 'toggle',
+                key: 'includeDisabled',
+                labelKey: 'reports.filters.includeDisabled.label',
+                queryParam: 'includeDisabled',
+                default: true,
+            },
+            {
+                type: 'toggle',
+                key: 'includeLicensed',
+                labelKey: 'reports.filters.includeLicensed.label',
+                queryParam: 'includeLicensed',
+                default: true,
+            },
+            {
+                type: 'toggle',
+                key: 'includeUnlicensed',
+                labelKey: 'reports.filters.includeUnlicensed.label',
+                queryParam: 'includeUnlicensed',
+                default: true,
+            },
+            {
+                type: 'toggle',
+                key: 'includeMembers',
+                labelKey: 'reports.filters.includeMembers.label',
+                queryParam: 'includeMembers',
                 default: true,
             },
             {
@@ -144,13 +223,6 @@ const REPORT_CONFIGS = {
                 key: 'includeGuests',
                 labelKey: 'reports.filters.includeGuests.label',
                 queryParam: 'includeGuests',
-                default: false,
-            },
-            {
-                type: 'toggle',
-                key: 'includeMembers',
-                labelKey: 'reports.filters.includeMembers.label',
-                queryParam: 'includeMembers',
                 default: true,
             },
         ],
@@ -433,6 +505,38 @@ function formatDisplayDate(value) {
     } catch (error) {
         return value;
     }
+}
+
+function formatDisplayDateTime(value) {
+    if (!value) {
+        return '—';
+    }
+    try {
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+            return value;
+        }
+        return date.toLocaleString();
+    } catch (error) {
+        return value;
+    }
+}
+
+function renderDateTimeCell(field) {
+    return (record) => {
+        const value = record[field];
+        if (!value) {
+            return '—';
+        }
+        return formatDisplayDateTime(value);
+    };
+}
+
+function renderNeverSignedInCell(record, t) {
+    if (record.neverSignedIn) {
+        return t('reports.table.neverSignedIn');
+    }
+    return '—';
 }
 
 function applyReportContext(config) {
@@ -722,11 +826,11 @@ async function initializeReportsPage() {
             exportBtn.disabled = true;
         }
 
-        const initialConfig = REPORT_CONFIGS[currentReportKey];
-    ensureFilterState(currentReportKey);
+        const initialConfig = REPORT_CONFIGS[currentReportKey] || REPORT_CONFIGS['missing-manager'];
+        ensureFilterState(currentReportKey);
         renderSummary([], null, initialConfig);
         renderTable([], initialConfig);
-    renderFilters(initialConfig, currentReportKey);
+        renderFilters(initialConfig, currentReportKey);
 
         await loadReport();
     } finally {

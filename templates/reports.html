@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title data-i18n="reports.pageTitle">Reports - DB AutoOrgChart</title>
+    <title data-i18n="reports.pageTitle">Reports - SimpleOrgChart</title>
     <style>
         html.i18n-loading body {
             opacity: 0;
@@ -37,7 +37,7 @@
             <label for="reportTypeSelect" data-i18n="reports.selector.label">Select a report</label>
             <select id="reportTypeSelect" class="report-selector__input">
                 <option value="missing-manager" data-i18n="reports.selector.options.missingManager">Employees without managers</option>
-                <option value="disabled-users" data-i18n="reports.selector.options.disabledUsers">Disabled users</option>
+                <option value="last-logins" data-i18n="reports.selector.options.lastLogins">Users by last sign-in activity</option>
                 <option value="hired-this-year" data-i18n="reports.selector.options.hiredThisYear">Employees hired in the last 365 days</option>
                 <option value="filtered-users" data-i18n="reports.selector.options.filteredUsers">Users hidden by filters</option>
             </select>

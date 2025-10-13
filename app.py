@@ -83,6 +83,7 @@ def require_auth(f):
         return f(*args, **kwargs)
     return decorated_function
 
+
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -92,6 +93,7 @@ def login_required(f):
             return redirect(url_for('login', **params))
         return f(*args, **kwargs)
     return decorated_function
+
 
 _next_path_pattern = re.compile(r"^[A-Za-z0-9_\-/]*$")
 
@@ -112,26 +114,27 @@ def sanitize_next_path(raw_value):
 
     return candidate
 
+
 # Utility functions
 def validate_image_file(file):
     """Validate that uploaded file is a safe image"""
     if not Image:
         logger.warning("PIL not available, skipping image validation")
         return True
-    
+
     try:
         # Open and verify image
         img = Image.open(file)
         img.verify()
-        
+
         # Reset file pointer
         file.seek(0)
-        
+
         # Check image dimensions (reasonable limits)
         img = Image.open(file)
         if img.width > 2000 or img.height > 2000:
             return False
-            
+
         # Reset file pointer again
         file.seek(0)
         return True
@@ -143,6 +146,7 @@ if not os.path.exists('static'):
     os.makedirs('static')
 
 GRAPH_API_ENDPOINT = 'https://graph.microsoft.com/v1.0'
+GRAPH_API_BETA_ENDPOINT = 'https://graph.microsoft.com/beta'
 # DATA_FILE will be set after DATA_DIR is created
 # Create data directory for persistent storage
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -164,6 +168,7 @@ DISABLED_LICENSE_FILE = os.path.join(DATA_DIR, 'disabled_with_license_records.js
 FILTERED_LICENSE_FILE = os.path.join(DATA_DIR, 'filtered_with_license_records.json')
 FILTERED_USERS_FILE = os.path.join(DATA_DIR, 'filtered_user_records.json')
 DISABLED_USERS_FILE = os.path.join(DATA_DIR, 'disabled_user_records.json')
+LAST_LOGIN_FILE = os.path.join(DATA_DIR, 'last_login_records.json')
 RECENTLY_DISABLED_FILE = os.path.join(DATA_DIR, 'recently_disabled_employees.json')
 RECENTLY_HIRED_FILE = os.path.join(DATA_DIR, 'recently_hired_employees.json')
 
@@ -863,6 +868,130 @@ def fetch_subscribed_sku_map(token):
     return sku_map
 
 
+def collect_last_login_records(*, token=None):
+    """Return cached-friendly last sign-in details for all users."""
+
+    token = token or get_access_token()
+    if not token:
+        logger.error("Failed to get access token for last sign-in report")
+        return []
+
+    sku_map = fetch_subscribed_sku_map(token)
+
+    headers = {
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json',
+        'ConsistencyLevel': 'eventual'
+    }
+
+    fields = (
+        'id,displayName,jobTitle,department,mail,userPrincipalName,'
+        'signInActivity,accountEnabled,userType,assignedLicenses'
+    )
+    users_url = f"{GRAPH_API_BETA_ENDPOINT}/users?$select={fields}&$top=999"
+
+    now_utc = datetime.now(timezone.utc)
+    records = []
+
+    def _format_datetime(dt):
+        if not dt:
+            return None
+        if not dt.tzinfo:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc).isoformat()
+
+    def _map_licenses(license_entries):
+        license_entries = license_entries or []
+        if not license_entries:
+            return [], []
+
+        sku_ids = []
+        labels = []
+        seen_labels = set()
+
+        for entry in license_entries:
+            sku_id = entry.get('skuId')
+            if not sku_id:
+                continue
+            sku_ids.append(str(sku_id))
+            lookup_key = str(sku_id).lower()
+            friendly = sku_map.get(lookup_key) or sku_map.get(lookup_key.upper()) or str(sku_id)
+            normalized = friendly.lower()
+            if normalized not in seen_labels:
+                seen_labels.add(normalized)
+                labels.append(friendly)
+
+        labels.sort(key=lambda item: item.lower())
+        return sku_ids, labels
+
+    while users_url:
+        try:
+            response = requests.get(users_url, headers=headers, timeout=20)
+        except requests.exceptions.RequestException as error:
+            logger.error(f"Failed to fetch sign-in activity: {error}")
+            break
+
+        if response.status_code == 429:
+            retry_after = response.headers.get('Retry-After')
+            delay = 5
+            try:
+                parsed = int(retry_after)
+                delay = max(parsed, delay)
+            except Exception:
+                pass
+            logger.warning(f"Graph throttled sign-in activity request; retrying in {delay} seconds")
+            time.sleep(delay)
+            continue
+
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as error:
+            status_code = getattr(error.response, 'status_code', None)
+            logger.error(f"Graph error fetching sign-in activity (status {status_code}): {error}")
+            break
+
+        payload = response.json()
+
+        for user in payload.get('value', []):
+            sign_in = user.get('signInActivity') or {}
+
+            last_combined = parse_graph_datetime(sign_in.get('lastSignInDateTime'))
+            last_interactive = parse_graph_datetime(sign_in.get('lastInteractiveSignInDateTime'))
+            last_non_interactive = parse_graph_datetime(sign_in.get('lastNonInteractiveSignInDateTime'))
+
+            observed_dates = [dt for dt in (last_combined, last_interactive, last_non_interactive) if dt]
+            most_recent = max(observed_dates) if observed_dates else None
+
+            sku_ids, license_labels = _map_licenses(user.get('assignedLicenses'))
+
+            record = {
+                'id': user.get('id'),
+                'name': user.get('displayName') or 'Unknown',
+                'title': user.get('jobTitle') or 'No Title',
+                'department': user.get('department') or 'No Department',
+                'email': user.get('mail') or user.get('userPrincipalName') or '',
+                'accountEnabled': user.get('accountEnabled', True),
+                'userType': (user.get('userType') or '').lower(),
+                'licenseCount': len(sku_ids),
+                'licenseSkus': license_labels,
+                'licenseSkuIds': sku_ids,
+                'lastActivityDate': _format_datetime(most_recent),
+                'daysSinceLastActivity': int((now_utc - most_recent).days) if most_recent else None,
+                'lastInteractiveSignIn': _format_datetime(last_interactive),
+                'daysSinceInteractiveSignIn': int((now_utc - last_interactive).days) if last_interactive else None,
+                'lastNonInteractiveSignIn': _format_datetime(last_non_interactive),
+                'daysSinceNonInteractiveSignIn': int((now_utc - last_non_interactive).days) if last_non_interactive else None,
+                'neverSignedIn': not observed_dates,
+            }
+
+            records.append(record)
+
+        users_url = payload.get('@odata.nextLink')
+
+    logger.info("Collected %s last sign-in records", len(records))
+    return records
+
+
 def _collect_disabled_users(*, token=None, settings=None):
     """Return disabled user records with optional license metadata."""
 
@@ -1345,6 +1474,16 @@ def update_employee_data():
             )
         except Exception as report_error:
             logger.error(f"Failed to write filtered licensed users report cache: {report_error}")
+
+        try:
+            last_login_records = collect_last_login_records(token=token)
+            with open(LAST_LOGIN_FILE, 'w') as report_file:
+                json.dump(last_login_records, report_file, indent=2)
+            logger.info(
+                f"Updated last sign-in report cache with {len(last_login_records)} records"
+            )
+        except Exception as report_error:
+            logger.error(f"Failed to write last sign-in report cache: {report_error}")
 
         try:
             existing_disabled_records = []
@@ -2511,6 +2650,30 @@ def _load_recently_hired_data(force_refresh=False):
         return []
 
 
+def _load_last_login_data(force_refresh=False):
+    try:
+        if force_refresh or not os.path.exists(LAST_LOGIN_FILE):
+            logger.info("Refreshing last sign-in report cache")
+            update_employee_data()
+
+        if not os.path.exists(LAST_LOGIN_FILE):
+            logger.warning("Last sign-in report cache not found after refresh")
+            return []
+
+        with open(LAST_LOGIN_FILE, 'r') as report_file:
+            data = json.load(report_file)
+            if isinstance(data, list):
+                return data
+            logger.warning("Unexpected last sign-in report format; ignoring contents")
+            return []
+    except json.JSONDecodeError as decode_error:
+        logger.error(f"Failed to parse last sign-in report cache: {decode_error}")
+        return []
+    except Exception as error:
+        logger.error(f"Unexpected error loading last sign-in report cache: {error}")
+        return []
+
+
 def _load_filtered_license_data(force_refresh=False):
     try:
         if force_refresh or not os.path.exists(FILTERED_LICENSE_FILE):
@@ -2602,23 +2765,103 @@ def _calculate_license_totals(records):
     return sum(record.get('licenseCount') or 0 for record in records or [])
 
 
-def _apply_filtered_user_filters(records, *, licensed_only=False, include_guests=False, include_members=True):
+def _apply_last_login_filters(
+    records,
+    *,
+    include_enabled=True,
+    include_disabled=True,
+    include_licensed=True,
+    include_unlicensed=True,
+    include_members=True,
+    include_guests=True,
+    include_never_signed_in=True,
+    inactive_days=None
+):
+    if not records:
+        return []
+
+    inactive_threshold = None
+    require_never_signed_in = False
+
+    if inactive_days not in (None, "", "none"):
+        if isinstance(inactive_days, str) and inactive_days.lower() == 'never':
+            require_never_signed_in = True
+        else:
+            try:
+                inactive_threshold = int(inactive_days)
+            except (TypeError, ValueError):
+                inactive_threshold = None
+
+    filtered = []
+
+    for record in records:
+        account_enabled = record.get('accountEnabled', True)
+        if account_enabled and not include_enabled:
+            continue
+        if not account_enabled and not include_disabled:
+            continue
+
+        license_count = record.get('licenseCount') or 0
+        if license_count > 0 and not include_licensed:
+            continue
+        if license_count == 0 and not include_unlicensed:
+            continue
+
+        user_type = (record.get('userType') or '').lower()
+        if user_type == 'member' and not include_members:
+            continue
+        if user_type == 'guest' and not include_guests:
+            continue
+
+        never_signed_in = bool(record.get('neverSignedIn'))
+        if never_signed_in and not include_never_signed_in:
+            continue
+        if require_never_signed_in and not never_signed_in:
+            continue
+
+        if inactive_threshold is not None:
+            days_since = record.get('daysSinceLastActivity')
+            if days_since is None or days_since < inactive_threshold:
+                continue
+
+        filtered.append(record)
+
+    return filtered
+
+
+def _apply_filtered_user_filters(
+    records,
+    *,
+    include_enabled=True,
+    include_disabled=True,
+    include_licensed=True,
+    include_unlicensed=True,
+    include_members=True,
+    include_guests=True
+):
     if not records:
         return []
 
     filtered = []
 
     for record in records:
+        account_enabled = record.get('accountEnabled', True)
+        if account_enabled and not include_enabled:
+            continue
+        if not account_enabled and not include_disabled:
+            continue
+
+        license_count = record.get('licenseCount') or 0
+        if license_count > 0 and not include_licensed:
+            continue
+        if license_count == 0 and not include_unlicensed:
+            continue
+
         user_type = (record.get('userType') or '').lower()
-        
-        # Filter based on Azure AD userType first
+
         if user_type == 'guest' and not include_guests:
             continue
         if user_type == 'member' and not include_members:
-            continue
-
-        # Then filter by license status
-        if licensed_only and (record.get('licenseCount') or 0) == 0:
             continue
 
         filtered.append(record)
@@ -2754,6 +2997,7 @@ def get_disabled_users_report():
             force_refresh=refresh,
             apply_filters=True
         )
+
         generated_at = None
         if os.path.exists(DISABLED_USERS_FILE):
             generated_at = datetime.fromtimestamp(os.path.getmtime(DISABLED_USERS_FILE)).isoformat()
@@ -3048,6 +3292,171 @@ def export_recently_hired_report():
         return jsonify({'error': 'Failed to export report'}), 500
 
 
+def _parse_bool_arg(value, default=True):
+    if value is None:
+        return default
+    lowered = value.strip().lower()
+    if lowered in {'true', '1', 'yes', 'on'}:
+        return True
+    if lowered in {'false', '0', 'no', 'off'}:
+        return False
+    return default
+
+
+@app.route('/api/reports/last-logins')
+@require_auth
+def get_last_logins_report():
+    try:
+        refresh = _parse_bool_arg(request.args.get('refresh'), default=False)
+
+        include_enabled = _parse_bool_arg(request.args.get('includeEnabled'), default=True)
+        include_disabled = _parse_bool_arg(request.args.get('includeDisabled'), default=True)
+        include_licensed = _parse_bool_arg(request.args.get('includeLicensed'), default=True)
+        include_unlicensed = _parse_bool_arg(request.args.get('includeUnlicensed'), default=True)
+        include_members = _parse_bool_arg(request.args.get('includeMembers'), default=True)
+        include_guests = _parse_bool_arg(request.args.get('includeGuests'), default=True)
+        include_never_signed_in = _parse_bool_arg(request.args.get('includeNeverSignedIn'), default=True)
+
+        inactive_days_raw = request.args.get('inactiveDays')
+        inactive_days = None
+        if inactive_days_raw not in (None, '', 'null', 'None'):
+            inactive_days = inactive_days_raw
+
+        records = _load_last_login_data(force_refresh=refresh)
+        filtered_records = _apply_last_login_filters(
+            records,
+            include_enabled=include_enabled,
+            include_disabled=include_disabled,
+            include_licensed=include_licensed,
+            include_unlicensed=include_unlicensed,
+            include_members=include_members,
+            include_guests=include_guests,
+            include_never_signed_in=include_never_signed_in,
+            inactive_days=inactive_days
+        )
+
+        generated_at = None
+        if os.path.exists(LAST_LOGIN_FILE):
+            generated_at = datetime.fromtimestamp(os.path.getmtime(LAST_LOGIN_FILE)).isoformat()
+
+        return jsonify({
+            'records': filtered_records,
+            'count': len(filtered_records),
+            'generatedAt': generated_at,
+            'appliedFilters': {
+                'licensedOnly': include_licensed and not include_unlicensed,
+                'includeEnabled': include_enabled,
+                'includeDisabled': include_disabled,
+                'includeLicensed': include_licensed,
+                'includeUnlicensed': include_unlicensed,
+                'includeMembers': include_members,
+                'includeGuests': include_guests,
+                'includeNeverSignedIn': include_never_signed_in,
+                'inactiveDays': inactive_days
+            }
+        })
+    except Exception as error:
+        logger.error(f"Error loading last sign-in report: {error}")
+        return jsonify({'error': 'Failed to load report data'}), 500
+
+
+@app.route('/api/reports/last-logins/export')
+@require_auth
+def export_last_logins_report():
+    if not Workbook:
+        return jsonify({'error': 'XLSX export not available - openpyxl not installed'}), 500
+
+    try:
+        refresh = _parse_bool_arg(request.args.get('refresh'), default=False)
+
+        include_enabled = _parse_bool_arg(request.args.get('includeEnabled'), default=True)
+        include_disabled = _parse_bool_arg(request.args.get('includeDisabled'), default=True)
+        include_licensed = _parse_bool_arg(request.args.get('includeLicensed'), default=True)
+        include_unlicensed = _parse_bool_arg(request.args.get('includeUnlicensed'), default=True)
+        include_members = _parse_bool_arg(request.args.get('includeMembers'), default=True)
+        include_guests = _parse_bool_arg(request.args.get('includeGuests'), default=True)
+        include_never_signed_in = _parse_bool_arg(request.args.get('includeNeverSignedIn'), default=True)
+        inactive_days_raw = request.args.get('inactiveDays')
+        inactive_days = None
+        if inactive_days_raw not in (None, '', 'null', 'None'):
+            inactive_days = inactive_days_raw
+
+        records = _load_last_login_data(force_refresh=refresh)
+        filtered_records = _apply_last_login_filters(
+            records,
+            include_enabled=include_enabled,
+            include_disabled=include_disabled,
+            include_licensed=include_licensed,
+            include_unlicensed=include_unlicensed,
+            include_members=include_members,
+            include_guests=include_guests,
+            include_never_signed_in=include_never_signed_in,
+            inactive_days=inactive_days
+        )
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Users by Last Sign-In"
+
+        headers = [
+            ('name', 'Name'),
+            ('title', 'Title'),
+            ('department', 'Department'),
+            ('email', 'Email'),
+            ('accountEnabled', 'Account Enabled'),
+            ('userType', 'User Type'),
+            ('lastActivityDate', 'Most recent sign-in'),
+            ('daysSinceLastActivity', 'Days since most recent sign-in'),
+            ('lastInteractiveSignIn', 'Last interactive sign-in'),
+            ('daysSinceInteractiveSignIn', 'Days since interactive sign-in'),
+            ('lastNonInteractiveSignIn', 'Last non-interactive sign-in'),
+            ('daysSinceNonInteractiveSignIn', 'Days since non-interactive sign-in'),
+            ('neverSignedIn', 'Never signed in'),
+            ('licenseCount', 'License Count'),
+            ('licenseSkus', 'Licenses')
+        ]
+
+        for column_index, (_, header_text) in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=column_index, value=header_text)
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+            cell.alignment = Alignment(horizontal="center")
+
+        for row_index, record in enumerate(filtered_records, start=2):
+            for column_index, (key, _) in enumerate(headers, 1):
+                value = record.get(key)
+                if key == 'accountEnabled':
+                    value = 'Yes' if record.get('accountEnabled', True) else 'No'
+                elif key == 'userType':
+                    user_type = (record.get('userType') or '').strip()
+                    value = user_type.capitalize() if user_type else ''
+                elif key == 'neverSignedIn':
+                    value = 'Yes' if record.get('neverSignedIn') else 'No'
+                elif key == 'licenseSkus' and isinstance(value, list):
+                    value = ', '.join(value)
+                ws.cell(row=row_index, column=column_index, value=value)
+
+        for col in range(1, len(headers) + 1):
+            column_letter = get_column_letter(col)
+            ws.column_dimensions[column_letter].width = 26
+
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+
+        filename = f"last-logins-{datetime.now().strftime('%Y-%m-%d')}.xlsx"
+
+        return send_file(
+            output,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+    except Exception as error:
+        logger.error(f"Error exporting last sign-in report: {error}")
+        return jsonify({'error': 'Failed to export report'}), 500
+
+
 @app.route('/api/reports/disabled-licensed')
 @require_auth
 def get_disabled_licensed_report():
@@ -3157,17 +3566,33 @@ def export_disabled_licensed_report():
 @require_auth
 def get_filtered_users_report():
     try:
-        refresh = request.args.get('refresh', 'false').lower() == 'true'
-        licensed_only = request.args.get('licensedOnly', 'true').lower() == 'true'
-        include_guests = request.args.get('includeGuests', 'false').lower() == 'true'
-        include_members = request.args.get('includeMembers', 'true').lower() == 'true'
+        refresh = _parse_bool_arg(request.args.get('refresh'), default=False)
+
+        include_enabled = _parse_bool_arg(request.args.get('includeEnabled'), default=True)
+        include_disabled = _parse_bool_arg(request.args.get('includeDisabled'), default=True)
+        include_licensed = _parse_bool_arg(request.args.get('includeLicensed'), default=True)
+        include_unlicensed = _parse_bool_arg(request.args.get('includeUnlicensed'), default=True)
+        include_members = _parse_bool_arg(request.args.get('includeMembers'), default=True)
+        include_guests = _parse_bool_arg(request.args.get('includeGuests'), default=True)
+
+        if 'licensedOnly' in request.args:
+            legacy_licensed_only = _parse_bool_arg(request.args.get('licensedOnly'), default=True)
+            if 'includeLicensed' not in request.args:
+                include_licensed = True
+            if 'includeUnlicensed' not in request.args:
+                include_unlicensed = not legacy_licensed_only
+
         records = _load_filtered_user_data(force_refresh=refresh)
         filtered_records = _apply_filtered_user_filters(
             records,
-            licensed_only=licensed_only,
-            include_guests=include_guests,
-            include_members=include_members
+            include_enabled=include_enabled,
+            include_disabled=include_disabled,
+            include_licensed=include_licensed,
+            include_unlicensed=include_unlicensed,
+            include_members=include_members,
+            include_guests=include_guests
         )
+
         generated_at = None
         if os.path.exists(FILTERED_USERS_FILE):
             generated_at = datetime.fromtimestamp(os.path.getmtime(FILTERED_USERS_FILE)).isoformat()
@@ -3177,13 +3602,16 @@ def get_filtered_users_report():
             'count': len(filtered_records),
             'generatedAt': generated_at,
             'appliedFilters': {
-                'licensedOnly': licensed_only,
-                'includeGuests': include_guests,
-                'includeMembers': include_members
+                'includeEnabled': include_enabled,
+                'includeDisabled': include_disabled,
+                'includeLicensed': include_licensed,
+                'includeUnlicensed': include_unlicensed,
+                'includeMembers': include_members,
+                'includeGuests': include_guests
             }
         })
-    except Exception as e:
-        logger.error(f"Error loading filtered users report: {e}")
+    except Exception as error:
+        logger.error(f"Error loading filtered users report: {error}")
         return jsonify({'error': 'Failed to load report data'}), 500
 
 
@@ -3194,16 +3622,31 @@ def export_filtered_users_report():
         return jsonify({'error': 'XLSX export not available - openpyxl not installed'}), 500
 
     try:
-        refresh = request.args.get('refresh', 'false').lower() == 'true'
-        licensed_only = request.args.get('licensedOnly', 'true').lower() == 'true'
-        include_guests = request.args.get('includeGuests', 'false').lower() == 'true'
-        include_members = request.args.get('includeMembers', 'true').lower() == 'true'
+        refresh = _parse_bool_arg(request.args.get('refresh'), default=False)
+
+        include_enabled = _parse_bool_arg(request.args.get('includeEnabled'), default=True)
+        include_disabled = _parse_bool_arg(request.args.get('includeDisabled'), default=True)
+        include_licensed = _parse_bool_arg(request.args.get('includeLicensed'), default=True)
+        include_unlicensed = _parse_bool_arg(request.args.get('includeUnlicensed'), default=True)
+        include_members = _parse_bool_arg(request.args.get('includeMembers'), default=True)
+        include_guests = _parse_bool_arg(request.args.get('includeGuests'), default=True)
+
+        if 'licensedOnly' in request.args:
+            legacy_licensed_only = _parse_bool_arg(request.args.get('licensedOnly'), default=True)
+            if 'includeLicensed' not in request.args:
+                include_licensed = True
+            if 'includeUnlicensed' not in request.args:
+                include_unlicensed = not legacy_licensed_only
+
         records = _load_filtered_user_data(force_refresh=refresh)
         filtered_records = _apply_filtered_user_filters(
             records,
-            licensed_only=licensed_only,
-            include_guests=include_guests,
-            include_members=include_members
+            include_enabled=include_enabled,
+            include_disabled=include_disabled,
+            include_licensed=include_licensed,
+            include_unlicensed=include_unlicensed,
+            include_members=include_members,
+            include_guests=include_guests
         )
 
         wb = Workbook()
@@ -3215,7 +3658,11 @@ def export_filtered_users_report():
             ('email', 'Email'),
             ('department', 'Department'),
             ('title', 'Title'),
-            ('filterReasons', 'Filter Reasons')
+            ('filterReasons', 'Filter Reasons'),
+            ('accountEnabled', 'Account Enabled'),
+            ('userType', 'User Type'),
+            ('licenseCount', 'License Count'),
+            ('licenseSkus', 'Licenses')
         ]
 
         reason_labels = {
@@ -3239,11 +3686,18 @@ def export_filtered_users_report():
                 if key == 'filterReasons' and isinstance(value, list):
                     converted = [reason_labels.get(reason, reason) for reason in value]
                     value = ", ".join(converted)
+                elif key == 'accountEnabled':
+                    value = 'Yes' if record.get('accountEnabled', True) else 'No'
+                elif key == 'userType':
+                    user_type = (record.get('userType') or '').strip()
+                    value = user_type.capitalize() if user_type else ''
+                elif key == 'licenseSkus' and isinstance(value, list):
+                    value = ", ".join(value)
                 ws.cell(row=row_index, column=column_index, value=value)
 
         for col in range(1, len(headers) + 1):
             column_letter = get_column_letter(col)
-            ws.column_dimensions[column_letter].width = 24
+            ws.column_dimensions[column_letter].width = 26
 
         output = BytesIO()
         wb.save(output)
@@ -3257,8 +3711,8 @@ def export_filtered_users_report():
             download_name=filename,
             mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
-    except Exception as e:
-        logger.error(f"Error exporting filtered users report: {e}")
+    except Exception as error:
+        logger.error(f"Error exporting filtered users report: {error}")
         return jsonify({'error': 'Failed to export report'}), 500
 
 
@@ -3445,11 +3899,10 @@ def get_employee(employee_id):
             return None
         
         employee = find_employee(data, employee_id)
-        
+
         if employee:
             return jsonify(employee)
-        else:
-            return jsonify({'error': 'Employee not found'}), 404
+        return jsonify({'error': 'Employee not found'}), 404
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

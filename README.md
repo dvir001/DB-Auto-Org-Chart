@@ -1,106 +1,148 @@
-## What is DB-AutoOrgChart?
+# SimpleOrgChart
 
 > **Note:** This repository is a maintained fork of [jaffster595/DB-Auto-Org-Chart](https://github.com/jaffster595/DB-Auto-Org-Chart).
 
-**Key additions in this fork**
-- Hardened security posture: stricter Content-Security-Policy (`script-src 'self'`), dedicated login template + JS, sanitized redirect handling, and protections against placeholder secrets.
-- Frontend refactor: all inline scripts/styles removed, `configure` and `search_test` now load modular JS/CSS bundles with shared CSS variables and safer DOM updates.
-- Export & print tooling: one-click exports for the visible chart in SVG/PNG/PDF, a server-backed `/api/export-xlsx` endpoint wired to `Export to XLSX` UI controls, and a print-optimised window.
-- Discovery & filtering perks: hide/show subtrees per user with persistent local storage, quick reset of hidden teams, enriched search/top-level selection helpers, configurable filters to drop disabled or guest accounts from the dataset by default, and the Compact Teams toggle available to every viewer.
-- Admin insight upgrades: refreshed reporting dashboard with missing-manager, disabled-but-licensed, and filter-hidden licensed user summaries plus one-click XLSX exports.
-- Operational polish: unused static assets trimmed, scheduler + data directories validated on startup, and logging made more actionable for Azure Graph interactions.
+SimpleOrgChart is a Flask application backed by Azure Active Directory (Entra ID) data that renders a fully interactive, client-side organisation chart. A static JavaScript front end (vanilla JS + D3) consumes cached Graph API data, offers rich filtering, and exposes an admin dashboard with compliance-friendly exports.
 
-DB-AutoOrgChart is an application which connects to your Azure AD/Entra via Graph API, retrieves the appropriate information (employee name, title, department, 'reports to' etc.) then builds an interactive Organisation Chart based upon that information. It can be run as an App Service in Azure / Google Cloud etc or you can run it locally. NOTE: You will need the appropriate permissions in Azure to set up Graph API which is a requirement for this application to function. You only need to do this once, so someone with those permissions can set it up for you then provide the environment variables to you.
+<img width="1640" height="527" alt="SimpleOrgChart preview" src="https://github.com/user-attachments/assets/f33719e6-cc03-40bc-89fc-72d9e0f58674" />
 
-In short, these are the main features of DB-AutoOrgChart:
+## At a Glance
 
-- Automatic organization hierarchy generation from Azure AD
-- Real-time employee search functionality (employee directory)
-- Completely configurable with zero coding knowledge via configure page
-- Interactive D3.js-based org chart with zoom and pan
-- Detailed employee information panel
-- Print-friendly org chart export
-- Admin reporting dashboard with refreshable XLSX exports (missing managers, disabled accounts holding licenses, filtered licensed users)
-- Automatic daily updates at 20:00
-- Color-coded hierarchy levels
-- Responsive design for mobile and desktop
+- Hardened security defaults: strict Content Security Policy, sanitized redirects, login isolation, and placeholder-secret protection.
+- Modular front end: no inline scripts or styles; shared CSS variables power `configure`, `reports`, and org chart experiences.
+- Daily automation: background scheduler refreshes Azure AD data (20:00 local time) and persists JSON caches under `data/`.
+- Admin reporting: missing managers, filtered users, and last-login inactivity insights—each with one-click XLSX export.
+- Export tooling: SVG/PNG/PDF org chart capture and server-backed XLSX generation for the current chart tree.
+- Deployment ready: ships with Docker Compose, Gunicorn config, and Waitress launcher for Windows hosts.
 
-  <img width="1640" height="527" alt="image" src="https://github.com/user-attachments/assets/f33719e6-cc03-40bc-89fc-72d9e0f58674" />
+## How It Works
 
-It makes one API call per day at 20:00 and saves the acquired data within employee_data.json, which sits securely within the app service. When someone visits the org chart, it displays the Org data based upon the contents of employee_data.json rather than making constant API calls via Graph API. This way it makes a single API request, once per day, rather than making constant requests each time someone visit the page. This not only reduces the amount of traffic caused by this application, but also makes it faster and more responsive.
+| Layer | Description |
+| --- | --- |
+| Flask backend (`app.py`) | Serves templates/static assets, authenticates admin endpoints, manages schedulers, and stores cached Graph API responses.
+| Static front end (`static/*.js`) | Renders the D3 org chart, configuration UI, and reports dashboard using cached JSON.
+| Data cache (`data/*.json`) | Holds employee hierarchies, report snapshots, and last login activity to reduce Graph API calls.
+| Scheduler | Nightly job (20:00) refreshes employee data; manual refresh endpoints and CLI helpers are available.
 
 ## Prerequisites
-1. Docker Desktop (or Docker Engine with Compose plugin)
-2. An Azure AD tenant with appropriate permissions to:
-  a. Register an App in Azure for Graph API
-  b. Create an App Service in Azure (optional but recommended)
-3. Azure AD App Registration with User.Read.All permissions and admin consent (see Azure AD setup below)
 
-## Azure AD setup
+1. Docker Desktop (or Docker Engine with the Compose plugin) for container-based deployment.
+2. An Azure AD tenant with privileges to create app registrations and grant Graph application permissions.
+3. Python 3.10+ if you prefer running the Flask app directly instead of Docker.
 
-1. **Create an App Registration in Azure AD**
-  - Go to Azure Portal ➜ Azure Active Directory ➜ App registrations
-  - Click **New registration**
-  - Name your app (e.g., “DB AutoOrgChart”)
-  - No redirect URL is needed
+## Azure AD Setup
 
-2. **Configure API permissions**
-  - In your app registration, open **API permissions**
-  - Add a permission ➜ **Microsoft Graph** ➜ **Application permissions**
-  - Select **User.Read.All**
-  - Select **LicenseAssignment.Read.All** *(required for the reporting dashboard to list licensed users)*
-  - Click **Grant admin consent** (requires admin privileges)
+1. **Create an App Registration**
+   - Azure Portal ➜ Azure Active Directory ➜ App registrations ➜ **New registration**.
+   - Choose a name (for example, `SimpleOrgChart`) and leave Redirect URI empty.
 
-3. **Create a client secret**
-  - Open **Certificates & secrets**
-  - Click **New client secret** and choose an expiration period
+2. **Assign Microsoft Graph Application Permissions**
+   - `User.Read.All`
+   - `LicenseAssignment.Read.All` *(required for licensing insights and admin reports)*
+   - `AuditLog.Read.All` *(required for last sign-in metrics and disabled-user audit timestamps)*
+   - Grant admin consent for the tenant.
 
-4. **Capture the required IDs**
-  - From the overview page, copy the **Application (client) ID** → `AZURE_CLIENT_ID`
-  - Copy the **Directory (tenant) ID** → `AZURE_TENANT_ID`
+3. **Create a Client Secret**
+   - Certificates & secrets ➜ **New client secret**.
 
-## Environment variables
+4. **Capture Identifiers**
+   - Application (client) ID → `AZURE_CLIENT_ID`
+   - Directory (tenant) ID → `AZURE_TENANT_ID`
 
-Open `.env.template`, save a new copy named `.env`, and populate it with your values. The application will refuse to start unless the required entries are set to strong, non-default values.
+## Configure Environment Variables
+
+Copy the template and fill in your secrets.
+
+```bash
+cp .env.template .env
+# edit .env with tenant/client IDs, secret, admin password, etc.
+```
 
 **Required values**
 
-- `AZURE_TENANT_ID`: Directory (tenant) ID of your Azure AD tenant.
-- `AZURE_CLIENT_ID`: Application (client) ID of your App Registration.
-- `AZURE_CLIENT_SECRET`: Client secret created for the App Registration.
-- `TOP_LEVEL_USER_EMAIL`: Email address of the most senior user (root of the org chart).
-- `ADMIN_PASSWORD`: Strong password used to secure the `/configure` route.
-- `SECRET_KEY`: 64+ character random string for Flask session protection. Generate one with:
+- `AZURE_TENANT_ID` – Directory (tenant) ID.
+- `AZURE_CLIENT_ID` – Application (client) ID.
+- `AZURE_CLIENT_SECRET` – Client secret value.
+- `TOP_LEVEL_USER_EMAIL` – Email for the org chart root user.
+- `ADMIN_PASSWORD` – Protects `/configure` and `/reports`.
+- `SECRET_KEY` – 64+ character random string for Flask sessions.
 
-  ```bash
-  python -c "import secrets; print(secrets.token_hex(32))"
-  ```
+Generate a strong secret key:
+
+```bash
+python -c "import secrets; print(secrets.token_hex(32))"
+```
 
 **Optional values**
 
-- `TOP_LEVEL_USER_ID`: Explicit Graph object ID of the top-level user (if you know it).
-- `CORS_ALLOWED_ORIGINS`: Comma-separated list of additional origins permitted to call the API (leave blank to restrict to same-origin requests).
+- `TOP_LEVEL_USER_ID` – Explicit Graph object ID for the root user.
+- `CORS_ALLOWED_ORIGINS` – Comma-separated list of allowed cross-origin hosts.
+- `RUN_INITIAL_UPDATE` – Set to `false` to skip automatic data refresh at startup.
 
-For the Azure credentials, follow the steps in the "Azure AD setup" section. To obtain the top-level user details, locate the chosen user in Azure AD/Entra and copy the "Mail" and "Object (user) ID" fields from their profile.
+## Running the Application
 
-## Docker / container deployment
+### Docker (recommended)
 
-The project ships with a Compose stack that pulls the published image `ghcr.io/dvir001/db-auto-org-chart:latest`, mounts a persistent volume for application data, and loads configuration from `.env`.
+```bash
+docker compose pull
+docker compose up -d
+```
 
-1. Copy the template and fill in your secrets:
-  ```bash
-  cp .env.template .env
-  # edit .env with your tenant/client IDs, secrets, and admin password
-  ```
+- Default port: `5000`. Adjust `docker-compose.yml` to map a different host port.
+- Persistent data resides in the `orgchart_data` volume. Remove it to rebuild caches from scratch.
 
-2. Start (or update) the service:
-  ```bash
-  docker compose pull
-  docker compose up -d
-  ```
+### Local Python (development)
 
-  The container exposes port `5000` by default—adjust the `ports` in `docker-compose.yml` if you need a different host port.
+```bash
+python -m venv .venv
+.\.venv\Scripts\activate  # PowerShell on Windows
+pip install -r requirements.txt
+python app.py
+```
 
-3. Persistent data lives in the named volume `orgchart_data`, which retains cached employee hierarchies and settings between restarts. Remove that volume if you want a clean slate.
+For production-grade serving you can use Gunicorn/Waitress wrappers provided in `run.sh`, `run_waitress.py`, or `gunicorn_config.py`.
 
-To deploy on a new host, drop `docker-compose.yml` and your populated `.env` into a directory, then run the commands above, the stack will pull the image, provision the named volume, and start the app with no other files required.
+## Key Features
+
+- **Interactive D3 Org Chart**: Pan, zoom, and expand/collapse hierarchies with persistent hidden subtrees.
+- **Search & Discovery**: Real-time directory search, quick navigation helpers, and configurable filters for guests/disabled users.
+- **Configuration UI** (`/configure`): Adjust styling, filtering, export columns, and scheduling without editing files.
+- **Admin Reports** (`/reports`):
+  - Missing managers
+   - Users by last sign-in activity
+   - Employees hired in the last 365 days
+   - Users hidden by filters
+- **Export Options**: SVG/PNG/PDF snapshots and XLSX exports for reports and chart data.
+- **Caching & Scheduling**: JSON caches regenerate nightly; manual refresh endpoints keep data current on demand.
+
+## Reporting Caches
+
+- `data/employee_data.json` – Full org hierarchy.
+- `data/missing_manager_records.json` – Missing manager snapshot.
+- `data/disabled_user_records.json` – Disabled users enriched with license and sign-in metadata.
+- `data/last_login_records.json` – Active users with last sign-in timestamps.
+- Additional files exist for filtered/disabled-with-license/hiring reports.
+
+If a cache is missing or stale, hit **Refresh Data** on the reports page or start the app with `RUN_INITIAL_UPDATE=true`.
+
+## Security Guidance
+
+- Store secrets in Azure Key Vault or your host’s secret manager; never commit `.env` files.
+- Restrict `/configure` and `/reports` behind reverse-proxy auth if deployed on the public internet.
+- Monitor `AuditLog.Read.All` usage—limit consent scope to required admins.
+- Rotate `AZURE_CLIENT_SECRET` regularly and update the environment accordingly.
+
+## Troubleshooting
+
+- **Graph permission errors**: Ensure admin consent is granted; check logs for 403 responses when fetching `signInActivity`.
+- **Stale data**: Run `curl -X POST http://<host>/api/update-now` (with admin auth) or remove the `data/*.json` caches and restart.
+- **Export failures**: Confirm `openpyxl` is installed (bundled via `requirements.txt`). The API returns a 500 with JSON error details if export dependencies are missing.
+- **Missing logos**: Upload custom branding via `/configure`; static assets persist in `data/`.
+
+## Contributing
+
+Issues and pull requests are welcome. Please document new locale strings in `static/locales/en-US.json`, update report caches when introducing routes, and include manual validation steps if automated tests are not available.
+
+---
+
+SimpleOrgChart keeps your organisation chart and admin insights in sync with Azure AD while staying lightweight, portable, and secure.
