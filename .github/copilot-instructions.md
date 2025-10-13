@@ -1,7 +1,7 @@
 # GitHub Copilot Instructions
 
 ## Repository context
-- **Project**: DB Auto Org Chart – Flask backend with static front-end (vanilla JS + D3).
+- **Project**: SimpleOrgChart – Flask backend with static front-end (vanilla JS + D3).
 - **Primary entrypoints**:
   - Backend: `app.py`
   - Front-end bundles: `static/app.js`, `static/configureme.js`, `static/reports.js`, etc.

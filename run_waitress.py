@@ -30,7 +30,7 @@ if __name__ == '__main__':
             port=port,
             threads=threads,
             url_scheme='http',
-            ident='DB AutoOrgChart',
+            ident='SimpleOrgChart',
             cleanup_interval=30,
             channel_timeout=120,
             connection_limit=100,

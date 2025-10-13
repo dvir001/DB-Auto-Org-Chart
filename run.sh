@@ -1,7 +1,7 @@
 #!/bin/bash
 # run.sh - Unix/Linux/Mac startup script
 
-echo "Starting DB AutoOrgChart with Gunicorn..."
+echo "Starting SimpleOrgChart with Gunicorn..."
 
 # Check if virtual environment exists
 if [ ! -d "venv" ]; then

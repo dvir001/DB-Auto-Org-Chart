@@ -489,7 +489,7 @@ function initTimePicker() {
 }
 
 function applySettings(settings) {
-    document.title = `Configuration - ${settings.chartTitle || 'DB AutoOrgChart'}`;
+    document.title = `Configuration - ${settings.chartTitle || 'SimpleOrgChart'}`;
     if (settings.chartTitle) {
         document.getElementById('chartTitle').value = settings.chartTitle;
     }

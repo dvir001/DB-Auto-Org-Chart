@@ -814,7 +814,7 @@ async function applySettings() {
         document.title = appSettings.chartTitle;
     } else {
         // Fallback to default title if no custom title is set
-        document.title = 'DB AutoOrgChart';
+    document.title = 'SimpleOrgChart';
     }
 
     if (appSettings.headerColor) {

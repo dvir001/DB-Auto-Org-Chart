@@ -1,7 +1,7 @@
 @echo off
 REM run.bat - Windows startup script
 
-echo Starting DB AutoOrgChart with Waitress (Windows-compatible)...
+echo Starting SimpleOrgChart with Waitress (Windows-compatible)...
 
 REM Check if virtual environment exists
 if not exist "venv" (
