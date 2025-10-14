@@ -50,7 +50,7 @@
                         <label for="logoUpload" class="file-upload-label" data-i18n="configure.appearance.logo.choose">Choose Logo</label>
                         <input type="file" id="logoUpload" accept="image/*">
                         <span class="current-logo">
-                            <img id="currentLogo" src="/static/icon.png" alt="Current Logo" data-i18n-alt="configure.appearance.logo.currentAlt">
+                            <img id="currentLogo" src="{{ logo_path or '/static/icon.png' }}" alt="Current Logo" data-i18n-alt="configure.appearance.logo.currentAlt">
                         </span>
                         <button class="btn btn-secondary" type="button" data-config-action="reset-logo" data-i18n="configure.buttons.resetDefault">Reset to Default</button>
                         <span id="logoStatus" class="upload-status"></span>
@@ -65,7 +65,7 @@
                         <label for="faviconUpload" class="file-upload-label" data-i18n="configure.appearance.favicon.choose">Choose Favicon</label>
                         <input type="file" id="faviconUpload" accept="image/x-icon,image/png,image/jpeg,.ico">
                         <span class="current-logo">
-                            <img id="currentFavicon" src="/favicon.ico" alt="Current Favicon" data-i18n-alt="configure.appearance.favicon.currentAlt">
+                            <img id="currentFavicon" src="{{ favicon_image_path or '/favicon.ico' }}" alt="Current Favicon" data-i18n-alt="configure.appearance.favicon.currentAlt">
                         </span>
                         <button class="btn btn-secondary" type="button" data-config-action="reset-favicon" data-i18n="configure.buttons.resetDefault">Reset to Default</button>
                         <span id="faviconStatus" class="upload-status"></span>

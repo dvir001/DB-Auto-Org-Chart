@@ -54,6 +54,18 @@ from simple_org_chart.msgraph import (
     get_access_token,
     parse_graph_datetime,
 )
+from simple_org_chart.reports import (
+    ReportCacheManager,
+    apply_disabled_filters,
+    apply_filtered_user_filters,
+    apply_last_login_filters,
+    load_disabled_users_data,
+    load_filtered_license_data,
+    load_filtered_user_data,
+    load_last_login_data,
+    load_missing_manager_data,
+    load_recently_hired_data,
+)
 from simple_org_chart.scheduler import (
     configure_scheduler,
     is_scheduler_running,
@@ -623,6 +635,7 @@ def update_employee_data():
 
 
 configure_scheduler(update_employee_data)
+report_cache = ReportCacheManager(refresh_callback=update_employee_data)
 
 
 def load_cached_employees():
@@ -830,6 +843,7 @@ def configure():
     template_content = get_template('configure.html')
     settings = load_settings()
     favicon_path = settings.get('faviconPath', '/favicon.ico')
+    logo_path = settings.get('logoPath', '/static/icon.png')
     chart_title = (settings.get('chartTitle') or '').strip() or 'DB AutoOrgChart'
     
     # Inject favicon link into template
@@ -839,6 +853,8 @@ def configure():
     return render_template_string(
         template_content,
         chart_title=chart_title,
+        logo_path=logo_path,
+        favicon_image_path=favicon_path,
         _=translate_placeholder
     )
 
@@ -1584,347 +1600,6 @@ def export_xlsx():
     except Exception as e:
         logger.error(f"Error exporting to XLSX: {e}")
         return jsonify({'error': 'Failed to export XLSX'}), 500
-
-
-def _load_missing_manager_data(force_refresh=False):
-    try:
-        if force_refresh or not os.path.exists(MISSING_MANAGER_FILE):
-            logger.info("Refreshing missing manager report cache")
-            update_employee_data()
-
-        if not os.path.exists(MISSING_MANAGER_FILE):
-            logger.warning("Missing manager report cache not found after refresh")
-            return []
-
-        with open(MISSING_MANAGER_FILE, 'r') as report_file:
-            data = json.load(report_file)
-            if isinstance(data, list):
-                return data
-            logger.warning("Unexpected missing manager report format; ignoring contents")
-            return []
-    except json.JSONDecodeError as decode_error:
-        logger.error(f"Failed to parse missing manager report cache: {decode_error}")
-        return []
-    except Exception as error:
-        logger.error(f"Unexpected error loading missing manager report cache: {error}")
-        return []
-
-
-def _load_disabled_license_data(force_refresh=False):
-    try:
-        if force_refresh or not os.path.exists(DISABLED_LICENSE_FILE):
-            logger.info("Refreshing disabled licensed users report cache")
-            update_employee_data()
-
-        if not os.path.exists(DISABLED_LICENSE_FILE):
-            logger.warning("Disabled licensed users report cache not found after refresh")
-            return []
-
-        with open(DISABLED_LICENSE_FILE, 'r') as report_file:
-            data = json.load(report_file)
-            if isinstance(data, list):
-                return data
-            logger.warning("Unexpected disabled licensed users report format; ignoring contents")
-            return []
-    except json.JSONDecodeError as decode_error:
-        logger.error(f"Failed to parse disabled licensed users report cache: {decode_error}")
-        return []
-    except Exception as error:
-        logger.error(f"Unexpected error loading disabled licensed users report cache: {error}")
-        return []
-
-
-def _load_disabled_users_data(force_refresh=False):
-    try:
-        if force_refresh or not os.path.exists(DISABLED_USERS_FILE):
-            logger.info("Refreshing disabled users report cache")
-            update_employee_data()
-
-        if not os.path.exists(DISABLED_USERS_FILE):
-            logger.warning("Disabled users report cache not found after refresh")
-            return []
-
-        with open(DISABLED_USERS_FILE, 'r') as report_file:
-            data = json.load(report_file)
-            if isinstance(data, list):
-                return data
-            logger.warning("Unexpected disabled users report format; ignoring contents")
-            return []
-    except json.JSONDecodeError as decode_error:
-        logger.error(f"Failed to parse disabled users report cache: {decode_error}")
-        return []
-    except Exception as error:
-        logger.error(f"Unexpected error loading disabled users report cache: {error}")
-        return []
-
-
-def _load_recently_disabled_data(force_refresh=False):
-    try:
-        if force_refresh or not os.path.exists(RECENTLY_DISABLED_FILE):
-            logger.info("Refreshing recently disabled employees report cache")
-            update_employee_data()
-
-        if not os.path.exists(RECENTLY_DISABLED_FILE):
-            logger.warning("Recently disabled employees report cache not found after refresh")
-            return []
-
-        with open(RECENTLY_DISABLED_FILE, 'r') as report_file:
-            data = json.load(report_file)
-            if isinstance(data, list):
-                return data
-            logger.warning("Unexpected recently disabled employees report format; ignoring contents")
-            return []
-    except json.JSONDecodeError as decode_error:
-        logger.error(f"Failed to parse recently disabled employees report cache: {decode_error}")
-        return []
-    except Exception as error:
-        logger.error(f"Unexpected error loading recently disabled employees report cache: {error}")
-        return []
-
-
-def _load_recently_hired_data(force_refresh=False):
-    try:
-        if force_refresh or not os.path.exists(RECENTLY_HIRED_FILE):
-            logger.info("Refreshing recently hired employees report cache")
-            update_employee_data()
-
-        if not os.path.exists(RECENTLY_HIRED_FILE):
-            logger.warning("Recently hired employees report cache not found after refresh")
-            return []
-
-        with open(RECENTLY_HIRED_FILE, 'r') as report_file:
-            data = json.load(report_file)
-            if isinstance(data, list):
-                return data
-            logger.warning("Unexpected recently hired employees report format; ignoring contents")
-            return []
-    except json.JSONDecodeError as decode_error:
-        logger.error(f"Failed to parse recently hired employees report cache: {decode_error}")
-        return []
-    except Exception as error:
-        logger.error(f"Unexpected error loading recently hired employees report cache: {error}")
-        return []
-
-
-def _load_last_login_data(force_refresh=False):
-    try:
-        if force_refresh or not os.path.exists(LAST_LOGIN_FILE):
-            logger.info("Refreshing last sign-in report cache")
-            update_employee_data()
-
-        if not os.path.exists(LAST_LOGIN_FILE):
-            logger.warning("Last sign-in report cache not found after refresh")
-            return []
-
-        with open(LAST_LOGIN_FILE, 'r') as report_file:
-            data = json.load(report_file)
-            if isinstance(data, list):
-                return data
-            logger.warning("Unexpected last sign-in report format; ignoring contents")
-            return []
-    except json.JSONDecodeError as decode_error:
-        logger.error(f"Failed to parse last sign-in report cache: {decode_error}")
-        return []
-    except Exception as error:
-        logger.error(f"Unexpected error loading last sign-in report cache: {error}")
-        return []
-
-
-def _load_filtered_license_data(force_refresh=False):
-    try:
-        if force_refresh or not os.path.exists(FILTERED_LICENSE_FILE):
-            logger.info("Refreshing filtered licensed users report cache")
-            update_employee_data()
-
-        if not os.path.exists(FILTERED_LICENSE_FILE):
-            logger.warning("Filtered licensed users report cache not found after refresh")
-            return []
-
-        with open(FILTERED_LICENSE_FILE, 'r') as report_file:
-            data = json.load(report_file)
-            if isinstance(data, list):
-                return data
-            logger.warning("Unexpected filtered licensed users report format; ignoring contents")
-            return []
-    except json.JSONDecodeError as decode_error:
-        logger.error(f"Failed to parse filtered licensed users report cache: {decode_error}")
-        return []
-    except Exception as error:
-        logger.error(f"Unexpected error loading filtered licensed users report cache: {error}")
-        return []
-
-
-def _load_filtered_user_data(force_refresh=False):
-    try:
-        if force_refresh or not os.path.exists(FILTERED_USERS_FILE):
-            logger.info("Refreshing filtered users report cache")
-            update_employee_data()
-
-        if not os.path.exists(FILTERED_USERS_FILE):
-            logger.warning("Filtered users report cache not found after refresh")
-            return []
-
-        with open(FILTERED_USERS_FILE, 'r') as report_file:
-            data = json.load(report_file)
-            if isinstance(data, list):
-                return data
-            logger.warning("Unexpected filtered users report format; ignoring contents")
-            return []
-    except json.JSONDecodeError as decode_error:
-        logger.error(f"Failed to parse filtered users report cache: {decode_error}")
-        return []
-    except Exception as error:
-        logger.error(f"Unexpected error loading filtered users report cache: {error}")
-        return []
-
-
-def _apply_disabled_filters(records, *, licensed_only=False, recent_days=None, include_guests=False, include_members=True):
-    if recent_days is not None:
-        try:
-            recent_days = int(recent_days)
-        except (TypeError, ValueError):
-            recent_days = None
-
-    cutoff = None
-    if recent_days and recent_days > 0:
-        cutoff = datetime.now(timezone.utc) - timedelta(days=recent_days)
-
-    filtered = []
-
-    for record in records or []:
-        user_type = (record.get('userType') or '').lower()
-        
-        # Filter based on Azure AD userType first
-        if user_type == 'guest' and not include_guests:
-            continue
-        if user_type == 'member' and not include_members:
-            continue
-
-        # Then filter by license status
-        if licensed_only and (record.get('licenseCount') or 0) == 0:
-            continue
-
-        if cutoff is not None:
-            observed = parse_graph_datetime(
-                record.get('firstSeenDisabledAt')
-                or record.get('disabledDate')
-            )
-            if not observed or observed < cutoff:
-                continue
-
-        filtered.append(record)
-
-    return filtered
-
-
-def _calculate_license_totals(records):
-    return sum(record.get('licenseCount') or 0 for record in records or [])
-
-
-def _apply_last_login_filters(
-    records,
-    *,
-    include_enabled=True,
-    include_disabled=True,
-    include_licensed=True,
-    include_unlicensed=True,
-    include_members=True,
-    include_guests=True,
-    include_never_signed_in=True,
-    inactive_days=None
-):
-    if not records:
-        return []
-
-    inactive_threshold = None
-    require_never_signed_in = False
-
-    if inactive_days not in (None, "", "none"):
-        if isinstance(inactive_days, str) and inactive_days.lower() == 'never':
-            require_never_signed_in = True
-        else:
-            try:
-                inactive_threshold = int(inactive_days)
-            except (TypeError, ValueError):
-                inactive_threshold = None
-
-    filtered = []
-
-    for record in records:
-        account_enabled = record.get('accountEnabled', True)
-        if account_enabled and not include_enabled:
-            continue
-        if not account_enabled and not include_disabled:
-            continue
-
-        license_count = record.get('licenseCount') or 0
-        if license_count > 0 and not include_licensed:
-            continue
-        if license_count == 0 and not include_unlicensed:
-            continue
-
-        user_type = (record.get('userType') or '').lower()
-        if user_type == 'member' and not include_members:
-            continue
-        if user_type == 'guest' and not include_guests:
-            continue
-
-        never_signed_in = bool(record.get('neverSignedIn'))
-        if never_signed_in and not include_never_signed_in:
-            continue
-        if require_never_signed_in and not never_signed_in:
-            continue
-
-        if inactive_threshold is not None:
-            days_since = record.get('daysSinceLastActivity')
-            if days_since is None or days_since < inactive_threshold:
-                continue
-
-        filtered.append(record)
-
-    return filtered
-
-
-def _apply_filtered_user_filters(
-    records,
-    *,
-    include_enabled=True,
-    include_disabled=True,
-    include_licensed=True,
-    include_unlicensed=True,
-    include_members=True,
-    include_guests=True
-):
-    if not records:
-        return []
-
-    filtered = []
-
-    for record in records:
-        account_enabled = record.get('accountEnabled', True)
-        if account_enabled and not include_enabled:
-            continue
-        if not account_enabled and not include_disabled:
-            continue
-
-        license_count = record.get('licenseCount') or 0
-        if license_count > 0 and not include_licensed:
-            continue
-        if license_count == 0 and not include_unlicensed:
-            continue
-
-        user_type = (record.get('userType') or '').lower()
-
-        if user_type == 'guest' and not include_guests:
-            continue
-        if user_type == 'member' and not include_members:
-            continue
-
-        filtered.append(record)
-
-    return filtered
-
-
 def _get_disabled_records_from_request(*, force_refresh=False, apply_filters=True):
     licensed_only = request.args.get('licensedOnly', 'true').lower() == 'true'
     include_guests = request.args.get('includeGuests', 'false').lower() == 'true'
@@ -1937,9 +1612,9 @@ def _get_disabled_records_from_request(*, force_refresh=False, apply_filters=Tru
         except ValueError:
             logger.warning(f"Invalid recentDays value provided: {recent_days_raw}")
 
-    records = _load_disabled_users_data(force_refresh=force_refresh)
+    records = load_disabled_users_data(report_cache, force_refresh=force_refresh)
     filtered_records = (
-        _apply_disabled_filters(
+        apply_disabled_filters(
             records,
             licensed_only=licensed_only,
             recent_days=recent_days,
@@ -1964,7 +1639,7 @@ def _get_disabled_records_from_request(*, force_refresh=False, apply_filters=Tru
 def get_missing_manager_report():
     try:
         refresh = request.args.get('refresh', 'false').lower() == 'true'
-        records = _load_missing_manager_data(force_refresh=refresh)
+        records = load_missing_manager_data(report_cache, force_refresh=refresh)
         generated_at = None
         if os.path.exists(MISSING_MANAGER_FILE):
             generated_at = datetime.fromtimestamp(os.path.getmtime(MISSING_MANAGER_FILE)).isoformat()
@@ -1987,7 +1662,7 @@ def export_missing_manager_report():
 
     try:
         refresh = request.args.get('refresh', 'false').lower() == 'true'
-        records = _load_missing_manager_data(force_refresh=refresh)
+        records = load_missing_manager_data(report_cache, force_refresh=refresh)
 
         wb = Workbook()
         ws = wb.active
@@ -2157,7 +1832,7 @@ def get_recently_disabled_report():
         licensed_only = request.args.get('licensedOnly', 'false').lower() == 'true'
         include_guests = request.args.get('includeGuests', 'false').lower() == 'true'
 
-        records = _apply_disabled_filters(
+        records = apply_disabled_filters(
             all_records,
             licensed_only=licensed_only,
             recent_days=recent_days,
@@ -2208,7 +1883,7 @@ def export_recently_disabled_report():
         licensed_only = request.args.get('licensedOnly', 'false').lower() == 'true'
         include_guests = request.args.get('includeGuests', 'false').lower() == 'true'
 
-        records = _apply_disabled_filters(
+        records = apply_disabled_filters(
             all_records,
             licensed_only=licensed_only,
             recent_days=recent_days,
@@ -2272,7 +1947,7 @@ def export_recently_disabled_report():
 def get_recently_hired_report():
     try:
         refresh = request.args.get('refresh', 'false').lower() == 'true'
-        records = _load_recently_hired_data(force_refresh=refresh)
+        records = load_recently_hired_data(report_cache, force_refresh=refresh)
         generated_at = None
         if os.path.exists(RECENTLY_HIRED_FILE):
             generated_at = datetime.fromtimestamp(os.path.getmtime(RECENTLY_HIRED_FILE)).isoformat()
@@ -2295,7 +1970,7 @@ def export_recently_hired_report():
 
     try:
         refresh = request.args.get('refresh', 'false').lower() == 'true'
-        records = _load_recently_hired_data(force_refresh=refresh)
+        records = load_recently_hired_data(report_cache, force_refresh=refresh)
 
         wb = Workbook()
         ws = wb.active
@@ -2378,8 +2053,8 @@ def get_last_logins_report():
         if inactive_days_raw not in (None, '', 'null', 'None'):
             inactive_days = inactive_days_raw
 
-        records = _load_last_login_data(force_refresh=refresh)
-        filtered_records = _apply_last_login_filters(
+        records = load_last_login_data(report_cache, force_refresh=refresh)
+        filtered_records = apply_last_login_filters(
             records,
             include_enabled=include_enabled,
             include_disabled=include_disabled,
@@ -2437,8 +2112,8 @@ def export_last_logins_report():
         if inactive_days_raw not in (None, '', 'null', 'None'):
             inactive_days = inactive_days_raw
 
-        records = _load_last_login_data(force_refresh=refresh)
-        filtered_records = _apply_last_login_filters(
+        records = load_last_login_data(report_cache, force_refresh=refresh)
+        filtered_records = apply_last_login_filters(
             records,
             include_enabled=include_enabled,
             include_disabled=include_disabled,
@@ -2525,7 +2200,7 @@ def get_disabled_licensed_report():
 
         include_guests = request.args.get('includeGuests', 'false').lower() == 'true'
         recent_days = base_filters.get('recentDays')
-        filtered_records = _apply_disabled_filters(
+        filtered_records = apply_disabled_filters(
             all_records,
             licensed_only=True,
             recent_days=recent_days,
@@ -2564,7 +2239,7 @@ def export_disabled_licensed_report():
         )
         recent_days = base_filters.get('recentDays')
         include_guests = request.args.get('includeGuests', 'false').lower() == 'true'
-        records = _apply_disabled_filters(
+        records = apply_disabled_filters(
             all_records,
             licensed_only=True,
             recent_days=recent_days,
@@ -2638,8 +2313,8 @@ def get_filtered_users_report():
             if 'includeUnlicensed' not in request.args:
                 include_unlicensed = not legacy_licensed_only
 
-        records = _load_filtered_user_data(force_refresh=refresh)
-        filtered_records = _apply_filtered_user_filters(
+        records = load_filtered_user_data(report_cache, force_refresh=refresh)
+        filtered_records = apply_filtered_user_filters(
             records,
             include_enabled=include_enabled,
             include_disabled=include_disabled,
@@ -2694,8 +2369,8 @@ def export_filtered_users_report():
             if 'includeUnlicensed' not in request.args:
                 include_unlicensed = not legacy_licensed_only
 
-        records = _load_filtered_user_data(force_refresh=refresh)
-        filtered_records = _apply_filtered_user_filters(
+        records = load_filtered_user_data(report_cache, force_refresh=refresh)
+        filtered_records = apply_filtered_user_filters(
             records,
             include_enabled=include_enabled,
             include_disabled=include_disabled,
@@ -2777,7 +2452,7 @@ def export_filtered_users_report():
 def get_filtered_licensed_report():
     try:
         refresh = request.args.get('refresh', 'false').lower() == 'true'
-        records = _load_filtered_license_data(force_refresh=refresh)
+        records = load_filtered_license_data(report_cache, force_refresh=refresh)
         generated_at = None
         if os.path.exists(FILTERED_LICENSE_FILE):
             generated_at = datetime.fromtimestamp(os.path.getmtime(FILTERED_LICENSE_FILE)).isoformat()
@@ -2800,7 +2475,7 @@ def export_filtered_licensed_report():
 
     try:
         refresh = request.args.get('refresh', 'false').lower() == 'true'
-        records = _load_filtered_license_data(force_refresh=refresh)
+        records = load_filtered_license_data(report_cache, force_refresh=refresh)
 
         wb = Workbook()
         ws = wb.active
