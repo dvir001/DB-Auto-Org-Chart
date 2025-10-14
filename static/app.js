@@ -2400,6 +2400,12 @@ function applyMultiLineChildrenLayout(nodes) {
         const hSpacing = nodeWidth + 36;
         const vSpacing = levelHeight; // keep consistent per-level spacing
         const totalHeight = (rows - 1) * vSpacing;
+        const horizontalBaseOffset = currentLayout === 'horizontal'
+            ? (appSettings.multiLineHorizontalBaseOffset ?? Math.max(nodeWidth * 0.5, vSpacing * 0.45))
+            : 0;
+        const horizontalRowOffset = currentLayout === 'horizontal'
+            ? (appSettings.multiLineHorizontalRowOffset ?? Math.min(vSpacing * 0.10, nodeWidth * 0.15))
+            : 0;
 
         orderedKids.forEach((child, idx) => {
             const col = idx % columns;
@@ -2419,7 +2425,8 @@ function applyMultiLineChildrenLayout(nodes) {
                 if (itemsInRow <= 0) itemsInRow = columns;
                 const rowWidth = (itemsInRow - 1) * hSpacing;
                 const colInRow = col % itemsInRow;
-                targetX = parent.x + (row + 1) * vSpacing;
+                const baseStep = vSpacing + horizontalBaseOffset;
+                targetX = parent.x + (row + 1) * baseStep + row * horizontalRowOffset;
                 targetY = parent.y - rowWidth / 2 + colInRow * hSpacing;
             }
 
