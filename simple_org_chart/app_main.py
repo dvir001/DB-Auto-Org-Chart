@@ -16,10 +16,8 @@ import logging
 from dotenv import load_dotenv
 from werkzeug.utils import secure_filename
 
-from functools import wraps
 import hashlib
 import secrets
-import re
 try:
     from PIL import Image
 except ImportError:
@@ -32,12 +30,34 @@ try:
 except ImportError:
     Workbook = None
 
+import simple_org_chart.config as app_config
+from simple_org_chart.auth import login_required, require_auth, sanitize_next_path
+from simple_org_chart.settings import (
+    DEFAULT_SETTINGS,
+    TOP_LEVEL_USER_EMAIL,
+    TOP_LEVEL_USER_ID,
+    department_is_ignored,
+    employee_is_ignored,
+    load_settings,
+    normalize_filter_value,
+    parse_ignored_departments,
+    parse_ignored_employees,
+    parse_ignored_titles,
+    save_settings,
+    translate_placeholder,
+)
+from simple_org_chart.utils.files import validate_image_file
+
 load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__)
+app = Flask(
+    __name__,
+    static_folder=str(app_config.STATIC_DIR),
+    template_folder=str(app_config.TEMPLATE_DIR),
+)
 
 _allowed_origins = [origin.strip() for origin in os.environ.get('CORS_ALLOWED_ORIGINS', '').split(',') if origin.strip()]
 if _allowed_origins:
@@ -73,104 +93,25 @@ def add_security_headers(response):
     response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
     response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
     return response
-
-# Authentication decorators
-def require_auth(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not session.get('authenticated'):
-            return jsonify({'error': 'Authentication required'}), 401
-        return f(*args, **kwargs)
-    return decorated_function
-
-
-def login_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not session.get('authenticated'):
-            desired_path = sanitize_next_path(request.path)
-            params = {'next': desired_path} if desired_path else {}
-            return redirect(url_for('login', **params))
-        return f(*args, **kwargs)
-    return decorated_function
-
-
-_next_path_pattern = re.compile(r"^[A-Za-z0-9_\-/]*$")
-
-
-def sanitize_next_path(raw_value):
-    if not raw_value:
-        return ''
-
-    candidate = raw_value.strip()
-
-    if candidate.startswith(('http://', 'https://', '//')):
-        return ''
-
-    candidate = candidate.lstrip('/')
-
-    if not _next_path_pattern.fullmatch(candidate):
-        return ''
-
-    return candidate
-
-
-# Utility functions
-def validate_image_file(file):
-    """Validate that uploaded file is a safe image"""
-    if not Image:
-        logger.warning("PIL not available, skipping image validation")
-        return True
-
-    try:
-        # Open and verify image
-        img = Image.open(file)
-        img.verify()
-
-        # Reset file pointer
-        file.seek(0)
-
-        # Check image dimensions (reasonable limits)
-        img = Image.open(file)
-        if img.width > 2000 or img.height > 2000:
-            return False
-
-        # Reset file pointer again
-        file.seek(0)
-        return True
-    except Exception as e:
-        logger.error(f"Image validation failed: {e}")
-        return False
-
-if not os.path.exists('static'):
-    os.makedirs('static')
+app_config.ensure_directories()
 
 GRAPH_API_ENDPOINT = 'https://graph.microsoft.com/v1.0'
 GRAPH_API_BETA_ENDPOINT = 'https://graph.microsoft.com/beta'
-# DATA_FILE will be set after DATA_DIR is created
-# Create data directory for persistent storage
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(SCRIPT_DIR, 'data')
-logger.info(f"DATA_DIR set to: {DATA_DIR}")
-if not os.path.exists(DATA_DIR):
-    try:
-        os.makedirs(DATA_DIR)
-        logger.info(f"Created data directory: {DATA_DIR}")
-    except Exception as e:
-        logger.warning(f"Could not create data directory: {e}")
-        DATA_DIR = SCRIPT_DIR
 
-SETTINGS_FILE = os.path.join(DATA_DIR, 'app_settings.json')
-DATA_FILE = os.path.join(DATA_DIR, 'employee_data.json')
-MISSING_MANAGER_FILE = os.path.join(DATA_DIR, 'missing_manager_records.json')
-EMPLOYEE_LIST_FILE = os.path.join(DATA_DIR, 'employee_list.json')
-DISABLED_LICENSE_FILE = os.path.join(DATA_DIR, 'disabled_with_license_records.json')
-FILTERED_LICENSE_FILE = os.path.join(DATA_DIR, 'filtered_with_license_records.json')
-FILTERED_USERS_FILE = os.path.join(DATA_DIR, 'filtered_user_records.json')
-DISABLED_USERS_FILE = os.path.join(DATA_DIR, 'disabled_user_records.json')
-LAST_LOGIN_FILE = os.path.join(DATA_DIR, 'last_login_records.json')
-RECENTLY_DISABLED_FILE = os.path.join(DATA_DIR, 'recently_disabled_employees.json')
-RECENTLY_HIRED_FILE = os.path.join(DATA_DIR, 'recently_hired_employees.json')
+DATA_DIR = str(app_config.DATA_DIR)
+SETTINGS_FILE = str(app_config.SETTINGS_FILE)
+DATA_FILE = str(app_config.DATA_FILE)
+MISSING_MANAGER_FILE = str(app_config.MISSING_MANAGER_FILE)
+EMPLOYEE_LIST_FILE = str(app_config.EMPLOYEE_LIST_FILE)
+DISABLED_LICENSE_FILE = str(app_config.DISABLED_LICENSE_FILE)
+FILTERED_LICENSE_FILE = str(app_config.FILTERED_LICENSE_FILE)
+FILTERED_USERS_FILE = str(app_config.FILTERED_USERS_FILE)
+DISABLED_USERS_FILE = str(app_config.DISABLED_USERS_FILE)
+LAST_LOGIN_FILE = str(app_config.LAST_LOGIN_FILE)
+RECENTLY_DISABLED_FILE = str(app_config.RECENTLY_DISABLED_FILE)
+RECENTLY_HIRED_FILE = str(app_config.RECENTLY_HIRED_FILE)
+
+logger.info(f"DATA_DIR set to: {DATA_DIR}")
 
 # Configuration for file uploads (removed SVG for security)
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
@@ -187,194 +128,8 @@ if not all([TENANT_ID, CLIENT_ID, CLIENT_SECRET]):
     logger.warning("AZURE_CLIENT_SECRET: " + ("Set" if CLIENT_SECRET else "Not set"))
     logger.warning("Please check your .env file exists and contains the correct values")
 
-TOP_LEVEL_USER_EMAIL = os.environ.get('TOP_LEVEL_USER_EMAIL')
-TOP_LEVEL_USER_ID = os.environ.get('TOP_LEVEL_USER_ID')
-
 scheduler_running = False
 scheduler_lock = threading.Lock()
-
-# Default settings
-DEFAULT_SETTINGS = {
-    'chartTitle': 'DB Auto Org Chart',
-    'headerColor': '#0078d4',
-    'logoPath': '/static/icon.png',
-    'faviconPath': '/favicon.ico',
-    'nodeColors': {
-        'level0': '#90EE90',
-        'level1': '#FFFFE0',
-        'level2': '#E0F2FF',
-        'level3': '#FFE4E1',
-        'level4': '#E8DFF5',
-        'level5': '#FFEAA7'
-    },
-    'autoUpdateEnabled': True,
-    'updateTime': '20:00',
-    'collapseLevel': '2',
-    'searchAutoExpand': True,
-    'searchHighlight': True,
-    'showNames': True,
-    'showDepartments': True,
-    'showJobTitles': True,
-    'showEmployeeCount': True,
-    'showProfileImages': True,
-    'printOrientation': 'landscape',
-    'printSize': 'a4',
-    'exportXlsxColumns': {
-        'name': 'show',
-        'title': 'show',
-        'department': 'show',
-        'email': 'show',
-        'phone': 'show',
-        'businessPhone': 'show',
-        'hireDate': 'admin',
-        'country': 'show',
-        'state': 'show',
-        'city': 'show',
-        'office': 'show',
-        'manager': 'show'
-    },
-    'topUserEmail': TOP_LEVEL_USER_EMAIL or '',
-    'highlightNewEmployees': True,
-    'newEmployeeMonths': 3,
-    # Multi-line children layout for large teams
-    'multiLineChildrenEnabled': True,
-    'multiLineChildrenThreshold': 20,
-    # Use equal sibling spacing to avoid phantom gaps
-    'compactSiblingSpacingEnabled': False,
-    'hideDisabledUsers': True,
-    'hideGuestUsers': True,
-    'hideNoTitle': True,
-    'hideConsultantGroup': True,
-    # Comma-separated list of department names to ignore (case-insensitive)
-    'ignoredEmployees': '',
-    'ignoredDepartments': 'Consultant Group',
-    # Comma-separated list of job titles to ignore (case-insensitive, substring match)
-    'ignoredTitles': ''
-}
-
-
-def translate_placeholder(key, default=None, **kwargs):
-    """Basic translation helper used by templates until full i18n is wired."""
-    if default is not None:
-        try:
-            return default.format(**kwargs)
-        except Exception:
-            return default
-    return key
-
-def _apply_environment_overrides(settings):
-    settings = settings.copy()
-
-    if TOP_LEVEL_USER_EMAIL:
-        settings['topUserEmail'] = TOP_LEVEL_USER_EMAIL.strip()
-    else:
-        settings['topUserEmail'] = settings.get('topUserEmail', '')
-
-    return settings
-
-
-def load_settings():
-    """Load settings from file or return defaults with environment overrides"""
-    if os.path.exists(SETTINGS_FILE):
-        try:
-            with open(SETTINGS_FILE, 'r') as f:
-                settings = json.load(f)
-                for key in DEFAULT_SETTINGS:
-                    if key not in settings:
-                        settings[key] = DEFAULT_SETTINGS[key]
-                return _apply_environment_overrides(settings)
-        except Exception as e:
-            logger.error(f"Error loading settings: {e}")
-    defaults = DEFAULT_SETTINGS.copy()
-    return _apply_environment_overrides(defaults)
-
-# Helpers: ignored titles/departments parsing and matching
-_filter_legacy_split_re = re.compile(r"\s*[;,]+\s*")
-_trim_edge_punct = re.compile(r"^[\s\-–—|]+|[\s\-–—|]+$")
-
-def normalize_filter_value(value):
-    if not value:
-        return ''
-    cleaned = _trim_edge_punct.sub('', str(value))
-    cleaned = re.sub(r"\s+", " ", cleaned)
-    return cleaned.strip().lower()
-
-def parse_filter_values(raw_value):
-    if raw_value is None:
-        return set()
-
-    values = None
-
-    if isinstance(raw_value, str):
-        text = raw_value.strip()
-        if not text:
-            return set()
-        if text.startswith('['):
-            try:
-                decoded = json.loads(text)
-                if isinstance(decoded, (list, tuple, set)):
-                    values = list(decoded)
-            except json.JSONDecodeError:
-                values = None
-        if values is None:
-            values = _filter_legacy_split_re.split(text)
-    elif isinstance(raw_value, (list, tuple, set)):
-        values = list(raw_value)
-    else:
-        return set()
-
-    normalized = set()
-    for part in values:
-        normalized_value = normalize_filter_value(part)
-        if normalized_value:
-            normalized.add(normalized_value)
-    return normalized
-
-def parse_ignored_departments(settings):
-    raw = settings.get('ignoredDepartments', '')
-    return parse_filter_values(raw)
-
-def parse_ignored_titles(settings):
-    raw = settings.get('ignoredTitles', '')
-    return parse_filter_values(raw)
-
-def parse_ignored_employees(settings):
-    raw = settings.get('ignoredEmployees', '')
-    return parse_filter_values(raw)
-
-def department_is_ignored(department, ignored_set):
-    if not ignored_set:
-        return False
-    normalized = normalize_filter_value(department)
-    return normalized in ignored_set
-
-
-def employee_is_ignored(name, email, user_principal_name, ignored_values):
-    if not ignored_values:
-        return False
-
-    candidates = set()
-
-    for value in (name, email, user_principal_name):
-        normalized = normalize_filter_value(value)
-        if normalized:
-            candidates.add(normalized)
-
-    contact_values = [value for value in (email, user_principal_name) if value]
-    for contact in contact_values:
-        if name:
-            for combo in (
-                f"{name} <{contact}>",
-                f"{name} ({contact})",
-                f"{name} - {contact}",
-                f"{contact} ({name})",
-                f"{contact} - {name}"
-            ):
-                normalized = normalize_filter_value(combo)
-                if normalized:
-                    candidates.add(normalized)
-
-    return any(candidate in ignored_values for candidate in candidates)
 
 
 def parse_graph_datetime(value):
@@ -495,32 +250,6 @@ def collect_recently_hired_employees(employees, days=365):
 
     recent.sort(key=lambda item: item.get('hireDate') or '')
     return recent
-
-
-def save_settings(settings):
-    """Save settings to file"""
-    try:
-        # Log current working directory and file path for debugging
-        logger.info(f"Attempting to save settings to: {SETTINGS_FILE}")
-        logger.info(f"Current working directory: {os.getcwd()}")
-        logger.info(f"Settings file exists before save: {os.path.exists(SETTINGS_FILE)}")
-        
-        # Ensure directory exists
-        settings_dir = os.path.dirname(SETTINGS_FILE) or '.'
-        if not os.path.exists(settings_dir):
-            os.makedirs(settings_dir)
-        
-        with open(SETTINGS_FILE, 'w') as f:
-            json.dump(settings, f, indent=2)
-        
-        logger.info(f"Settings saved successfully. File exists after save: {os.path.exists(SETTINGS_FILE)}")
-        return True
-    except Exception as e:
-        logger.error(f"Error saving settings to {SETTINGS_FILE}: {e}")
-        logger.error(f"Current working directory: {os.getcwd()}")
-        logger.error(f"Directory permissions: {oct(os.stat('.').st_mode)[-3:] if os.path.exists('.') else 'N/A'}")
-        return False
-
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -1689,7 +1418,8 @@ def get_template(template_name):
         f'templates/{template_name}',
         template_name,
         os.path.join(os.path.dirname(__file__), 'templates', template_name),
-        os.path.join(os.path.dirname(__file__), template_name)
+        os.path.join(os.path.dirname(__file__), template_name),
+        os.path.join(str(app_config.TEMPLATE_DIR), template_name)
     ]
     
     for path in possible_paths:
@@ -1847,7 +1577,7 @@ def serve_custom_favicon(file_hash, ext):
 @app.route('/static/<path:filename>')
 def serve_static(filename):
     """Serve regular static files"""
-    return send_from_directory('static', filename)
+    return send_from_directory(app.static_folder, filename)
 
 @app.route('/api/photo/<user_id>')
 @limiter.limit("500 per hour")  # Higher limit for photo endpoint due to org chart loading
@@ -1891,11 +1621,11 @@ def get_employee_photo(user_id):
         
         # Fallback to default user icon
         logger.debug(f"No photo available for user {user_id}, using fallback")
-        return send_from_directory('static', 'usericon.png')
+        return send_from_directory(app.static_folder, 'usericon.png')
         
     except Exception as e:
         logger.error(f"Error serving photo for user {user_id}: {e}")
-        return send_from_directory('static', 'usericon.png')
+        return send_from_directory(app.static_folder, 'usericon.png')
 
 @app.route('/api/employees')
 def get_employees():

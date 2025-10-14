@@ -13,13 +13,13 @@ SimpleOrgChart is a Flask application backed by Azure Active Directory (Entra ID
 - Daily automation: background scheduler refreshes Azure AD data (20:00 local time) and persists JSON caches under `data/`.
 - Admin reporting: missing managers, filtered users, and last-login inactivity insights—each with one-click XLSX export.
 - Export tooling: SVG/PNG/PDF org chart capture and server-backed XLSX generation for the current chart tree.
-- Deployment ready: ships with Docker Compose, Gunicorn config, and Waitress launcher for Windows hosts.
+- Deployment ready: ships with Docker Compose and a Gunicorn configuration (`deploy/gunicorn.conf.py`) for containerized hosting.
 
 ## How It Works
 
 | Layer | Description |
 | --- | --- |
-| Flask backend (`app.py`) | Serves templates/static assets, authenticates admin endpoints, manages schedulers, and stores cached Graph API responses.
+| Flask backend (`simple_org_chart/` package) | Serves templates/static assets, authenticates admin endpoints, manages schedulers, and stores cached Graph API responses.
 | Static front end (`static/*.js`) | Renders the D3 org chart, configuration UI, and reports dashboard using cached JSON.
 | Data cache (`data/*.json`) | Holds employee hierarchies, report snapshots, and last login activity to reduce Graph API calls.
 | Scheduler | Nightly job (20:00) refreshes employee data; manual refresh endpoints and CLI helpers are available.
@@ -28,7 +28,6 @@ SimpleOrgChart is a Flask application backed by Azure Active Directory (Entra ID
 
 1. Docker Desktop (or Docker Engine with the Compose plugin) for container-based deployment.
 2. An Azure AD tenant with privileges to create app registrations and grant Graph application permissions.
-3. Python 3.10+ if you prefer running the Flask app directly instead of Docker.
 
 ## Azure AD Setup
 
@@ -90,17 +89,7 @@ docker compose up -d
 
 - Default port: `5000`. Adjust `docker-compose.yml` to map a different host port.
 - Persistent data resides in the `orgchart_data` volume. Remove it to rebuild caches from scratch.
-
-### Local Python (development)
-
-```bash
-python -m venv .venv
-.\.venv\Scripts\activate  # PowerShell on Windows
-pip install -r requirements.txt
-python app.py
-```
-
-For production-grade serving you can use Gunicorn/Waitress wrappers provided in `run.sh`, `run_waitress.py`, or `gunicorn_config.py`.
+- Local execution outside Docker is not supported; use the provided container workflow for development and production.
 
 ## Key Features
 

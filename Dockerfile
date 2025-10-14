@@ -43,4 +43,4 @@ HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
 USER app
 
 # Run the application using gunicorn
-CMD ["gunicorn", "--config", "gunicorn_config.py", "app:app"]
+CMD ["gunicorn", "--config", "deploy/gunicorn.conf.py", "simple_org_chart:app"]

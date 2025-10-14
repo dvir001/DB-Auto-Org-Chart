@@ -79,5 +79,4 @@ LICENSE
 *.md
 
 # Data files (these will be mounted as volumes)
-employee_data.json
-app_settings.json
+data/
