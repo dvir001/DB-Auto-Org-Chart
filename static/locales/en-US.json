@@ -138,6 +138,11 @@
 			"title": "Configuration Settings",
 			"subtitle": "Customize your organization chart appearance and behavior"
 		},
+		"unsavedChanges": {
+			"message": "You have unsaved changes",
+			"hint": "Save your updates or they will be lost.",
+			"confirmLeave": "You have unsaved changes. Leave without saving?"
+		},
 		"sections": {
 			"appearance": {
 				"title": "🎨 Appearance Settings"

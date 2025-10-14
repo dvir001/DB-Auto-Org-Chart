@@ -409,13 +409,21 @@
             </div>
 
             <div class="action-buttons">
-                <button class="btn btn-success" type="button" data-config-action="save-all" data-i18n="configure.buttons.saveAll">Save All Settings</button>
+                <button class="btn btn-primary" type="button" data-config-action="save-all" data-i18n="configure.buttons.saveAll">Save All Settings</button>
                 <button class="btn btn-danger" type="button" data-config-action="reset-all" data-i18n="configure.buttons.resetAll">Reset Everything to Defaults</button>
                 <button class="btn btn-warning" type="button" data-config-action="logout" data-i18n="configure.buttons.logout">Logout</button>
             </div>
 
             <div id="statusMessage" class="status-message"></div>
         </div>
+    </div>
+
+    <div id="unsavedChangesBar" class="unsaved-changes" aria-live="polite">
+        <div class="unsaved-changes__content">
+            <span class="unsaved-changes__title" data-i18n="configure.unsavedChanges.message">You have unsaved changes</span>
+            <span class="unsaved-changes__hint" data-i18n="configure.unsavedChanges.hint">Save your updates or they will be lost.</span>
+        </div>
+        <button class="btn btn-primary" type="button" data-config-action="save-all" data-i18n="configure.buttons.saveAll">Save All Settings</button>
     </div>
 
     <script src="/static/i18n.js" defer></script>

@@ -34,6 +34,125 @@ const EXPORT_COLUMN_DEFAULTS = {
 const tagPickers = {};
 let filterMetadata = { jobTitles: [], departments: [], employees: [] };
 
+let hasUnsavedChanges = false;
+let pendingLogoReset = false;
+let pendingFaviconReset = false;
+let isInitializing = true;
+let beforeUnloadBound = false;
+const unsavedReasons = new Set();
+
+function getTranslation(key, fallbackText) {
+    try {
+        if (window.i18n && typeof window.i18n.t === 'function') {
+            const translated = window.i18n.t(key);
+            if (translated && translated !== key) {
+                return translated;
+            }
+        }
+    } catch (error) {
+        console.warn('Translation lookup failed', key, error);
+    }
+    return fallbackText;
+}
+
+function handleBeforeUnload(event) {
+    if (!hasUnsavedChanges) {
+        return;
+    }
+    const message = getTranslation(
+        'configure.unsavedChanges.confirmLeave',
+        'You have unsaved changes. Leave without saving?'
+    );
+    event.preventDefault();
+    event.returnValue = message;
+    return message;
+}
+
+function updateUnsavedBanner() {
+    const banner = document.getElementById('unsavedChangesBar');
+    if (!banner) {
+        return;
+    }
+    if (hasUnsavedChanges) {
+        banner.classList.add('unsaved-changes--visible');
+        if (!beforeUnloadBound) {
+            window.addEventListener('beforeunload', handleBeforeUnload);
+            beforeUnloadBound = true;
+        }
+    } else {
+        banner.classList.remove('unsaved-changes--visible');
+        if (beforeUnloadBound) {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+            beforeUnloadBound = false;
+        }
+    }
+}
+
+function markUnsavedChange(reason = 'general') {
+    if (isInitializing) {
+        return;
+    }
+    unsavedReasons.add(reason);
+    hasUnsavedChanges = unsavedReasons.size > 0;
+    updateUnsavedBanner();
+}
+
+function clearUnsavedChangeState() {
+    hasUnsavedChanges = false;
+    pendingLogoReset = false;
+    pendingFaviconReset = false;
+    unsavedReasons.clear();
+    updateUnsavedBanner();
+}
+
+function clearUnsavedReason(reason) {
+    if (!unsavedReasons.has(reason)) {
+        return;
+    }
+    unsavedReasons.delete(reason);
+    hasUnsavedChanges = unsavedReasons.size > 0;
+    updateUnsavedBanner();
+}
+
+function attachUnsavedListeners() {
+    const inputs = document.querySelectorAll('input:not([type="file"]), select, textarea');
+    inputs.forEach((field) => {
+        const markChange = () => markUnsavedChange();
+        field.addEventListener('input', markChange);
+        field.addEventListener('change', markChange);
+    });
+}
+
+function confirmUnsavedNavigation() {
+    if (!hasUnsavedChanges) {
+        return true;
+    }
+    const message = getTranslation(
+        'configure.unsavedChanges.confirmLeave',
+        'You have unsaved changes. Leave without saving?'
+    );
+    return window.confirm(message);
+}
+
+function registerNavigationGuards() {
+    const guardSelectors = [
+        '.nav-link',
+        '[data-config-action="logout"]'
+    ];
+
+    guardSelectors.forEach(selector => {
+        document.querySelectorAll(selector).forEach(element => {
+            element.addEventListener('click', event => {
+                if (confirmUnsavedNavigation()) {
+                    return;
+                }
+                event.preventDefault();
+                event.stopImmediatePropagation();
+            });
+        });
+    });
+}
+
 function parseListString(value) {
     if (!value) {
         return [];
@@ -156,6 +275,7 @@ class TagPicker {
             this.input.value = '';
         }
         this.closeDropdown();
+        markUnsavedChange();
     }
 
     getValue() {
@@ -248,6 +368,7 @@ class TagPicker {
         this.refreshDropdown();
         this.openDropdown();
         this.focusInputSoon();
+        markUnsavedChange();
     }
 
     removeValue(rawValue) {
@@ -269,6 +390,7 @@ class TagPicker {
         this.refreshDropdown();
         this.openDropdown();
         this.focusInputSoon();
+        markUnsavedChange();
     }
 
     renderTags() {
@@ -658,19 +780,31 @@ function resetExportColumns() {
             select.value = EXPORT_COLUMN_DEFAULTS[key] || 'show';
         }
     });
+    markUnsavedChange();
 }
 
-document.getElementById('headerColor').addEventListener('input', event => {
-    document.getElementById('headerColorHex').value = event.target.value;
-    updateHeaderPreview(event.target.value);
-});
-
-document.getElementById('headerColorHex').addEventListener('input', event => {
-    if (event.target.value.match(/^#[0-9A-Fa-f]{6}$/)) {
-        document.getElementById('headerColor').value = event.target.value;
+const headerColorInput = document.getElementById('headerColor');
+if (headerColorInput) {
+    headerColorInput.addEventListener('input', event => {
+        const hexField = document.getElementById('headerColorHex');
+        if (hexField) {
+            hexField.value = event.target.value;
+        }
         updateHeaderPreview(event.target.value);
-    }
-});
+    });
+}
+
+const headerColorHexInput = document.getElementById('headerColorHex');
+if (headerColorHexInput) {
+    headerColorHexInput.addEventListener('input', event => {
+        if (event.target.value.match(/^#[0-9A-Fa-f]{6}$/)) {
+            if (headerColorInput) {
+                headerColorInput.value = event.target.value;
+            }
+            updateHeaderPreview(event.target.value);
+        }
+    });
+}
 
 ['level0', 'level1', 'level2', 'level3', 'level4', 'level5'].forEach(level => {
     const colorInput = document.getElementById(`${level}Color`);
@@ -764,6 +898,8 @@ async function uploadLogoFile(file) {
                 showStatus('Logo uploaded but failed to display. Try refreshing the page.', 'warning');
             };
             logoImg.src = newLogoPath;
+            pendingLogoReset = false;
+            clearUnsavedReason('logoReset');
         } else {
             let errorMessage = 'Unknown error';
             try {
@@ -784,11 +920,14 @@ async function uploadLogoFile(file) {
     }
 }
 
-document.getElementById('logoUpload').addEventListener('change', async event => {
-    const file = event.target.files[0];
-    await uploadLogoFile(file);
-    event.target.value = '';
-});
+const logoUploadInput = document.getElementById('logoUpload');
+if (logoUploadInput) {
+    logoUploadInput.addEventListener('change', async event => {
+        const file = event.target.files[0];
+        await uploadLogoFile(file);
+        event.target.value = '';
+    });
+}
 
 async function uploadFaviconFile(file) {
     if (!file) return;
@@ -821,6 +960,8 @@ async function uploadFaviconFile(file) {
                 showStatus('Favicon uploaded but failed to display.', 'warning');
             };
             faviconImg.src = newFaviconPath;
+            pendingFaviconReset = false;
+            clearUnsavedReason('faviconReset');
         } else {
             let errorMessage = 'Unknown error';
             try {
@@ -838,11 +979,14 @@ async function uploadFaviconFile(file) {
     }
 }
 
-document.getElementById('faviconUpload').addEventListener('change', async event => {
-    const file = event.target.files[0];
-    await uploadFaviconFile(file);
-    event.target.value = '';
-});
+const faviconUploadInput = document.getElementById('faviconUpload');
+if (faviconUploadInput) {
+    faviconUploadInput.addEventListener('change', async event => {
+        const file = event.target.files[0];
+        await uploadFaviconFile(file);
+        event.target.value = '';
+    });
+}
 
 function updatePageFavicon(faviconPath) {
     let favicon = document.querySelector('link[rel="icon"]') || document.querySelector('link[rel="shortcut icon"]');
@@ -855,45 +999,43 @@ function updatePageFavicon(faviconPath) {
 }
 
 function resetFavicon() {
-    if (confirm('Are you sure you want to reset the favicon to default?')) {
-        fetch(`${API_BASE_URL}/api/reset-favicon`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-        })
-            .then(response => response.json())
-            .then(result => {
-                if (result.success) {
-                    document.getElementById('currentFavicon').src = `/favicon.ico?t=${Date.now()}`;
-                    updatePageFavicon('/favicon.ico');
-                    showStatus('Favicon reset to default successfully!', 'success');
-                    const status = document.getElementById('faviconStatus');
-                    if (status) status.textContent = 'Using default';
-                } else {
-                    showStatus(`Failed to reset favicon: ${result.error || 'Unknown error'}`, 'error');
-                }
-            })
-            .catch(error => {
-                console.error('Error resetting favicon:', error);
-                showStatus('Error resetting favicon. Please try again.', 'error');
-            });
+    if (!confirm('Are you sure you want to reset the favicon to default?')) {
+        return;
     }
+
+    const defaultPath = '/favicon.ico';
+    const previewPath = `${defaultPath}?t=${Date.now()}`;
+    document.getElementById('currentFavicon').src = previewPath;
+    updatePageFavicon(defaultPath);
+    const status = document.getElementById('faviconStatus');
+    if (status) {
+        status.textContent = 'Reverting to default after save';
+    }
+    pendingFaviconReset = true;
+    markUnsavedChange('faviconReset');
 }
 
 function resetChartTitle() {
     document.getElementById('chartTitle').value = 'Organization Chart';
+    markUnsavedChange();
 }
 
 function resetHeaderColor() {
     document.getElementById('headerColor').value = '#0078d4';
     document.getElementById('headerColorHex').value = '#0078d4';
     updateHeaderPreview('#0078d4');
+    markUnsavedChange();
 }
 
 function resetLogo() {
-    document.getElementById('currentLogo').src = `/static/icon.png?t=${Date.now()}`;
+    const defaultPath = '/static/icon.png';
+    document.getElementById('currentLogo').src = `${defaultPath}?t=${Date.now()}`;
     const status = document.getElementById('logoStatus');
-    if (status) status.textContent = 'Using default';
-    fetch(`${API_BASE_URL}/api/reset-logo`, { method: 'POST' });
+    if (status) {
+        status.textContent = 'Reverting to default after save';
+    }
+    pendingLogoReset = true;
+    markUnsavedChange('logoReset');
 }
 
 function resetNodeColors() {
@@ -910,6 +1052,7 @@ function resetNodeColors() {
         document.getElementById(`${level}Color`).value = defaults[level];
         document.getElementById(`${level}ColorHex`).value = defaults[level];
     });
+    markUnsavedChange();
 }
 
 function resetUpdateTime() {
@@ -920,15 +1063,18 @@ function resetUpdateTime() {
     const hidden = document.getElementById('updateTime');
     if (hidden) hidden.value = '20:00';
     document.getElementById('autoUpdateEnabled').checked = true;
+    markUnsavedChange();
 }
 
 function resetCollapseLevel() {
     document.getElementById('collapseLevel').value = '2';
+    markUnsavedChange();
 }
 
 function resetMultiLineSettings() {
     const thresholdEl = document.getElementById('multiLineChildrenThreshold');
     if (thresholdEl) thresholdEl.value = 20;
+    markUnsavedChange();
 }
 
 function resetIgnoredDepartments() {
@@ -938,6 +1084,7 @@ function resetIgnoredDepartments() {
         const el = document.getElementById('ignoredDepartmentsInput');
         if (el) el.value = '';
     }
+    markUnsavedChange();
 }
 
 function resetIgnoredTitles() {
@@ -947,6 +1094,7 @@ function resetIgnoredTitles() {
         const el = document.getElementById('ignoredTitlesInput');
         if (el) el.value = '';
     }
+    markUnsavedChange();
 }
 
 function resetIgnoredEmployees() {
@@ -956,6 +1104,7 @@ function resetIgnoredEmployees() {
         const el = document.getElementById('ignoredEmployeesInput');
         if (el) el.value = '';
     }
+    markUnsavedChange();
 }
 
 async function resetAllSettings() {
@@ -1015,6 +1164,9 @@ async function logout() {
 }
 
 async function saveAllSettings() {
+    const logoResetRequested = pendingLogoReset;
+    const faviconResetRequested = pendingFaviconReset;
+
     const settings = {
         chartTitle: document.getElementById('chartTitle').value || 'Organization Chart',
         headerColor: document.getElementById('headerColor').value,
@@ -1046,6 +1198,28 @@ async function saveAllSettings() {
     };
 
     try {
+        if (logoResetRequested) {
+            const response = await fetch(`${API_BASE_URL}/api/reset-logo`, { method: 'POST' });
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                const message = errorData.error || `Error resetting logo (Status: ${response.status})`;
+                showStatus(message, 'error');
+                return;
+            }
+            pendingLogoReset = false;
+        }
+
+        if (faviconResetRequested) {
+            const response = await fetch(`${API_BASE_URL}/api/reset-favicon`, { method: 'POST' });
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                const message = errorData.error || `Error resetting favicon (Status: ${response.status})`;
+                showStatus(message, 'error');
+                return;
+            }
+            pendingFaviconReset = false;
+        }
+
         const response = await fetch(`${API_BASE_URL}/api/settings`, {
             method: 'POST',
             headers: {
@@ -1056,6 +1230,22 @@ async function saveAllSettings() {
 
         if (response.ok) {
             showStatus('Settings saved successfully!', 'success');
+            isInitializing = true;
+            await loadSettings();
+            isInitializing = false;
+            clearUnsavedChangeState();
+            if (logoResetRequested) {
+                const status = document.getElementById('logoStatus');
+                if (status) {
+                    status.textContent = 'Using default';
+                }
+            }
+            if (faviconResetRequested) {
+                const status = document.getElementById('faviconStatus');
+                if (status) {
+                    status.textContent = 'Using default';
+                }
+            }
         } else {
             const errorData = await response.json().catch(() => ({}));
             const errorMsg = errorData.error || `Error saving settings (Status: ${response.status})`;
@@ -1128,11 +1318,16 @@ function registerConfigActions() {
 document.addEventListener('DOMContentLoaded', async () => {
     initTimePicker();
     registerConfigActions();
+    attachUnsavedListeners();
+    registerNavigationGuards();
 
     const metadata = await loadFilterMetadata();
     filterMetadata = metadata || { jobTitles: [], departments: [], employees: [] };
     initializeTagPickers(filterMetadata);
     await loadSettings();
+
+    isInitializing = false;
+    clearUnsavedChangeState();
 
     requestAnimationFrame(() => {
         document.body.classList.remove('is-loading');
