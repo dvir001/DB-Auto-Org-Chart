@@ -10,7 +10,6 @@ from datetime import datetime, timedelta, timezone
 import threading
 import time
 from io import BytesIO
-import schedule
 import logging
 from dotenv import load_dotenv
 from werkzeug.utils import secure_filename
@@ -54,6 +53,13 @@ from simple_org_chart.msgraph import (
     fetch_employee_photo,
     get_access_token,
     parse_graph_datetime,
+)
+from simple_org_chart.scheduler import (
+    configure_scheduler,
+    is_scheduler_running,
+    restart_scheduler,
+    start_scheduler,
+    stop_scheduler,
 )
 from simple_org_chart.utils.files import validate_image_file
 
@@ -133,10 +139,6 @@ if not all([TENANT_ID, CLIENT_ID, CLIENT_SECRET]):
     logger.warning("AZURE_CLIENT_ID: " + ("Set" if CLIENT_ID else "Not set"))
     logger.warning("AZURE_CLIENT_SECRET: " + ("Set" if CLIENT_SECRET else "Not set"))
     logger.warning("Please check your .env file exists and contains the correct values")
-
-scheduler_running = False
-scheduler_lock = threading.Lock()
-
 
 def collect_recently_disabled_employees(records, days=365):
     if not records:
@@ -620,6 +622,9 @@ def update_employee_data():
         logger.error(f"[{datetime.now()}] Error updating employee data: {e}")
 
 
+configure_scheduler(update_employee_data)
+
+
 def load_cached_employees():
     if os.path.exists(EMPLOYEE_LIST_FILE):
         try:
@@ -706,47 +711,6 @@ def collect_employee_option_labels(employees):
 
     return sorted(options.values(), key=lambda item: item.lower())
 
-def schedule_updates():
-    global scheduler_running
-    
-    settings = load_settings()
-    
-    if os.environ.get('RUN_INITIAL_UPDATE', 'true').lower() == 'true':
-        logger.info(f"[{datetime.now()}] Running initial employee data update on startup...")
-        update_employee_data()
-    
-    if settings.get('autoUpdateEnabled', True):
-        update_time = settings.get('updateTime', '20:00')
-        schedule.every().day.at(update_time).do(update_employee_data)
-        logger.info(f"Scheduled daily updates at {update_time}")
-    
-    while scheduler_running:
-        schedule.run_pending()
-        time.sleep(60)
-
-def start_scheduler():
-    global scheduler_running
-    with scheduler_lock:
-        if not scheduler_running:
-            scheduler_running = True
-            scheduler_thread = threading.Thread(target=schedule_updates, daemon=True)
-            scheduler_thread.start()
-            logger.info("Scheduler started")
-
-def stop_scheduler():
-    global scheduler_running
-    with scheduler_lock:
-        scheduler_running = False
-        logger.info("Scheduler stopped")
-
-def restart_scheduler():
-    """Restart scheduler with new settings"""
-    stop_scheduler()
-    time.sleep(2)
-    schedule.clear()
-    start_scheduler()
-
-
 if hasattr(app, 'before_serving'):
 
     @app.before_serving
@@ -762,7 +726,7 @@ elif hasattr(app, 'before_request'):
 
     @app.before_request
     def _ensure_scheduler_started():
-        if not scheduler_running:
+        if not is_scheduler_running():
             start_scheduler()
 
 
