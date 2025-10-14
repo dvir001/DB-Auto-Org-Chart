@@ -7,7 +7,6 @@ import atexit
 import json
 import os
 from datetime import datetime, timedelta, timezone
-import requests
 import threading
 import time
 from io import BytesIO
@@ -45,6 +44,16 @@ from simple_org_chart.settings import (
     parse_ignored_titles,
     save_settings,
     translate_placeholder,
+)
+from simple_org_chart.msgraph import (
+    calculate_days_since,
+    collect_disabled_users,
+    collect_last_login_records,
+    datetime_to_iso,
+    fetch_all_employees,
+    fetch_employee_photo,
+    get_access_token,
+    parse_graph_datetime,
 )
 from simple_org_chart.utils.files import validate_image_file
 
@@ -95,9 +104,6 @@ def add_security_headers(response):
     return response
 app_config.ensure_directories()
 
-GRAPH_API_ENDPOINT = 'https://graph.microsoft.com/v1.0'
-GRAPH_API_BETA_ENDPOINT = 'https://graph.microsoft.com/beta'
-
 DATA_DIR = str(app_config.DATA_DIR)
 SETTINGS_FILE = str(app_config.SETTINGS_FILE)
 DATA_FILE = str(app_config.DATA_FILE)
@@ -130,61 +136,6 @@ if not all([TENANT_ID, CLIENT_ID, CLIENT_SECRET]):
 
 scheduler_running = False
 scheduler_lock = threading.Lock()
-
-
-def parse_graph_datetime(value):
-    if not value:
-        return None
-
-    if isinstance(value, datetime):
-        dt = value
-    elif isinstance(value, (int, float)):
-        try:
-            dt = datetime.fromtimestamp(value, tz=timezone.utc)
-        except Exception:
-            return None
-    elif isinstance(value, str):
-        text = value.strip()
-        if not text:
-            return None
-        try:
-            if text.endswith('Z'):
-                text = text[:-1] + '+00:00'
-            dt = datetime.fromisoformat(text)
-        except ValueError:
-            dt = None
-            for fmt in ('%Y-%m-%d', '%Y-%m-%d %H:%M:%S'):
-                try:
-                    dt = datetime.strptime(text, fmt)
-                    break
-                except ValueError:
-                    dt = None
-            if dt is None:
-                return None
-    else:
-        return None
-
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-
-    return dt
-
-
-def datetime_to_iso(dt):
-    if not isinstance(dt, datetime):
-        return None
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc).isoformat()
-
-
-def calculate_days_since(moment):
-    dt = parse_graph_datetime(moment)
-    if not dt:
-        return None
-    now = datetime.now(timezone.utc)
-    delta = now - dt.astimezone(timezone.utc)
-    return max(delta.days, 0)
 
 
 def collect_recently_disabled_employees(records, days=365):
@@ -253,293 +204,6 @@ def collect_recently_hired_employees(employees, days=365):
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def get_access_token():
-    token_url = f'https://login.microsoftonline.com/{TENANT_ID}/oauth2/v2.0/token'
-    
-    token_data = {
-        'grant_type': 'client_credentials',
-        'client_id': CLIENT_ID,
-        'client_secret': CLIENT_SECRET,
-        'scope': 'https://graph.microsoft.com/.default'
-    }
-    
-    try:
-        token_r = requests.post(token_url, data=token_data, timeout=10)
-        token = token_r.json().get('access_token')
-        return token
-    except Exception as e:
-        logger.error(f"Error getting access token: {e}")
-        return None
-
-def fetch_employee_photo(user_id, token):
-    """Fetch employee photo from Microsoft Graph API"""
-    try:
-        photo_url = f'{GRAPH_API_ENDPOINT}/users/{user_id}/photo/$value'
-        headers = {
-            'Authorization': f'Bearer {token}'
-        }
-        
-        response = requests.get(photo_url, headers=headers, timeout=10)
-        
-        if response.status_code == 200:
-            return response.content
-        else:
-            logger.debug(f"No photo found for user {user_id}: {response.status_code}")
-            return None
-            
-    except Exception as e:
-        logger.debug(f"Error fetching photo for user {user_id}: {e}")
-        return None
-
-def fetch_all_employees(token=None):
-    token = token or get_access_token()
-    if not token:
-        logger.error("Failed to get access token")
-        logger.warning("Using cached employee data because access token retrieval failed")
-        return _load_fetch_all_employees_fallback()
-
-    # Load settings to check filtering preferences
-    settings = load_settings()
-    hide_disabled_users = settings.get('hideDisabledUsers', True)
-    hide_guest_users = settings.get('hideGuestUsers', True)
-    hide_no_title = settings.get('hideNoTitle', True)
-    ignored_title_values = parse_ignored_titles(settings)
-    ignored_employee_values = parse_ignored_employees(settings)
-    ignored_department_values = parse_ignored_departments(settings)
-    new_employee_months = settings.get('newEmployeeMonths', 3)
-
-    headers = {
-        'Authorization': f'Bearer {token}',
-        'Content-Type': 'application/json'
-    }
-
-    employees = []
-    filtered_with_license = []
-    filtered_users = []
-    fetch_failed = False
-
-    sku_map = fetch_subscribed_sku_map(token)
-
-    # Build API filter based on settings
-    api_filters = []
-    if hide_disabled_users:
-        api_filters.append("accountEnabled eq true")
-    if hide_guest_users:
-        api_filters.append("userType eq 'Member'")
-    
-    # Construct the users URL with conditional filtering
-    filter_string = " and ".join(api_filters) if api_filters else ""
-    select_fields = (
-        'id,displayName,jobTitle,department,mail,userPrincipalName,mobilePhone,'
-        'businessPhones,officeLocation,city,state,country,usageLocation,streetAddress,'
-        'postalCode,employeeHireDate,accountEnabled,userType,assignedLicenses'
-    )
-
-    if filter_string:
-        users_url = (
-            f'{GRAPH_API_ENDPOINT}/users?$select={select_fields}'
-            f'&$expand=manager($select=id,displayName)&$filter={filter_string}'
-        )
-    else:
-        users_url = (
-            f'{GRAPH_API_ENDPOINT}/users?$select={select_fields}'
-            f'&$expand=manager($select=id,displayName)'
-        )
-    
-    while users_url:
-        try:
-            response = requests.get(users_url, headers=headers, timeout=15)
-            response.raise_for_status()
-            data = response.json()
-            
-            if 'value' in data:
-                for user in data['value']:
-                    display_name = user.get('displayName') or ''
-                    primary_email = user.get('mail') or ''
-                    user_principal_name = user.get('userPrincipalName') or ''
-                    job_title_val = user.get('jobTitle') or ''
-                    lowered_title = normalize_filter_value(job_title_val)
-                    department_val = user.get('department') or ''
-                    business_phones = user.get('businessPhones') or []
-                    if isinstance(business_phones, list):
-                        business_phone = next((phone for phone in business_phones if phone), '')
-                    else:
-                        business_phone = business_phones or ''
-
-                    assigned_licenses = user.get('assignedLicenses') or []
-                    user_type = (user.get('userType') or '').lower()
-
-                    license_sku_ids = []
-                    license_labels = []
-                    if assigned_licenses:
-                        seen_labels = set()
-                        for license_entry in assigned_licenses:
-                            sku_id = license_entry.get('skuId')
-                            if not sku_id:
-                                continue
-                            sku_key = str(sku_id).lower()
-                            license_sku_ids.append(str(sku_id))
-                            friendly_name = (
-                                sku_map.get(sku_key)
-                                or sku_map.get(sku_key.upper())
-                                or str(sku_id)
-                            )
-                            normalized_label = friendly_name.lower()
-                            if normalized_label not in seen_labels:
-                                seen_labels.add(normalized_label)
-                                license_labels.append(friendly_name)
-
-                        license_labels.sort(key=lambda item: item.lower())
-
-                    filtered_reasons = []
-                    if hide_disabled_users and not user.get('accountEnabled', True):
-                        filtered_reasons.append('filter_disabled')
-                    if hide_guest_users and user_type == 'guest':
-                        filtered_reasons.append('filter_guest')
-                    if hide_no_title and job_title_val.strip() == '':
-                        filtered_reasons.append('filter_no_title')
-                    if ignored_title_values and lowered_title in ignored_title_values:
-                        filtered_reasons.append('filter_ignored_title')
-                    if department_is_ignored(department_val, ignored_department_values):
-                        filtered_reasons.append('filter_ignored_department')
-                    if employee_is_ignored(display_name, primary_email, user_principal_name, ignored_employee_values):
-                        filtered_reasons.append('filter_ignored_employee')
-
-                    if filtered_reasons:
-                        base_record = {
-                            'id': user.get('id'),
-                            'name': display_name or 'Unknown',
-                            'title': job_title_val or 'No Title',
-                            'department': department_val or 'No Department',
-                            'email': primary_email or user_principal_name or '',
-                            'userPrincipalName': user_principal_name,
-                            'phone': user.get('mobilePhone') or '',
-                            'businessPhone': business_phone,
-                            'location': user.get('officeLocation') or '',
-                            'city': user.get('city') or '',
-                            'state': user.get('state') or '',
-                            'country': user.get('country') or '',
-                            'usageLocation': user.get('usageLocation') or '',
-                            'accountEnabled': user.get('accountEnabled', True),
-                            'userType': user_type,
-                            'filterReasons': filtered_reasons,
-                            'licenseCount': len(license_sku_ids),
-                            'licenseSkus': license_labels,
-                            'licenseSkuIds': license_sku_ids,
-                        }
-                        filtered_users.append(base_record)
-
-                        if license_sku_ids:
-                            filtered_with_license.append(dict(base_record))
-                        continue
-
-                    if display_name:
-                        hire_date_str = user.get('employeeHireDate')
-                        is_new = False
-                        hire_date = None
-
-                        if hire_date_str:
-                            try:
-                                if 'T' in hire_date_str:
-                                    hire_date = datetime.fromisoformat(hire_date_str.replace('Z', '+00:00'))
-                                else:
-                                    hire_date = datetime.strptime(hire_date_str, '%Y-%m-%d')
-                                    hire_date = hire_date.replace(tzinfo=None)
-
-                                if hire_date.tzinfo:
-                                    cutoff_date = datetime.now(hire_date.tzinfo) - timedelta(days=new_employee_months * 30)
-                                else:
-                                    cutoff_date = datetime.now() - timedelta(days=new_employee_months * 30)
-
-                                is_new = hire_date > cutoff_date
-                            except Exception as e:
-                                logger.warning(f"Error parsing hire date for user {user.get('displayName')}: {e}")
-
-                        # Build full address from components
-                        address_components = []
-                        if user.get('streetAddress'):
-                            address_components.append(user.get('streetAddress'))
-                        if user.get('city'):
-                            address_components.append(user.get('city'))
-                        if user.get('state'):
-                            address_components.append(user.get('state'))
-                        if user.get('postalCode'):
-                            address_components.append(user.get('postalCode'))
-                        if user.get('country'):
-                            address_components.append(user.get('country'))
-
-                        full_address = ', '.join(address_components) if address_components else ''
-
-                        email_value = primary_email or user_principal_name or ''
-
-                        employee = {
-                            'id': user.get('id'),
-                            'name': display_name or 'Unknown',
-                            'title': user.get('jobTitle') or 'No Title',
-                            'department': department_val or 'No Department',
-                            'email': email_value,
-                            'phone': user.get('mobilePhone') or '',
-                            'businessPhone': business_phone,
-                            'location': user.get('officeLocation') or '',
-                            'officeLocation': user.get('officeLocation') or '',
-                            'city': user.get('city') or '',
-                            'state': user.get('state') or '',
-                            'country': user.get('country') or '',
-                            'fullAddress': full_address,
-                            'managerId': user.get('manager', {}).get('id') if user.get('manager') else None,
-                            'employeeHireDate': hire_date_str,
-                            'hireDate': hire_date.isoformat() if hire_date else None,
-                            'isNewEmployee': is_new,
-                            'photoUrl': f'/api/photo/{user.get("id")}',
-                            'userPrincipalName': user_principal_name,
-                            'children': [],
-                            'accountEnabled': user.get('accountEnabled', True),
-                            'userType': user.get('userType') or '',
-                            'usageLocation': user.get('usageLocation') or ''
-                        }
-                        employees.append(employee)
-            
-            users_url = data.get('@odata.nextLink')
-        except requests.exceptions.RequestException as e:
-            fetch_failed = True
-            logger.error(f"Error fetching employees: {e}")
-            status_code = getattr(getattr(e, 'response', None), 'status_code', None)
-            if status_code == 401:
-                logger.error("Authentication failed. Please check your credentials.")
-            elif status_code == 403:
-                logger.error("Permission denied. Ensure User.Read.All permission is granted.")
-            break
-        except Exception as e:
-            fetch_failed = True
-            logger.error(f"Unexpected error: {e}")
-            break
-    
-    logger.info(
-        "Fetched %s employees from Graph API (filtered total %s, with licenses %s)",
-        len(employees),
-        len(filtered_users),
-        len(filtered_with_license)
-    )
-
-    if fetch_failed or not employees:
-        fallback_employees, fallback_filtered_with_license, fallback_filtered_users = _load_fetch_all_employees_fallback()
-        if fallback_employees:
-            logger.warning(
-                "Using cached employee fallback after Graph fetch %s (%s records)",
-                "failure" if fetch_failed else "returning no data",
-                len(fallback_employees)
-            )
-            employees = fallback_employees
-            if fallback_filtered_with_license:
-                filtered_with_license = fallback_filtered_with_license
-            if fallback_filtered_users:
-                filtered_users = fallback_filtered_users
-        elif fetch_failed:
-            logger.warning("Graph fetch failed and no cached employee data is available")
-
-    return employees, filtered_with_license, filtered_users
-
-
 def _load_fetch_all_employees_fallback():
     cached_employees = load_cached_employees() or []
 
@@ -564,318 +228,6 @@ def _load_fetch_all_employees_fallback():
     cached_filtered_users = _load_cached_list(FILTERED_USERS_FILE, 'filtered users')
 
     return cached_employees, cached_filtered_with_license, cached_filtered_users
-
-
-def fetch_subscribed_sku_map(token):
-    headers = {
-        'Authorization': f'Bearer {token}',
-        'Content-Type': 'application/json'
-    }
-
-    sku_map = {}
-    skus_url = f'{GRAPH_API_ENDPOINT}/subscribedSkus?$select=skuId,skuPartNumber'
-
-    try:
-        while skus_url:
-            response = requests.get(skus_url, headers=headers, timeout=10)
-            response.raise_for_status()
-            data = response.json()
-
-            for sku in data.get('value', []):
-                sku_id = sku.get('skuId')
-                if not sku_id:
-                    continue
-                key = str(sku_id).lower()
-                sku_map[key] = sku.get('skuPartNumber') or str(sku_id)
-
-            skus_url = data.get('@odata.nextLink')
-    except requests.exceptions.RequestException as error:
-        logger.warning(f"Failed to load subscribed SKUs: {error}")
-    except Exception as error:
-        logger.warning(f"Unexpected error loading subscribed SKUs: {error}")
-
-    return sku_map
-
-
-def collect_last_login_records(*, token=None):
-    """Return cached-friendly last sign-in details for all users."""
-
-    token = token or get_access_token()
-    if not token:
-        logger.error("Failed to get access token for last sign-in report")
-        return []
-
-    sku_map = fetch_subscribed_sku_map(token)
-
-    headers = {
-        'Authorization': f'Bearer {token}',
-        'Content-Type': 'application/json',
-        'ConsistencyLevel': 'eventual'
-    }
-
-    fields = (
-        'id,displayName,jobTitle,department,mail,userPrincipalName,'
-        'signInActivity,accountEnabled,userType,assignedLicenses'
-    )
-    users_url = f"{GRAPH_API_BETA_ENDPOINT}/users?$select={fields}&$top=999"
-
-    now_utc = datetime.now(timezone.utc)
-    records = []
-
-    def _format_datetime(dt):
-        if not dt:
-            return None
-        if not dt.tzinfo:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(timezone.utc).isoformat()
-
-    def _map_licenses(license_entries):
-        license_entries = license_entries or []
-        if not license_entries:
-            return [], []
-
-        sku_ids = []
-        labels = []
-        seen_labels = set()
-
-        for entry in license_entries:
-            sku_id = entry.get('skuId')
-            if not sku_id:
-                continue
-            sku_ids.append(str(sku_id))
-            lookup_key = str(sku_id).lower()
-            friendly = sku_map.get(lookup_key) or sku_map.get(lookup_key.upper()) or str(sku_id)
-            normalized = friendly.lower()
-            if normalized not in seen_labels:
-                seen_labels.add(normalized)
-                labels.append(friendly)
-
-        labels.sort(key=lambda item: item.lower())
-        return sku_ids, labels
-
-    while users_url:
-        try:
-            response = requests.get(users_url, headers=headers, timeout=20)
-        except requests.exceptions.RequestException as error:
-            logger.error(f"Failed to fetch sign-in activity: {error}")
-            break
-
-        if response.status_code == 429:
-            retry_after = response.headers.get('Retry-After')
-            delay = 5
-            try:
-                parsed = int(retry_after)
-                delay = max(parsed, delay)
-            except Exception:
-                pass
-            logger.warning(f"Graph throttled sign-in activity request; retrying in {delay} seconds")
-            time.sleep(delay)
-            continue
-
-        try:
-            response.raise_for_status()
-        except requests.exceptions.HTTPError as error:
-            status_code = getattr(error.response, 'status_code', None)
-            logger.error(f"Graph error fetching sign-in activity (status {status_code}): {error}")
-            break
-
-        payload = response.json()
-
-        for user in payload.get('value', []):
-            sign_in = user.get('signInActivity') or {}
-
-            last_combined = parse_graph_datetime(sign_in.get('lastSignInDateTime'))
-            last_interactive = parse_graph_datetime(sign_in.get('lastInteractiveSignInDateTime'))
-            last_non_interactive = parse_graph_datetime(sign_in.get('lastNonInteractiveSignInDateTime'))
-
-            observed_dates = [dt for dt in (last_combined, last_interactive, last_non_interactive) if dt]
-            most_recent = max(observed_dates) if observed_dates else None
-
-            sku_ids, license_labels = _map_licenses(user.get('assignedLicenses'))
-
-            record = {
-                'id': user.get('id'),
-                'name': user.get('displayName') or 'Unknown',
-                'title': user.get('jobTitle') or 'No Title',
-                'department': user.get('department') or 'No Department',
-                'email': user.get('mail') or user.get('userPrincipalName') or '',
-                'accountEnabled': user.get('accountEnabled', True),
-                'userType': (user.get('userType') or '').lower(),
-                'licenseCount': len(sku_ids),
-                'licenseSkus': license_labels,
-                'licenseSkuIds': sku_ids,
-                'lastActivityDate': _format_datetime(most_recent),
-                'daysSinceLastActivity': int((now_utc - most_recent).days) if most_recent else None,
-                'lastInteractiveSignIn': _format_datetime(last_interactive),
-                'daysSinceInteractiveSignIn': int((now_utc - last_interactive).days) if last_interactive else None,
-                'lastNonInteractiveSignIn': _format_datetime(last_non_interactive),
-                'daysSinceNonInteractiveSignIn': int((now_utc - last_non_interactive).days) if last_non_interactive else None,
-                'neverSignedIn': not observed_dates,
-            }
-
-            records.append(record)
-
-        users_url = payload.get('@odata.nextLink')
-
-    logger.info("Collected %s last sign-in records", len(records))
-    return records
-
-
-def _collect_disabled_users(*, token=None, settings=None):
-    """Return disabled user records with optional license metadata."""
-
-    token = token or get_access_token()
-    if not token:
-        logger.error("Failed to get access token for disabled user reports")
-        return []
-
-    sku_map = fetch_subscribed_sku_map(token)
-
-    headers = {
-        'Authorization': f'Bearer {token}',
-        'Content-Type': 'application/json'
-    }
-
-    select_fields = (
-        'id,displayName,jobTitle,department,mail,userPrincipalName,mobilePhone,'
-        'businessPhones,officeLocation,city,state,country,usageLocation,streetAddress,'
-        'postalCode,employeeHireDate,employeeLeaveDateTime,accountEnabled,userType,assignedLicenses'
-    )
-
-    users_url = f'{GRAPH_API_ENDPOINT}/users?$select={select_fields}&$filter=accountEnabled eq false'
-    records = []
-
-    while users_url:
-        try:
-            response = requests.get(users_url, headers=headers, timeout=15)
-            response.raise_for_status()
-            data = response.json()
-
-            for user in data.get('value', []):
-                display_name = user.get('displayName') or ''
-                primary_email = user.get('mail') or ''
-                user_principal_name = user.get('userPrincipalName') or ''
-                job_title_val = user.get('jobTitle') or ''
-                department_val = user.get('department') or 'No Department'
-
-                business_phones = user.get('businessPhones') or []
-                if isinstance(business_phones, list):
-                    business_phone = next((phone for phone in business_phones if phone), '')
-                else:
-                    business_phone = business_phones or ''
-
-                assigned_licenses = user.get('assignedLicenses') or []
-                license_sku_ids = []
-                license_labels = []
-                for license_entry in assigned_licenses:
-                    sku_id = license_entry.get('skuId')
-                    if not sku_id:
-                        continue
-                    sku_key = str(sku_id).lower()
-                    license_sku_ids.append(str(sku_id))
-                    friendly_name = (
-                        sku_map.get(sku_key)
-                        or sku_map.get(sku_key.upper())
-                        or str(sku_id)
-                    )
-                    license_labels.append(friendly_name)
-
-                license_labels = sorted(set(license_labels), key=lambda item: item.lower()) if license_labels else []
-
-                disabled_at = parse_graph_datetime(user.get('employeeLeaveDateTime'))
-                disabled_iso = datetime_to_iso(disabled_at) if disabled_at else None
-
-                hire_date = parse_graph_datetime(user.get('employeeHireDate'))
-
-                record = {
-                    'id': user.get('id'),
-                    'name': display_name or 'Unknown',
-                    'title': job_title_val or 'No Title',
-                    'department': department_val,
-                    'email': primary_email or user_principal_name or '',
-                    'userPrincipalName': user_principal_name,
-                    'phone': user.get('mobilePhone') or '',
-                    'businessPhone': business_phone,
-                    'location': user.get('officeLocation') or '',
-                    'city': user.get('city') or '',
-                    'state': user.get('state') or '',
-                    'country': user.get('country') or '',
-                    'usageLocation': user.get('usageLocation') or '',
-                    'accountEnabled': user.get('accountEnabled', True),
-                    'userType': (user.get('userType') or '').lower(),
-                    'licenseCount': len(license_sku_ids),
-                    'licenseSkus': license_labels,
-                    'licenseSkuIds': license_sku_ids,
-                    'hireDate': datetime_to_iso(hire_date) if hire_date else None,
-                    'disabledDate': disabled_iso,
-                    'disabledDays': calculate_days_since(disabled_at),
-                }
-
-                records.append(record)
-
-            users_url = data.get('@odata.nextLink')
-        except requests.exceptions.RequestException as error:
-            logger.error(f"Error fetching disabled users: {error}")
-            break
-        except Exception as error:
-            logger.error(f"Unexpected error while collecting disabled user data: {error}")
-            break
-
-    logger.info(f"Collected {len(records)} disabled users")
-    return records
-
-
-def collect_disabled_users(*, token=None, settings=None, previous_records=None):
-    raw_records = _collect_disabled_users(token=token, settings=settings)
-
-    previous_map = {}
-    if previous_records:
-        for entry in previous_records:
-            entry_id = entry.get('id')
-            if entry_id:
-                previous_map[entry_id] = entry
-
-    now_iso = datetime_to_iso(datetime.now(timezone.utc))
-
-    for record in raw_records:
-        record_id = record.get('id')
-        existing = previous_map.get(record_id) if record_id else None
-
-        observed_source = record.get('disabledDate')
-        existing_observed = None
-
-        if existing:
-            existing_observed = (
-                existing.get('firstSeenDisabledAt')
-                or existing.get('disabledDate')
-            )
-
-        if observed_source:
-            first_seen = observed_source
-        elif existing_observed:
-            first_seen = existing_observed
-        else:
-            first_seen = now_iso
-
-        record['firstSeenDisabledAt'] = first_seen
-
-        if not record.get('disabledDate'):
-            record['disabledDate'] = first_seen
-
-        record['disabledDays'] = calculate_days_since(first_seen)
-
-    return raw_records
-
-
-def collect_disabled_licensed_users(*, token=None, settings=None, previous_records=None):
-    raw_records = collect_disabled_users(
-        token=token,
-        settings=settings,
-        previous_records=previous_records
-    )
-    licensed_records = [record for record in raw_records if (record.get('licenseCount') or 0) > 0]
-    logger.info(f"Filtered {len(licensed_records)} disabled users with active licenses")
-    return licensed_records
 
 def build_org_hierarchy(employees, *, top_user_email_override=None, settings=None):
     if not employees:
@@ -947,6 +299,7 @@ def build_org_hierarchy(employees, *, top_user_email_override=None, settings=Non
         # Remove the selected root from anyone's children list (in case they were someone's subordinate)
         for emp_id, emp in emp_dict.items():
             emp['children'] = [child for child in emp['children'] if child['id'] != root['id']]
+
         
         return root
     else:
@@ -1099,7 +452,11 @@ def update_employee_data():
         settings = load_settings()
         months_threshold = settings.get('newEmployeeMonths', 3)
 
-        employees, filtered_with_license, filtered_users = fetch_all_employees(token=token)
+        employees, filtered_with_license, filtered_users = fetch_all_employees(
+            token=token,
+            settings=settings,
+            fallback_loader=_load_fetch_all_employees_fallback,
+        )
 
         if employees:
             ignored_employee_set = parse_ignored_employees(settings)
@@ -1227,7 +584,6 @@ def update_employee_data():
 
             disabled_user_records = collect_disabled_users(
                 token=token,
-                settings=settings,
                 previous_records=existing_disabled_records
             ) or []
             with open(DISABLED_USERS_FILE, 'w') as report_file:
@@ -1668,7 +1024,9 @@ def get_employees():
                 employees = flatten_hierarchy_to_employee_list(data)
             if not employees:
                 logger.info("Employee cache unavailable; fetching employees from Graph API for top user override")
-                employees, _, _ = fetch_all_employees()
+                employees, _, _ = fetch_all_employees(
+                    fallback_loader=_load_fetch_all_employees_fallback,
+                )
                 if employees:
                     try:
                         with open(EMPLOYEE_LIST_FILE, 'w') as cache_file:
@@ -1732,7 +1090,9 @@ def get_employees():
         
         if not data:
             logger.warning("No hierarchical data available")
-            employees, _, _ = fetch_all_employees()
+            employees, _, _ = fetch_all_employees(
+                fallback_loader=_load_fetch_all_employees_fallback,
+            )
             if employees:
                 data = {
                     'id': 'root',
@@ -1863,7 +1223,9 @@ def test_hierarchy(email):
         import tempfile
         
         # Fetch fresh employees
-        employees, _, _ = fetch_all_employees()
+        employees, _, _ = fetch_all_employees(
+            fallback_loader=_load_fetch_all_employees_fallback,
+        )
         if not employees:
             return jsonify({'error': 'No employees found'}), 404
             
