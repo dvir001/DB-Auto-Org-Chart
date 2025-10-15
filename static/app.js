@@ -2375,6 +2375,8 @@ function update(source) {
                 case 3: return nodeColors.level3 || '#FFE4E1';
                 case 4: return nodeColors.level4 || '#E8DFF5';
                 case 5: return nodeColors.level5 || '#FFEAA7';
+                case 6: return nodeColors.level6 || '#FAD7FF';
+                case 7: return nodeColors.level7 || '#D7F8FF';
                 default: return '#F0F0F0'; 
             }
         })
@@ -2391,6 +2393,8 @@ function update(source) {
                 case 3: fillColor = nodeColors.level3 || '#FFE4E1'; break;
                 case 4: fillColor = nodeColors.level4 || '#E8DFF5'; break;
                 case 5: fillColor = nodeColors.level5 || '#FFEAA7'; break;
+                case 6: fillColor = nodeColors.level6 || '#FAD7FF'; break;
+                case 7: fillColor = nodeColors.level7 || '#D7F8FF'; break;
                 default: fillColor = '#F0F0F0';
             }
             return adjustColor(fillColor, -50);
@@ -3467,6 +3471,8 @@ async function createExportSVG(exportFullChart = false) {
             case 3: fillColor = nodeColors.level3 || '#FFE4E1'; break;
             case 4: fillColor = nodeColors.level4 || '#E8DFF5'; break;
             case 5: fillColor = nodeColors.level5 || '#FFEAA7'; break;
+            case 6: fillColor = nodeColors.level6 || '#FAD7FF'; break;
+            case 7: fillColor = nodeColors.level7 || '#D7F8FF'; break;
             default: fillColor = '#F0F0F0';
         }
         rect.setAttribute('fill', fillColor);

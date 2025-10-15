@@ -27,6 +27,8 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
         "level3": "#FFE4E1",
         "level4": "#E8DFF5",
         "level5": "#FFEAA7",
+        "level6": "#FAD7FF",
+        "level7": "#D7F8FF",
     },
     "autoUpdateEnabled": True,
     "updateTime": "20:00",
@@ -101,6 +103,11 @@ def load_settings() -> Dict[str, Any]:
         else:
             merged = DEFAULT_SETTINGS.copy()
             merged.update(stored)
+            default_node_colors = DEFAULT_SETTINGS["nodeColors"].copy()
+            stored_node_colors = stored.get("nodeColors")
+            if isinstance(stored_node_colors, dict):
+                default_node_colors.update(stored_node_colors)
+            merged["nodeColors"] = default_node_colors
             return _apply_environment_overrides(merged)
 
     return _apply_environment_overrides(DEFAULT_SETTINGS)
@@ -113,6 +120,11 @@ def save_settings(settings: Dict[str, Any]) -> bool:
     # Update stored defaults with provided overrides
     persisted = DEFAULT_SETTINGS.copy()
     persisted.update(settings)
+    default_node_colors = DEFAULT_SETTINGS["nodeColors"].copy()
+    provided_node_colors = settings.get("nodeColors")
+    if isinstance(provided_node_colors, dict):
+        default_node_colors.update(provided_node_colors)
+    persisted["nodeColors"] = default_node_colors
 
     logger.info("Attempting to save settings to: %s", SETTINGS_FILE)
     try:

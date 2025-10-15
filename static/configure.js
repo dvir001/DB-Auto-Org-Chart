@@ -688,7 +688,7 @@ function applySettings(settings) {
     }
 
     if (settings.nodeColors) {
-        ['level0', 'level1', 'level2', 'level3', 'level4', 'level5'].forEach(level => {
+        ['level0', 'level1', 'level2', 'level3', 'level4', 'level5', 'level6', 'level7'].forEach(level => {
             if (settings.nodeColors[level]) {
                 const colorInput = document.getElementById(`${level}Color`);
                 const hexInput = document.getElementById(`${level}ColorHex`);
@@ -869,7 +869,7 @@ if (headerColorHexInput) {
     });
 }
 
-['level0', 'level1', 'level2', 'level3', 'level4', 'level5'].forEach(level => {
+['level0', 'level1', 'level2', 'level3', 'level4', 'level5', 'level6', 'level7'].forEach(level => {
     const colorInput = document.getElementById(`${level}Color`);
     const hexInput = document.getElementById(`${level}ColorHex`);
 
@@ -1108,7 +1108,9 @@ function resetNodeColors() {
         level2: '#E0F2FF',
         level3: '#FFE4E1',
         level4: '#E8DFF5',
-        level5: '#FFEAA7'
+        level5: '#FFEAA7',
+        level6: '#FAD7FF',
+        level7: '#D7F8FF'
     };
 
     Object.keys(defaults).forEach(level => {
@@ -1244,7 +1246,9 @@ async function saveAllSettings() {
             level2: document.getElementById('level2Color').value,
             level3: document.getElementById('level3Color').value,
             level4: document.getElementById('level4Color').value,
-            level5: document.getElementById('level5Color').value
+            level5: document.getElementById('level5Color').value,
+            level6: document.getElementById('level6Color').value,
+            level7: document.getElementById('level7Color').value
         },
         autoUpdateEnabled: document.getElementById('autoUpdateEnabled').checked,
         updateTime: document.getElementById('updateTime').value,

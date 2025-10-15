@@ -221,7 +221,11 @@
 				"level5": "Level 5:",
 				"placeholderLevel5": "#E8DFF5",
 				"level6": "Level 6:",
-				"placeholderLevel6": "#FFEAA7"
+				"placeholderLevel6": "#FFEAA7",
+				"level7": "Level 7:",
+				"placeholderLevel7": "#FAD7FF",
+				"level8": "Level 8:",
+				"placeholderLevel8": "#D7F8FF"
 			}
 		},
 		"behavior": {
