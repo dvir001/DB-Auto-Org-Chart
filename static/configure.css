@@ -569,6 +569,13 @@ input[id$="ColorHex"] {
     gap: 4px;
 }
 
+.unsaved-changes__actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
 .unsaved-changes__title {
     font-weight: 600;
     font-size: 0.96rem;
@@ -863,6 +870,13 @@ input:checked + .slider:before {
 
     .unsaved-changes__content {
         align-items: flex-start;
+    }
+
+    .unsaved-changes__actions {
+        flex-direction: column;
+        align-items: stretch;
+        width: 100%;
+        gap: 8px;
     }
 
     .unsaved-changes .btn {

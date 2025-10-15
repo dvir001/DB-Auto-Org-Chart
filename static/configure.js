@@ -42,6 +42,17 @@ let beforeUnloadBound = false;
 const unsavedReasons = new Set();
 const DEFAULT_UPDATE_TIME = '20:00';
 const DEFAULT_UPDATE_TIMEZONE = 'UTC';
+const DEFAULT_HEADER_COLOR = '#0078D4';
+const NODE_COLOR_DEFAULTS = {
+    level0: '#90EE90',
+    level1: '#FFFFE0',
+    level2: '#E0F2FF',
+    level3: '#FFE4E1',
+    level4: '#E8DFF5',
+    level5: '#FFEAA7',
+    level6: '#FAD7FF',
+    level7: '#D7F8FF'
+};
 
 function getTranslation(key, fallbackText) {
     try {
@@ -116,6 +127,32 @@ function clearUnsavedReason(reason) {
     updateUnsavedBanner();
 }
 
+function discardUnsavedChanges() {
+    if (!hasUnsavedChanges) {
+        return;
+    }
+
+    const message = getTranslation(
+        'configure.unsavedChanges.confirmDiscard',
+        'Discard all unsaved changes?'
+    );
+
+    if (!window.confirm(message)) {
+        return;
+    }
+
+    const previousInitializingState = isInitializing;
+    isInitializing = true;
+    try {
+        applySettings(currentSettings);
+    } finally {
+        isInitializing = previousInitializingState;
+    }
+
+    clearUnsavedChangeState();
+    showStatus('Unsaved changes discarded.', 'info');
+}
+
 function attachUnsavedListeners() {
     const inputs = document.querySelectorAll('input:not([type="file"]), select, textarea');
     inputs.forEach((field) => {
@@ -184,6 +221,52 @@ function parseListString(value) {
         .split(/\s*[;,]+\s*/)
         .map(item => item.trim())
         .filter(item => item.length > 0);
+}
+
+function normalizeHexColor(value, fallback = '#000000') {
+    const coerce = (candidate) => {
+        if (typeof candidate !== 'string') {
+            return null;
+        }
+        let text = candidate.trim();
+        if (!text) {
+            return null;
+        }
+        if (text.startsWith('#')) {
+            text = text.slice(1);
+        }
+        if (/^[0-9a-fA-F]{6}$/.test(text)) {
+            return `#${text.toUpperCase()}`;
+        }
+        return null;
+    };
+
+    const normalizedValue = coerce(value);
+    if (normalizedValue) {
+        return normalizedValue;
+    }
+
+    const normalizedFallback = coerce(fallback);
+    if (normalizedFallback) {
+        return normalizedFallback;
+    }
+
+    return '#000000';
+}
+
+function applyColorToInputs(colorInput, hexInput, rawValue, fallbackValue = '#000000') {
+    const fallback = normalizeHexColor(
+        (colorInput && colorInput.value) || (hexInput && hexInput.value) || fallbackValue,
+        fallbackValue
+    );
+    const normalized = normalizeHexColor(rawValue, fallback);
+    if (colorInput) {
+        colorInput.value = normalized.toLowerCase();
+    }
+    if (hexInput) {
+        hexInput.value = normalized;
+    }
+    return normalized;
 }
 
 class TagPicker {
@@ -667,11 +750,15 @@ function applySettings(settings) {
         document.getElementById('chartTitle').value = settings.chartTitle;
     }
 
-    if (settings.headerColor) {
-        document.getElementById('headerColor').value = settings.headerColor;
-        document.getElementById('headerColorHex').value = settings.headerColor;
-        updateHeaderPreview(settings.headerColor);
-    }
+    const headerColorInput = document.getElementById('headerColor');
+    const headerColorHexInput = document.getElementById('headerColorHex');
+    const normalizedHeaderColor = applyColorToInputs(
+        headerColorInput,
+        headerColorHexInput,
+        settings.headerColor,
+        DEFAULT_HEADER_COLOR
+    );
+    updateHeaderPreview(normalizedHeaderColor);
 
     const logoPath = settings.logoPath || '/static/icon.png';
     document.getElementById('currentLogo').src = `${logoPath}?t=${Date.now()}`;
@@ -687,18 +774,13 @@ function applySettings(settings) {
         favStatus.textContent = faviconPath.includes('favicon_custom_') ? 'Custom uploaded' : 'Using default';
     }
 
-    if (settings.nodeColors) {
-        ['level0', 'level1', 'level2', 'level3', 'level4', 'level5', 'level6', 'level7'].forEach(level => {
-            if (settings.nodeColors[level]) {
-                const colorInput = document.getElementById(`${level}Color`);
-                const hexInput = document.getElementById(`${level}ColorHex`);
-                if (colorInput && hexInput) {
-                    colorInput.value = settings.nodeColors[level];
-                    hexInput.value = settings.nodeColors[level];
-                }
-            }
-        });
-    }
+    Object.keys(NODE_COLOR_DEFAULTS).forEach(level => {
+        const colorInput = document.getElementById(`${level}Color`);
+        const hexInput = document.getElementById(`${level}ColorHex`);
+        const fallback = NODE_COLOR_DEFAULTS[level];
+        const rawValue = (settings.nodeColors && settings.nodeColors[level]) || fallback;
+        applyColorToInputs(colorInput, hexInput, rawValue, fallback);
+    });
 
     if (settings.autoUpdateEnabled !== undefined) {
         document.getElementById('autoUpdateEnabled').checked = settings.autoUpdateEnabled;
@@ -843,49 +925,57 @@ function resetExportColumns() {
 }
 
 const headerColorInput = document.getElementById('headerColor');
+const headerColorHexInput = document.getElementById('headerColorHex');
 if (headerColorInput) {
     headerColorInput.addEventListener('input', event => {
-        const hexField = document.getElementById('headerColorHex');
-        if (hexField) {
-            hexField.value = event.target.value;
-        }
-        updateHeaderPreview(event.target.value);
+        const normalized = applyColorToInputs(
+            headerColorInput,
+            headerColorHexInput,
+            event.target.value,
+            DEFAULT_HEADER_COLOR
+        );
+        updateHeaderPreview(normalized);
     });
 }
 
-const headerColorHexInput = document.getElementById('headerColorHex');
 if (headerColorHexInput) {
     headerColorHexInput.addEventListener('input', event => {
-        if (event.target.value.match(/^#[0-9A-Fa-f]{6}$/)) {
-            if (headerColorInput) {
-                headerColorInput.value = event.target.value;
-            }
-            updateHeaderPreview(event.target.value);
+        if (/^#[0-9A-Fa-f]{6}$/.test(event.target.value)) {
+            const normalized = applyColorToInputs(
+                headerColorInput,
+                headerColorHexInput,
+                event.target.value,
+                DEFAULT_HEADER_COLOR
+            );
+            headerColorHexInput.value = normalized;
+            updateHeaderPreview(normalized);
         }
     });
 }
 
-['level0', 'level1', 'level2', 'level3', 'level4', 'level5', 'level6', 'level7'].forEach(level => {
+Object.keys(NODE_COLOR_DEFAULTS).forEach(level => {
     const colorInput = document.getElementById(`${level}Color`);
     const hexInput = document.getElementById(`${level}ColorHex`);
 
-    if (!colorInput || !hexInput) {
-        return;
+    if (colorInput) {
+        colorInput.addEventListener('input', event => {
+            applyColorToInputs(colorInput, hexInput, event.target.value, NODE_COLOR_DEFAULTS[level]);
+        });
     }
 
-    colorInput.addEventListener('input', event => {
-        hexInput.value = event.target.value;
-    });
-
-    hexInput.addEventListener('input', event => {
-        if (event.target.value.match(/^#[0-9A-Fa-f]{6}$/)) {
-            colorInput.value = event.target.value;
-        }
-    });
+    if (hexInput) {
+        hexInput.addEventListener('input', event => {
+            if (/^#[0-9A-Fa-f]{6}$/.test(event.target.value)) {
+                const normalized = applyColorToInputs(colorInput, hexInput, event.target.value, NODE_COLOR_DEFAULTS[level]);
+                hexInput.value = normalized;
+            }
+        });
+    }
 });
 
 function updateHeaderPreview(color) {
-    const darker = adjustColor(color, -30);
+    const normalized = normalizeHexColor(color, DEFAULT_HEADER_COLOR);
+    const darker = adjustColor(normalized, -30);
     const stylesheet = Array.from(document.styleSheets).find(sheet => {
         try {
             return sheet.href && sheet.href.includes('configure.css');
@@ -905,7 +995,7 @@ function updateHeaderPreview(color) {
         rootRule = stylesheet.cssRules[index];
     }
 
-    rootRule.style.setProperty('--header-preview-primary', color);
+    rootRule.style.setProperty('--header-preview-primary', normalized);
     rootRule.style.setProperty('--header-preview-secondary', darker);
 }
 
@@ -914,7 +1004,7 @@ function adjustColor(color, amount) {
     const r = Math.max(0, Math.min(255, (num >> 16) + amount));
     const g = Math.max(0, Math.min(255, ((num >> 8) & 0x00ff) + amount));
     const b = Math.max(0, Math.min(255, (num & 0x0000ff) + amount));
-    return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+    return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0').toUpperCase()}`;
 }
 
 async function uploadLogoFile(file) {
@@ -1080,9 +1170,10 @@ function resetChartTitle() {
 }
 
 function resetHeaderColor() {
-    document.getElementById('headerColor').value = '#0078d4';
-    document.getElementById('headerColorHex').value = '#0078d4';
-    updateHeaderPreview('#0078d4');
+    const colorInput = document.getElementById('headerColor');
+    const hexInput = document.getElementById('headerColorHex');
+    const normalized = applyColorToInputs(colorInput, hexInput, DEFAULT_HEADER_COLOR, DEFAULT_HEADER_COLOR);
+    updateHeaderPreview(normalized);
     markUnsavedChange();
 }
 
@@ -1098,20 +1189,13 @@ function resetLogo() {
 }
 
 function resetNodeColors() {
-    const defaults = {
-        level0: '#90EE90',
-        level1: '#FFFFE0',
-        level2: '#E0F2FF',
-        level3: '#FFE4E1',
-        level4: '#E8DFF5',
-        level5: '#FFEAA7',
-        level6: '#FAD7FF',
-        level7: '#D7F8FF'
-    };
-
-    Object.keys(defaults).forEach(level => {
-        document.getElementById(`${level}Color`).value = defaults[level];
-        document.getElementById(`${level}ColorHex`).value = defaults[level];
+    Object.entries(NODE_COLOR_DEFAULTS).forEach(([level, value]) => {
+        applyColorToInputs(
+            document.getElementById(`${level}Color`),
+            document.getElementById(`${level}ColorHex`),
+            value,
+            value
+        );
     });
     markUnsavedChange();
 }
@@ -1173,39 +1257,30 @@ function resetIgnoredEmployees() {
     markUnsavedChange();
 }
 
-async function resetAllSettings() {
-    if (confirm('Are you sure you want to reset all settings to defaults? This cannot be undone.')) {
-        document.getElementById('chartTitle').value = 'Organization Chart';
-        resetHeaderColor();
-        resetLogo();
-        resetNodeColors();
-        resetUpdateTime();
-        resetCollapseLevel();
-        document.getElementById('searchAutoExpand').checked = true;
-        document.getElementById('searchHighlight').checked = true;
-        document.getElementById('newEmployeeMonths').value = '3';
-    document.getElementById('hideDisabledUsers').checked = true;
-    document.getElementById('hideGuestUsers').checked = true;
-    document.getElementById('hideNoTitle').checked = true;
+function resetAllSettings() {
+    resetChartTitle();
+    resetHeaderColor();
+    resetLogo();
+    resetNodeColors();
+    resetUpdateTime();
+    resetCollapseLevel();
+    resetMultiLineSettings();
     resetIgnoredDepartments();
     resetIgnoredTitles();
     resetIgnoredEmployees();
-        document.getElementById('printOrientation').value = 'landscape';
-        document.getElementById('printSize').value = 'a4';
-        const mlThreshold = document.getElementById('multiLineChildrenThreshold');
-        if (mlThreshold) mlThreshold.value = 20;
-        resetExportColumns();
+    resetExportColumns();
 
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/reset-all-settings`, { method: 'POST' });
-            if (response.ok) {
-                showStatus('All settings reset to defaults!', 'success');
-                setTimeout(() => location.reload(), 1500);
-            }
-        } catch (error) {
-            showStatus('Error resetting settings', 'error');
-        }
-    }
+    document.getElementById('searchAutoExpand').checked = true;
+    document.getElementById('searchHighlight').checked = true;
+    document.getElementById('newEmployeeMonths').value = '3';
+    document.getElementById('hideDisabledUsers').checked = true;
+    document.getElementById('hideGuestUsers').checked = true;
+    document.getElementById('hideNoTitle').checked = true;
+    document.getElementById('printOrientation').value = 'landscape';
+    document.getElementById('printSize').value = 'a4';
+
+    markUnsavedChange('resetAll');
+    showStatus('Default settings applied. Save to confirm.', 'info');
 }
 
 async function logout() {
@@ -1232,19 +1307,26 @@ async function saveAllSettings() {
     const logoResetRequested = pendingLogoReset;
     const faviconResetRequested = pendingFaviconReset;
 
+    const resolveColorValue = (colorInputId, hexInputId, fallback) => {
+        const hexInput = document.getElementById(hexInputId);
+        if (hexInput && /^#[0-9A-Fa-f]{6}$/.test(hexInput.value)) {
+            return normalizeHexColor(hexInput.value, fallback);
+        }
+        const colorInput = document.getElementById(colorInputId);
+        return normalizeHexColor(colorInput ? colorInput.value : '', fallback);
+    };
+
     const settings = {
         chartTitle: document.getElementById('chartTitle').value || 'Organization Chart',
-        headerColor: document.getElementById('headerColor').value,
-        nodeColors: {
-            level0: document.getElementById('level0Color').value,
-            level1: document.getElementById('level1Color').value,
-            level2: document.getElementById('level2Color').value,
-            level3: document.getElementById('level3Color').value,
-            level4: document.getElementById('level4Color').value,
-            level5: document.getElementById('level5Color').value,
-            level6: document.getElementById('level6Color').value,
-            level7: document.getElementById('level7Color').value
-        },
+        headerColor: resolveColorValue('headerColor', 'headerColorHex', DEFAULT_HEADER_COLOR),
+        nodeColors: Object.keys(NODE_COLOR_DEFAULTS).reduce((accumulator, level) => {
+            accumulator[level] = resolveColorValue(
+                `${level}Color`,
+                `${level}ColorHex`,
+                NODE_COLOR_DEFAULTS[level]
+            );
+            return accumulator;
+        }, {}),
         autoUpdateEnabled: document.getElementById('autoUpdateEnabled').checked,
         updateTime: document.getElementById('updateTime').value,
     updateTimezone: document.getElementById('updateTimezone').value,
@@ -1369,6 +1451,7 @@ function registerConfigActions() {
         'reset-multiline-settings': resetMultiLineSettings,
         'reset-export-columns': resetExportColumns,
         'trigger-update': triggerUpdate,
+        'discard-unsaved': discardUnsavedChanges,
         'save-all': saveAllSettings,
         'reset-all': resetAllSettings,
         'logout': logout

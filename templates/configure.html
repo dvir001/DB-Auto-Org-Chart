@@ -32,8 +32,8 @@
                     <label class="config-label" data-i18n="configure.appearance.headerColor.label">Header Bar Color</label>
                     <div class="config-description" data-i18n="configure.appearance.headerColor.description">Choose the color for the top header bar</div>
                     <div class="config-controls">
-                        <input type="color" id="headerColor" value="#0078d4">
-                        <input type="text" id="headerColorHex" placeholder="#0078d4" maxlength="7" data-i18n-placeholder="configure.appearance.headerColor.placeholder">
+                        <input type="color" id="headerColor" value="#0078D4">
+                        <input type="text" id="headerColorHex" placeholder="#0078D4" maxlength="7" data-i18n-placeholder="configure.appearance.headerColor.placeholder">
                         <button class="btn btn-secondary" type="button" data-config-action="reset-header-color" data-i18n="configure.buttons.resetDefault">Reset to Default</button>
                     </div>
                     <div class="preview-section">
@@ -430,7 +430,10 @@
             <span class="unsaved-changes__title" data-i18n="configure.unsavedChanges.message">You have unsaved changes</span>
             <span class="unsaved-changes__hint" data-i18n="configure.unsavedChanges.hint">Save your updates or they will be lost.</span>
         </div>
-        <button class="btn btn-primary" type="button" data-config-action="save-all" data-i18n="configure.buttons.saveAll">Save All Settings</button>
+        <div class="unsaved-changes__actions">
+            <button class="btn btn-danger" type="button" data-config-action="discard-unsaved" data-i18n="configure.buttons.discard">Discard Changes</button>
+            <button class="btn btn-primary" type="button" data-config-action="save-all" data-i18n="configure.buttons.saveAll">Save All Settings</button>
+        </div>
     </div>
 
     <script src="/static/i18n.js" defer></script>

@@ -168,7 +168,8 @@
 		"unsavedChanges": {
 			"message": "You have unsaved changes",
 			"hint": "Save your updates or they will be lost.",
-			"confirmLeave": "You have unsaved changes. Leave without saving?"
+			"confirmLeave": "You have unsaved changes. Leave without saving?",
+			"confirmDiscard": "Discard all unsaved changes?"
 		},
 		"sections": {
 			"appearance": {
@@ -193,7 +194,7 @@
 			"headerColor": {
 				"label": "Header Bar Color",
 				"description": "Choose the color for the top header bar",
-				"placeholder": "#0078d4",
+				"placeholder": "#0078D4",
 				"preview": "Preview Header"
 			},
 			"logo": {
@@ -327,6 +328,7 @@
 			"resetAllNodeColors": "Reset All Node Colors",
 			"resetColumns": "Reset Columns to Default",
 			"updateNow": "Update Now",
+			"discard": "Discard Changes",
 			"saveAll": "Save All Settings",
 			"resetAll": "Reset Everything to Defaults",
 			"logout": "Logout"

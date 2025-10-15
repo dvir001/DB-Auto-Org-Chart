@@ -17,7 +17,7 @@ TOP_LEVEL_USER_ID = os.environ.get("TOP_LEVEL_USER_ID")
 
 DEFAULT_SETTINGS: Dict[str, Any] = {
     "chartTitle": "DB Auto Org Chart",
-    "headerColor": "#0078d4",
+    "headerColor": "#0078D4",
     "logoPath": "/static/icon.png",
     "faviconPath": "/favicon.ico",
     "nodeColors": {
@@ -73,6 +73,31 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
 
 _filter_legacy_split_re = re.compile(r"\s*[;,]+\s*")
 _trim_edge_punct = re.compile(r"^[\s\-–—|]+|[\s\-–—|]+$")
+_hex_six_pattern = re.compile(r"^[0-9a-fA-F]{6}$")
+
+
+def _normalize_hex_color(value: Any, fallback: str) -> str:
+    def _coerce(candidate: Any) -> str | None:
+        if not isinstance(candidate, str):
+            return None
+        text = candidate.strip()
+        if not text:
+            return None
+        if text.startswith("#"):
+            text = text[1:]
+        if _hex_six_pattern.fullmatch(text):
+            return f"#{text.upper()}"
+        return None
+
+    normalized_value = _coerce(value)
+    if normalized_value:
+        return normalized_value
+
+    normalized_fallback = _coerce(fallback)
+    if normalized_fallback:
+        return normalized_fallback
+
+    return "#000000"
 
 
 def translate_placeholder(key: str, default: str | None = None, **kwargs: Any) -> str:
@@ -102,12 +127,21 @@ def load_settings() -> Dict[str, Any]:
         else:
             merged = DEFAULT_SETTINGS.copy()
             merged.update(stored)
+            merged.pop("highlightNewEmployees", None)
+            merged["headerColor"] = _normalize_hex_color(
+                merged.get("headerColor"),
+                DEFAULT_SETTINGS["headerColor"],
+            )
+
             default_node_colors = DEFAULT_SETTINGS["nodeColors"].copy()
             stored_node_colors = stored.get("nodeColors")
             if isinstance(stored_node_colors, dict):
                 default_node_colors.update(stored_node_colors)
-            merged["nodeColors"] = default_node_colors
-            merged.pop("highlightNewEmployees", None)
+
+            merged["nodeColors"] = {
+                level: _normalize_hex_color(color, DEFAULT_SETTINGS["nodeColors"].get(level, "#000000"))
+                for level, color in default_node_colors.items()
+            }
             return _apply_environment_overrides(merged)
 
     return _apply_environment_overrides(DEFAULT_SETTINGS)
@@ -120,12 +154,22 @@ def save_settings(settings: Dict[str, Any]) -> bool:
     # Update stored defaults with provided overrides
     persisted = DEFAULT_SETTINGS.copy()
     persisted.update(settings)
+    persisted.pop("highlightNewEmployees", None)
+
+    persisted["headerColor"] = _normalize_hex_color(
+        persisted.get("headerColor"),
+        DEFAULT_SETTINGS["headerColor"],
+    )
+
     default_node_colors = DEFAULT_SETTINGS["nodeColors"].copy()
     provided_node_colors = settings.get("nodeColors")
     if isinstance(provided_node_colors, dict):
         default_node_colors.update(provided_node_colors)
-    persisted["nodeColors"] = default_node_colors
-    persisted.pop("highlightNewEmployees", None)
+
+    persisted["nodeColors"] = {
+        level: _normalize_hex_color(color, DEFAULT_SETTINGS["nodeColors"].get(level, "#000000"))
+        for level, color in default_node_colors.items()
+    }
 
     logger.info("Attempting to save settings to: %s", SETTINGS_FILE)
     try:
