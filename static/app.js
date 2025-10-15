@@ -29,6 +29,238 @@ const SHOW_NAMES_PREFERENCE_KEY = 'orgChart.showNames';
 let userShowNamesPreference = null;
 let serverShowNames = null;
 let currentDetailEmployeeId = null;
+const TITLE_OVERRIDE_SESSION_KEY = 'orgChart.sessionTitleOverrides';
+const DEPARTMENT_OVERRIDE_SESSION_KEY = 'orgChart.sessionDepartmentOverrides';
+const titleOverrides = loadTitleOverrides();
+const departmentOverrides = loadDepartmentOverrides();
+let currentTitleEditEmployeeId = null;
+let lastFocusBeforeTitleModal = null;
+let currentOverrideFocusField = 'title';
+
+function loadTitleOverrides() {
+    try {
+        if (!window.sessionStorage) {
+            return new Map();
+        }
+        const raw = window.sessionStorage.getItem(TITLE_OVERRIDE_SESSION_KEY);
+        if (!raw) {
+            return new Map();
+        }
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object') {
+            return new Map();
+        }
+        const entries = Object.entries(parsed).filter(entry => typeof entry[0] === 'string' && typeof entry[1] === 'string');
+        return new Map(entries);
+    } catch (error) {
+        console.warn('Unable to load title overrides from session storage:', error);
+        return new Map();
+    }
+}
+
+function persistTitleOverrides() {
+    try {
+        if (!window.sessionStorage) {
+            return;
+        }
+        if (titleOverrides.size === 0) {
+            window.sessionStorage.removeItem(TITLE_OVERRIDE_SESSION_KEY);
+        } else {
+            const payload = Object.fromEntries(titleOverrides.entries());
+            window.sessionStorage.setItem(TITLE_OVERRIDE_SESSION_KEY, JSON.stringify(payload));
+        }
+    } catch (error) {
+        console.warn('Unable to persist title overrides to session storage:', error);
+    }
+}
+
+function loadDepartmentOverrides() {
+    try {
+        if (!window.sessionStorage) {
+            return new Map();
+        }
+        const raw = window.sessionStorage.getItem(DEPARTMENT_OVERRIDE_SESSION_KEY);
+        if (!raw) {
+            return new Map();
+        }
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object') {
+            return new Map();
+        }
+        const entries = Object.entries(parsed).filter(entry => typeof entry[0] === 'string' && typeof entry[1] === 'string');
+        return new Map(entries);
+    } catch (error) {
+        console.warn('Unable to load department overrides from session storage:', error);
+        return new Map();
+    }
+}
+
+function persistDepartmentOverrides() {
+    try {
+        if (!window.sessionStorage) {
+            return;
+        }
+        if (departmentOverrides.size === 0) {
+            window.sessionStorage.removeItem(DEPARTMENT_OVERRIDE_SESSION_KEY);
+        } else {
+            const payload = Object.fromEntries(departmentOverrides.entries());
+            window.sessionStorage.setItem(DEPARTMENT_OVERRIDE_SESSION_KEY, JSON.stringify(payload));
+        }
+    } catch (error) {
+        console.warn('Unable to persist department overrides to session storage:', error);
+    }
+}
+
+function getTitleOverride(employeeId) {
+    if (!employeeId) return undefined;
+    return titleOverrides.get(employeeId);
+}
+
+function isTitleOverridden(employeeId) {
+    return employeeId ? titleOverrides.has(employeeId) : false;
+}
+
+function getDepartmentOverride(employeeId) {
+    if (!employeeId) return undefined;
+    return departmentOverrides.get(employeeId);
+}
+
+function isDepartmentOverridden(employeeId) {
+    return employeeId ? departmentOverrides.has(employeeId) : false;
+}
+
+function getEmployeeOriginalField(employeeId, fieldName) {
+    if (!employeeId || !fieldName) {
+        return '';
+    }
+    const record = employeeById.get(employeeId);
+    if (!record) {
+        return '';
+    }
+    const value = record[fieldName];
+    return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeOverrideValue(value) {
+    return typeof value === 'string' ? value.trim() : '';
+}
+
+function setTitleOverride(employeeId, value) {
+    if (!employeeId) return;
+    const trimmed = normalizeOverrideValue(value);
+    const originalValue = getEmployeeOriginalField(employeeId, 'title');
+    if (trimmed && trimmed === originalValue) {
+        titleOverrides.delete(employeeId);
+    } else if (trimmed) {
+        titleOverrides.set(employeeId, trimmed);
+    } else {
+        titleOverrides.delete(employeeId);
+    }
+    persistTitleOverrides();
+    updateOverrideResetButtons();
+}
+
+function clearAllTitleOverrides() {
+    if (titleOverrides.size === 0) {
+        return false;
+    }
+    titleOverrides.clear();
+    persistTitleOverrides();
+    updateOverrideResetButtons();
+    return true;
+}
+
+function pruneTitleOverrides(validIds = []) {
+    if (!Array.isArray(validIds) || validIds.length === 0 || titleOverrides.size === 0) {
+        return;
+    }
+    const validSet = new Set(validIds);
+    let changed = false;
+    titleOverrides.forEach((storedValue, key) => {
+        const normalizedValue = normalizeOverrideValue(storedValue);
+        const originalValue = getEmployeeOriginalField(key, 'title');
+        if (!validSet.has(key) || normalizedValue === originalValue) {
+            titleOverrides.delete(key);
+            changed = true;
+        }
+    });
+    if (changed) {
+        persistTitleOverrides();
+        updateOverrideResetButtons();
+    }
+}
+
+function updateTitleResetButtonState() {
+    const resetButton = document.querySelector('[data-control="reset-titles"]');
+    if (resetButton) {
+        resetButton.disabled = titleOverrides.size === 0;
+    }
+}
+
+function setDepartmentOverride(employeeId, value) {
+    if (!employeeId) return;
+    const trimmed = normalizeOverrideValue(value);
+    const originalValue = getEmployeeOriginalField(employeeId, 'department');
+    if (trimmed && trimmed === originalValue) {
+        departmentOverrides.delete(employeeId);
+    } else if (trimmed) {
+        departmentOverrides.set(employeeId, trimmed);
+    } else {
+        departmentOverrides.delete(employeeId);
+    }
+    persistDepartmentOverrides();
+    updateOverrideResetButtons();
+}
+
+function clearAllDepartmentOverrides() {
+    if (departmentOverrides.size === 0) {
+        return false;
+    }
+    departmentOverrides.clear();
+    persistDepartmentOverrides();
+    updateOverrideResetButtons();
+    return true;
+}
+
+function pruneDepartmentOverrides(validIds = []) {
+    if (!Array.isArray(validIds) || validIds.length === 0 || departmentOverrides.size === 0) {
+        return;
+    }
+    const validSet = new Set(validIds);
+    let changed = false;
+    departmentOverrides.forEach((storedValue, key) => {
+        const normalizedValue = normalizeOverrideValue(storedValue);
+        const originalValue = getEmployeeOriginalField(key, 'department');
+        if (!validSet.has(key) || normalizedValue === originalValue) {
+            departmentOverrides.delete(key);
+            changed = true;
+        }
+    });
+    if (changed) {
+        persistDepartmentOverrides();
+        updateOverrideResetButtons();
+    }
+}
+
+function updateDepartmentResetButtonState() {
+    const resetButton = document.querySelector('[data-control="reset-departments"]');
+    if (resetButton) {
+        resetButton.disabled = departmentOverrides.size === 0;
+    }
+}
+
+function updateOverrideResetButtons() {
+    updateTitleResetButtonState();
+    updateDepartmentResetButtonState();
+}
+
+function refreshAfterOverrideChange() {
+    if (root) {
+        update(root);
+    }
+    refreshSearchResultsPresentation();
+    refreshEmployeeDetailPanel();
+}
 
 async function waitForTranslations() {
     if (window.i18n && window.i18n.ready && typeof window.i18n.ready.then === 'function') {
@@ -340,11 +572,18 @@ function isDepartmentVisible() {
     return !appSettings || appSettings.showDepartments !== false;
 }
 
-function getVisibleJobTitleText(person, { includeFallback = true } = {}) {
+function getVisibleJobTitleText(person, { includeFallback = true, useOverrides = true } = {}) {
     if (!isJobTitleVisible()) return '';
-    const title = (person && typeof person.title === 'string') ? person.title.trim() : '';
+    const employeeId = person && (person.id || person.employeeId || person.data?.id);
+    let title = '';
+    if (useOverrides && employeeId && isTitleOverridden(employeeId)) {
+        title = titleOverrides.get(employeeId);
+    }
+    if (!title && person && typeof person.title === 'string') {
+        title = person.title.trim();
+    }
     if (title) {
-        return person.title;
+        return title;
     }
     if (!includeFallback) {
         return '';
@@ -353,11 +592,18 @@ function getVisibleJobTitleText(person, { includeFallback = true } = {}) {
     return translation === 'index.employee.noTitle' ? 'No Title' : translation;
 }
 
-function getVisibleDepartmentText(person, { includeFallback = false, fallback } = {}) {
+function getVisibleDepartmentText(person, { includeFallback = false, fallback, useOverrides = true } = {}) {
     if (!isDepartmentVisible()) return '';
-    const department = (person && typeof person.department === 'string') ? person.department.trim() : '';
+    const employeeId = person && (person.id || person.employeeId || person.data?.id);
+    let department = '';
+    if (useOverrides && employeeId && isDepartmentOverridden(employeeId)) {
+        department = departmentOverrides.get(employeeId);
+    }
+    if (!department && person && typeof person.department === 'string') {
+        department = person.department.trim();
+    }
     if (department) {
-        return person.department;
+        return department;
     }
     if (!includeFallback) {
         return '';
@@ -761,6 +1007,19 @@ function setupStaticEventListeners() {
     }
 
     setLayoutOrientation(currentLayout);
+
+    document.addEventListener('click', event => {
+        const editTrigger = event.target.closest('[data-action="edit-title"], [data-action="edit-department"]');
+        if (!editTrigger) return;
+        const employeeId = editTrigger.dataset.employeeId;
+        if (employeeId && employeeById.has(employeeId)) {
+            const focusField = editTrigger.dataset.focusField
+                || (editTrigger.dataset.action === 'edit-department' ? 'department' : 'title');
+            openTitleEditModal(employeeById.get(employeeId), { focusField });
+        }
+    });
+
+    updateOverrideResetButtons();
 }
 
 function handleControlAction(action) {
@@ -786,6 +1045,12 @@ function handleControlAction(action) {
         case 'reset-hidden':
             resetHiddenSubtrees();
             break;
+        case 'reset-titles':
+            resetTitleOverrides();
+            break;
+        case 'reset-departments':
+            resetDepartmentOverrides();
+            break;
         case 'print':
             printChart();
             break;
@@ -804,6 +1069,22 @@ function handleControlAction(action) {
         default:
             break;
     }
+}
+
+function resetTitleOverrides() {
+    const cleared = clearAllTitleOverrides();
+    if (!cleared) {
+        return;
+    }
+    refreshAfterOverrideChange();
+}
+
+function resetDepartmentOverrides() {
+    const cleared = clearAllDepartmentOverrides();
+    if (!cleared) {
+        return;
+    }
+    refreshAfterOverrideChange();
 }
 
 async function applySettings() {
@@ -1124,6 +1405,9 @@ async function init() {
         if (currentData) {
             employeeById.clear();
             allEmployees = flattenTree(currentData);
+            const validIds = allEmployees.map(emp => emp.id).filter(Boolean);
+            pruneTitleOverrides(validIds);
+            pruneDepartmentOverrides(validIds);
             initializeTopUserSearch();
             preloadEmployeeImages(allEmployees);
             renderOrgChart(currentData);
@@ -1586,6 +1870,7 @@ function displayTopUserResults(employees, container, input) {
     employees.forEach(employee => {
         const item = document.createElement('div');
         item.className = 'search-result-item';
+        item.dataset.employeeId = employee.id || '';
         item.dataset.name = employee.name || '';
         item.dataset.title = employee.title || '';
         item.dataset.department = employee.department || '';
@@ -1623,6 +1908,11 @@ function populateResultMeta(element, data, { includeTitleFallback = true, includ
     const segments = [];
     if (titleText) segments.push(titleText);
     if (departmentText) segments.push(departmentText);
+    const employeeId = data && (data.id || data.employeeId);
+    if (employeeId && isTitleOverridden(employeeId) && segments.length) {
+        const editedLabel = t('index.employee.titleEditedBadge');
+        segments[0] = `${segments[0]} • ${editedLabel}`;
+    }
     if (segments.length) {
         element.textContent = segments.length === 2 ? `${segments[0]} – ${segments[1]}` : segments[0];
         element.hidden = false;
@@ -1825,6 +2115,9 @@ async function reloadEmployeeData() {
         if (currentData) {
             employeeById.clear();
             allEmployees = flattenTree(currentData);
+            const validIds = allEmployees.map(emp => emp.id).filter(Boolean);
+            pruneTitleOverrides(validIds);
+            pruneDepartmentOverrides(validIds);
             preloadEmployeeImages(allEmployees);
             renderOrgChart(currentData);
         } else {
@@ -2185,7 +2478,7 @@ function update(source) {
             toggleHideNode(d);
         })
         .append('title')
-        .text(d => hiddenNodeIds.has(d.data.id) ? 'Show this subtree' : 'Hide this subtree');
+        .text(d => hiddenNodeIds.has(d.data.id) ? t('index.tree.toggleShow') : t('index.tree.toggleHide'));
 
     if (appSettings.highlightNewEmployees !== false) {
         const newBadgeGroup = nodeEnter.append('g')
@@ -2296,7 +2589,8 @@ function update(source) {
                 .attr('text-anchor', getLabelAnchor())
                 .style('font-size', getTitleFontSizePx(rawTitle || ''))
                 .text(displayTitle)
-                .style('display', displayTitle ? null : 'none');
+                .style('display', displayTitle ? null : 'none')
+                .classed('node-title--edited', isTitleOverridden(d.data.id));
         } else if (!titleSelection.empty()) {
             titleSelection.remove();
         }
@@ -3212,15 +3506,15 @@ async function createExportSVG(exportFullChart = false) {
         }
         
         // Title
-        const rawTitle = getVisibleJobTitleText(d.data, { includeFallback: true });
-        if (titlesVisible && rawTitle) {
+        const titleText = getVisibleJobTitleText(d.data, { includeFallback: true });
+        if (titlesVisible && titleText) {
             const titleElement = document.createElementNS('http://www.w3.org/2000/svg', 'text');
             titleElement.setAttribute('class', 'node-title');
             titleElement.setAttribute('x', textX);
             titleElement.setAttribute('y', namesVisible ? 5 : -10);
             titleElement.setAttribute('text-anchor', textAnchor);
 
-            const words = rawTitle.split(/\s+/).filter(Boolean);
+            const words = titleText.split(/\s+/).filter(Boolean);
             let currentLine = '';
             let lineCount = 0;
             const maxLines = 2;
@@ -3229,7 +3523,7 @@ async function createExportSVG(exportFullChart = false) {
             if (words.length === 0) {
                 const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
                 tspan.setAttribute('x', textX);
-                tspan.textContent = rawTitle;
+                tspan.textContent = titleText;
                 titleElement.appendChild(tspan);
             } else {
                 for (const word of words) {
@@ -3266,8 +3560,8 @@ async function createExportSVG(exportFullChart = false) {
             deptText.setAttribute('class', 'node-department');
             deptText.setAttribute('x', textX);
             const departmentY = namesVisible
-                ? (titlesVisible && rawTitle ? 28 : 5)
-                : (titlesVisible && rawTitle ? 5 : -10);
+                ? (titlesVisible && titleText ? 28 : 5)
+                : (titlesVisible && titleText ? 5 : -10);
             deptText.setAttribute('y', departmentY);
             deptText.setAttribute('text-anchor', textAnchor);
             deptText.textContent = departmentText;
@@ -3353,10 +3647,244 @@ function initializeAvatarFallbacks(container) {
     });
 }
 
+function getEmployeeRecord(dataOrNode) {
+    if (!dataOrNode) return null;
+    if (dataOrNode.data) {
+        return dataOrNode.data;
+    }
+    return dataOrNode;
+}
+
+function openTitleEditModal(employeeInput, { focusField = 'title' } = {}) {
+    const modal = document.getElementById('titleEditModal');
+    const backdrop = document.getElementById('titleEditModalBackdrop');
+    if (!modal || !backdrop) {
+        return;
+    }
+
+    const employee = getEmployeeRecord(employeeInput);
+    if (!employee || !employee.id) {
+        return;
+    }
+
+    if (document.activeElement && typeof document.activeElement.focus === 'function') {
+        lastFocusBeforeTitleModal = document.activeElement;
+    } else {
+        lastFocusBeforeTitleModal = null;
+    }
+
+    currentTitleEditEmployeeId = employee.id;
+    currentOverrideFocusField = focusField === 'department' ? 'department' : 'title';
+
+    const nameElement = modal.querySelector('[data-role="title-edit-name"]');
+    const originalTitleElement = modal.querySelector('[data-role="title-edit-original"]');
+    const originalDepartmentElement = modal.querySelector('[data-role="department-edit-original"]');
+    const titleInputElement = modal.querySelector('#titleEditInput');
+    const departmentInputElement = modal.querySelector('#departmentEditInput');
+    const helperElement = modal.querySelector('[data-role="title-edit-helper"]');
+
+    const displayName = getVisibleNameText(employee, { includeFallback: true });
+    if (nameElement) {
+        nameElement.textContent = displayName;
+    }
+
+    const originalTitle = getVisibleJobTitleText(employee, { includeFallback: true, useOverrides: false });
+    if (originalTitleElement) {
+        originalTitleElement.textContent = originalTitle;
+    }
+
+    const originalDepartment = getVisibleDepartmentText(employee, { includeFallback: true, useOverrides: false });
+    if (originalDepartmentElement) {
+        originalDepartmentElement.textContent = originalDepartment;
+    }
+
+    const titleOverrideValue = getTitleOverride(employee.id);
+    if (titleInputElement) {
+        titleInputElement.value = titleOverrideValue != null ? titleOverrideValue : (employee.title || '');
+    }
+
+    const departmentOverrideValue = getDepartmentOverride(employee.id);
+    if (departmentInputElement) {
+        departmentInputElement.value = departmentOverrideValue != null ? departmentOverrideValue : (employee.department || '');
+    }
+
+    if (helperElement) {
+        helperElement.textContent = t('index.titleEdit.instructions');
+    }
+
+    modal.classList.remove('is-hidden');
+    modal.setAttribute('aria-hidden', 'false');
+    backdrop.classList.remove('is-hidden');
+    backdrop.setAttribute('aria-hidden', 'false');
+    modal.focus({ preventScroll: true });
+    document.body.classList.add('title-edit-open');
+
+    const focusTarget = currentOverrideFocusField === 'department' ? departmentInputElement : titleInputElement;
+    if (focusTarget) {
+        setTimeout(() => {
+            focusTarget.focus();
+            if (typeof focusTarget.select === 'function') {
+                focusTarget.select();
+            }
+        }, 20);
+    }
+}
+
+function closeTitleEditModal() {
+    const modal = document.getElementById('titleEditModal');
+    const backdrop = document.getElementById('titleEditModalBackdrop');
+    if (!modal || !backdrop) {
+        return;
+    }
+    modal.classList.add('is-hidden');
+    modal.setAttribute('aria-hidden', 'true');
+    backdrop.classList.add('is-hidden');
+    backdrop.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('title-edit-open');
+    currentTitleEditEmployeeId = null;
+    if (lastFocusBeforeTitleModal && typeof lastFocusBeforeTitleModal.focus === 'function') {
+        setTimeout(() => {
+            lastFocusBeforeTitleModal?.focus?.();
+        }, 0);
+    }
+    lastFocusBeforeTitleModal = null;
+}
+
+function isTitleEditModalOpen() {
+    const modal = document.getElementById('titleEditModal');
+    return modal ? !modal.classList.contains('is-hidden') : false;
+}
+
+function handleTitleEditSave() {
+    const modal = document.getElementById('titleEditModal');
+    if (!modal || !currentTitleEditEmployeeId) {
+        closeTitleEditModal();
+        return;
+    }
+    const titleInputElement = modal.querySelector('#titleEditInput');
+    const departmentInputElement = modal.querySelector('#departmentEditInput');
+    const newTitleValue = titleInputElement ? titleInputElement.value.trim() : '';
+    const newDepartmentValue = departmentInputElement ? departmentInputElement.value.trim() : '';
+    setTitleOverride(currentTitleEditEmployeeId, newTitleValue);
+    setDepartmentOverride(currentTitleEditEmployeeId, newDepartmentValue);
+    closeTitleEditModal();
+    refreshAfterOverrideChange();
+}
+
+function handleTitleEditClear() {
+    if (!currentTitleEditEmployeeId) {
+        closeTitleEditModal();
+        return;
+    }
+    setTitleOverride(currentTitleEditEmployeeId, '');
+    closeTitleEditModal();
+    refreshAfterOverrideChange();
+}
+
+function handleDepartmentEditClear() {
+    if (!currentTitleEditEmployeeId) {
+        closeTitleEditModal();
+        return;
+    }
+    setDepartmentOverride(currentTitleEditEmployeeId, '');
+    closeTitleEditModal();
+    refreshAfterOverrideChange();
+}
+
+function initializeTitleEditModal() {
+    const modal = document.getElementById('titleEditModal');
+    const backdrop = document.getElementById('titleEditModalBackdrop');
+    if (!modal || !backdrop) {
+        return;
+    }
+
+    const form = modal.querySelector('form');
+    const saveBtn = modal.querySelector('[data-action="save-title"]');
+    const titleClearBtn = modal.querySelector('[data-action="clear-title"]');
+    const departmentClearBtn = modal.querySelector('[data-action="clear-department"]');
+    const cancelBtn = modal.querySelector('[data-action="cancel-title"]');
+    const closeBtn = modal.querySelector('[data-action="close-title"]');
+    const titleInputElement = modal.querySelector('#titleEditInput');
+    const departmentInputElement = modal.querySelector('#departmentEditInput');
+
+    if (saveBtn) {
+        saveBtn.addEventListener('click', event => {
+            event.preventDefault();
+            handleTitleEditSave();
+        });
+    }
+
+    if (titleClearBtn) {
+        titleClearBtn.addEventListener('click', event => {
+            event.preventDefault();
+            handleTitleEditClear();
+        });
+    }
+
+    if (departmentClearBtn) {
+        departmentClearBtn.addEventListener('click', event => {
+            event.preventDefault();
+            handleDepartmentEditClear();
+        });
+    }
+
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', event => {
+            event.preventDefault();
+            closeTitleEditModal();
+        });
+    }
+
+    if (closeBtn) {
+        closeBtn.addEventListener('click', event => {
+            event.preventDefault();
+            closeTitleEditModal();
+        });
+    }
+
+    if (titleInputElement) {
+        titleInputElement.addEventListener('keydown', event => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                handleTitleEditSave();
+            }
+        });
+    }
+
+    if (departmentInputElement) {
+        departmentInputElement.addEventListener('keydown', event => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                handleTitleEditSave();
+            }
+        });
+    }
+
+    if (form) {
+        form.addEventListener('submit', event => {
+            event.preventDefault();
+            handleTitleEditSave();
+        });
+    }
+
+    backdrop.addEventListener('click', () => {
+        closeTitleEditModal();
+    });
+
+    modal.addEventListener('click', event => {
+        if (event.target === modal) {
+            closeTitleEditModal();
+        }
+    });
+}
+
 function showEmployeeDetail(employee) {
     if (!employee) return;
 
-    currentDetailEmployeeId = employee.id || (employee.data && employee.data.id) || null;
+    const detailEmployee = getEmployeeRecord(employee);
+    if (!detailEmployee) return;
+
+    currentDetailEmployeeId = detailEmployee.id || null;
 
     const detailPanel = document.getElementById('employeeDetail');
     const headerContent = document.getElementById('employeeDetailContent');
@@ -3379,13 +3907,17 @@ function showEmployeeDetail(employee) {
     const officeLabel = t('index.employee.detail.office');
     const locationLabel = t('index.employee.detail.location');
     const managerHeading = t('index.employee.detail.manager');
-    const jobTitleDisplay = getVisibleJobTitleText(employee, { includeFallback: true });
-    const departmentDisplay = getVisibleDepartmentText(employee, { includeFallback: true, fallback: departmentUnknown });
+    const jobTitleDisplay = getVisibleJobTitleText(detailEmployee, { includeFallback: true });
+    const baseTitle = getVisibleJobTitleText(detailEmployee, { includeFallback: true, useOverrides: false });
+    const titleOverrideActive = isTitleOverridden(detailEmployee.id);
+    const departmentDisplay = getVisibleDepartmentText(detailEmployee, { includeFallback: true, fallback: departmentUnknown });
+    const baseDepartment = getVisibleDepartmentText(detailEmployee, { includeFallback: true, useOverrides: false, fallback: departmentUnknown });
+    const departmentOverrideActive = isDepartmentOverridden(detailEmployee.id);
     const namesVisible = isNameVisible();
-    const displayName = getVisibleNameText(employee, { includeFallback: true });
-    const avatarAlt = namesVisible ? (employee.name || '') : displayName;
+    const displayName = getVisibleNameText(detailEmployee, { includeFallback: true });
+    const avatarAlt = namesVisible ? (detailEmployee.name || '') : displayName;
     const initials = namesVisible
-        ? (employee.name || '')
+        ? (detailEmployee.name || '')
             .split(' ')
             .map(n => n[0])
             .join('')
@@ -3394,16 +3926,49 @@ function showEmployeeDetail(employee) {
         : '';
 
     const employeeAvatar = renderAvatar({
-        imageUrl: employee.photoUrl && employee.photoUrl.includes('/api/photo/') ? employee.photoUrl : '',
+        imageUrl: detailEmployee.photoUrl && detailEmployee.photoUrl.includes('/api/photo/') ? detailEmployee.photoUrl : '',
         name: avatarAlt,
         initials,
         imageClass: 'employee-avatar-image',
         fallbackClass: 'employee-avatar-fallback'
     });
 
-    const titleMarkup = jobTitleDisplay
-        ? `<div class="employee-title">${escapeHtml(jobTitleDisplay)}</div>`
+    const titleBadgeText = t('index.employee.titleEditedBadge');
+    const departmentBadgeText = t('index.employee.departmentEditedBadge');
+    const editButtonLabel = t('index.employee.editTitleButton');
+    const editDepartmentLabel = t('index.employee.editDepartmentButton');
+    const titleBadgeMarkup = titleOverrideActive
+        ? `<span class="title-override-badge">${escapeHtml(titleBadgeText)}</span>`
         : '';
+    const titleValueMarkup = jobTitleDisplay
+        ? `<div class="employee-title${titleOverrideActive ? ' employee-title--edited' : ''}">${escapeHtml(jobTitleDisplay)}${titleBadgeMarkup}</div>`
+        : '';
+    const titleButtonMarkup = detailEmployee.id
+        ? `<button type="button" class="title-edit-btn" data-action="edit-title" data-employee-id="${escapeHtml(detailEmployee.id)}">${escapeHtml(editButtonLabel)}</button>`
+        : '';
+    const titleMarkup = `
+        <div class="employee-title-row">
+            ${titleValueMarkup || `<div class="employee-title-placeholder">${escapeHtml(t('index.employee.noTitle'))}</div>`}
+            ${titleButtonMarkup}
+        </div>
+    `;
+
+    const departmentBadgeMarkup = departmentOverrideActive
+        ? `<span class="department-override-badge">${escapeHtml(departmentBadgeText)}</span>`
+        : '';
+    const hasDepartmentDisplay = Boolean((departmentDisplay || '').trim());
+    const departmentValueMarkup = hasDepartmentDisplay
+        ? `<div class="employee-department${departmentOverrideActive ? ' employee-department--edited' : ''}">${escapeHtml(departmentDisplay)}${departmentBadgeMarkup}</div>`
+        : `<div class="employee-department-placeholder">${escapeHtml(departmentUnknown)}</div>`;
+    const departmentButtonMarkup = detailEmployee.id
+        ? `<button type="button" class="department-edit-btn" data-action="edit-department" data-employee-id="${escapeHtml(detailEmployee.id)}" data-focus-field="department">${escapeHtml(editDepartmentLabel)}</button>`
+        : '';
+    const departmentMarkup = `
+        <div class="employee-department-row">
+            ${departmentValueMarkup}
+            ${departmentButtonMarkup}
+        </div>
+    `;
 
     headerContent.innerHTML = `
         <div class="employee-avatar-container">
@@ -3413,6 +3978,7 @@ function showEmployeeDetail(employee) {
             ${displayName ? `<h2>${escapeHtml(displayName)}</h2>` : ''}
         </div>
         ${titleMarkup}
+        ${departmentMarkup}
     `;
 
     let infoHTML = '';
@@ -3422,40 +3988,64 @@ function showEmployeeDetail(employee) {
         <div class="info-item">
             <div class="info-label">${emailLabel}</div>
             <div class="info-value">
-                ${employee.email ? `<a href="mailto:${escapeHtml(employee.email)}">${escapeHtml(employee.email)}</a>` : emailUnknown}
+                ${detailEmployee.email ? `<a href="mailto:${escapeHtml(detailEmployee.email)}">${escapeHtml(detailEmployee.email)}</a>` : emailUnknown}
             </div>
         </div>
         <div class="info-item">
             <div class="info-label">${phoneLabel}</div>
-            <div class="info-value">${escapeHtml(employee.phone || phoneUnknown)}</div>
+            <div class="info-value">${escapeHtml(detailEmployee.phone || phoneUnknown)}</div>
         </div>
         <div class="info-item">
             <div class="info-label">${businessPhoneLabel}</div>
-            <div class="info-value">${escapeHtml(employee.businessPhone || businessPhoneUnknown)}</div>
+            <div class="info-value">${escapeHtml(detailEmployee.businessPhone || businessPhoneUnknown)}</div>
         </div>
         `;
     }
 
     infoHTML += `
-        ${employee.hireDate ? `
+        ${detailEmployee.hireDate ? `
         <div class="info-item">
             <div class="info-label">${hireDateLabel}</div>
-            <div class="info-value">${escapeHtml(formatHireDate(employee.hireDate))}</div>
+            <div class="info-value">${escapeHtml(formatHireDate(detailEmployee.hireDate))}</div>
         </div>
         ` : ''}
-        ${employee.location ? `
+        ${detailEmployee.location ? `
         <div class="info-item">
             <div class="info-label">${officeLabel}</div>
-            <div class="info-value">${escapeHtml(employee.location)}</div>
+            <div class="info-value">${escapeHtml(detailEmployee.location)}</div>
         </div>
         ` : ''}
-        ${employee.city || employee.state || employee.country ? `
+        ${detailEmployee.city || detailEmployee.state || detailEmployee.country ? `
         <div class="info-item">
             <div class="info-label">${locationLabel}</div>
-            <div class="info-value">${[employee.city, employee.state, employee.country].filter(Boolean).map(escapeHtml).join(', ')}</div>
+            <div class="info-value">${[detailEmployee.city, detailEmployee.state, detailEmployee.country].filter(Boolean).map(escapeHtml).join(', ')}</div>
         </div>
         ` : ''}
     `;
+
+    if (titleOverrideActive) {
+        const originalLabel = t('index.titleEdit.originalLabel');
+        infoHTML = `
+        <div class="info-item info-item--title-original">
+            <div class="info-label">${originalLabel}</div>
+            <div class="info-value">
+                ${escapeHtml(baseTitle)}
+            </div>
+        </div>
+        ` + infoHTML;
+    }
+
+    if (departmentOverrideActive) {
+        const originalDepartmentLabel = t('index.titleEdit.originalDepartmentLabel');
+        infoHTML = `
+        <div class="info-item info-item--department-original">
+            <div class="info-label">${originalDepartmentLabel}</div>
+            <div class="info-value">
+                ${escapeHtml(baseDepartment)}
+            </div>
+        </div>
+        ` + infoHTML;
+    }
 
     if (isDepartmentVisible()) {
         infoHTML = `
@@ -3466,8 +4056,8 @@ function showEmployeeDetail(employee) {
         ` + infoHTML;
     }
 
-    if (employee.managerId && window.currentOrgData) {
-        const manager = findManagerById(window.currentOrgData, employee.managerId);
+    if (detailEmployee.managerId && window.currentOrgData) {
+        const manager = findManagerById(window.currentOrgData, detailEmployee.managerId);
         if (manager) {
             const managerDisplayName = getVisibleNameText(manager, { includeFallback: true });
             const managerAvatarAlt = namesVisible ? (manager.name || '') : managerDisplayName;
@@ -3510,7 +4100,7 @@ function showEmployeeDetail(employee) {
         }
     }
 
-    const directReports = employee.children || [];
+    const directReports = detailEmployee.children || [];
     if (directReports.length > 0) {
         const directReportsLabel = t('index.employee.detail.directReportsWithCount', { count: directReports.length });
         infoHTML += `
@@ -3709,12 +4299,20 @@ function refreshSearchResultsPresentation() {
             const meta = item.querySelector('.search-result-title');
             const nameElement = item.querySelector('.search-result-name');
             if (!meta) return;
-            populateResultMeta(meta, {
-                title: item.dataset.title || '',
-                department: item.dataset.department || ''
-            });
+            const employeeId = item.dataset.employeeId;
+            const metaSource = employeeId && employeeById.has(employeeId)
+                ? employeeById.get(employeeId)
+                : {
+                    id: employeeId,
+                    title: item.dataset.title || '',
+                    department: item.dataset.department || ''
+                };
+            populateResultMeta(meta, metaSource);
             if (nameElement) {
-                const nameText = getVisibleNameText({ name: item.dataset.name || '' }, { includeFallback: true });
+                const nameSource = employeeId && employeeById.has(employeeId)
+                    ? employeeById.get(employeeId)
+                    : { name: item.dataset.name || '' };
+                const nameText = getVisibleNameText(nameSource, { includeFallback: true });
                 nameElement.textContent = nameText;
                 nameElement.hidden = !nameText;
             }
@@ -3727,12 +4325,20 @@ function refreshSearchResultsPresentation() {
             const meta = item.querySelector('.search-result-title');
             const nameElement = item.querySelector('.search-result-name');
             if (!meta) return;
-            populateResultMeta(meta, {
-                title: item.dataset.title || '',
-                department: item.dataset.department || ''
-            });
+            const employeeId = item.dataset.employeeId;
+            const metaSource = employeeId && employeeById.has(employeeId)
+                ? employeeById.get(employeeId)
+                : {
+                    id: employeeId,
+                    title: item.dataset.title || '',
+                    department: item.dataset.department || ''
+                };
+            populateResultMeta(meta, metaSource);
             if (nameElement) {
-                const nameText = getVisibleNameText({ name: item.dataset.name || '' }, { includeFallback: true });
+                const nameSource = employeeId && employeeById.has(employeeId)
+                    ? employeeById.get(employeeId)
+                    : { name: item.dataset.name || '' };
+                const nameText = getVisibleNameText(nameSource, { includeFallback: true });
                 nameElement.textContent = nameText;
                 nameElement.hidden = !nameText;
             }
@@ -3890,12 +4496,18 @@ window.addEventListener('resize', () => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
+    initializeTitleEditModal();
     registerEventHandlers();
+    updateOverrideResetButtons();
     init();
 });
 
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
+        if (isTitleEditModalOpen()) {
+            closeTitleEditModal();
+            return;
+        }
         closeEmployeeDetail();
         clearHighlights();
     }

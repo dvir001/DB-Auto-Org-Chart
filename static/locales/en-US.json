@@ -65,6 +65,10 @@
 				"collapseAll": "Collapse All",
 				"resetHidden": "Reset Hidden",
 				"resetHiddenTitle": "Show all previously hidden subtrees",
+				"resetTitles": "Reset Titles",
+				"resetTitlesTitle": "Restore all job titles to their original values",
+				"resetDepartments": "Reset Departments",
+				"resetDepartmentsTitle": "Restore all departments to their original values",
 				"print": "Print",
 				"exportVisibleSvg": "Export Visible (SVG)",
 				"exportVisiblePng": "Export Visible (PNG)",
@@ -96,10 +100,30 @@
 		},
 		"tree": {
 			"toggleShow": "Show this subtree",
-			"toggleHide": "Hide this subtree"
+			"toggleHide": "Hide this subtree",
+			"editTitle": "Edit job title"
+		},
+		"titleEdit": {
+			"heading": "Edit Job Title or Department",
+			"instructions": "Set temporary titles or departments for this session. Leave any field blank to restore the original value.",
+			"employeeLabel": "Employee",
+			"originalLabel": "Original title",
+			"overrideLabel": "Custom title",
+			"overridePlaceholder": "Enter a custom title",
+			"originalDepartmentLabel": "Original department",
+			"overrideDepartmentLabel": "Custom department",
+			"overrideDepartmentPlaceholder": "Enter a custom department",
+			"save": "Save Changes",
+			"clear": "Clear Custom Title",
+			"clearDepartment": "Clear Custom Department",
+			"cancel": "Cancel"
 		},
 		"employee": {
 			"noTitle": "No title available",
+			"editTitleButton": "✏️",
+			"editDepartmentButton": "✏️",
+			"titleEditedBadge": "Edited",
+			"departmentEditedBadge": "Edited",
 			"detail": {
 				"nameHidden": "Name hidden",
 				"nameUnknown": "Unknown name",

@@ -1,18 +1,26 @@
 (function () {
     const DEFAULT_LOCALE = 'en-US';
     const htmlLang = (document.documentElement.getAttribute('lang') || '').trim();
-    const normalizedLang = htmlLang ? htmlLang.toLowerCase() : DEFAULT_LOCALE.toLowerCase();
+    const normalizedLowerLang = htmlLang ? htmlLang.toLowerCase() : DEFAULT_LOCALE.toLowerCase();
 
     const localeCandidates = [];
-    if (normalizedLang) {
-        localeCandidates.push(normalizedLang);
-        if (!normalizedLang.includes('-')) {
-            localeCandidates.push(`${normalizedLang}-${normalizedLang.toUpperCase()}`);
+    const addCandidate = (candidate) => {
+        if (candidate && !localeCandidates.includes(candidate)) {
+            localeCandidates.push(candidate);
         }
+    };
+
+    addCandidate(htmlLang);
+    addCandidate(normalizedLowerLang);
+
+    if (normalizedLowerLang.includes('-')) {
+        const [langPart, regionPart] = normalizedLowerLang.split('-', 2);
+        addCandidate(`${langPart}-${(regionPart || '').toUpperCase()}`);
+    } else if (normalizedLowerLang) {
+        addCandidate(`${normalizedLowerLang}-${normalizedLowerLang.toUpperCase()}`);
     }
-    if (!localeCandidates.includes(DEFAULT_LOCALE)) {
-        localeCandidates.push(DEFAULT_LOCALE);
-    }
+
+    addCandidate(DEFAULT_LOCALE);
 
     const defaultLocalePath = `/static/locales/${DEFAULT_LOCALE}.json`;
 

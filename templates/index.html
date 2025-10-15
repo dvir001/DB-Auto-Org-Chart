@@ -108,6 +108,8 @@
                         <button class="control-btn" data-control="expand" type="button" data-i18n="index.toolbar.controls.expandAll">Expand All</button>
                         <button class="control-btn" data-control="collapse" type="button" data-i18n="index.toolbar.controls.collapseAll">Collapse All</button>
                         <button class="control-btn" data-control="reset-hidden" type="button" title="Show all previously hidden subtrees" data-i18n="index.toolbar.controls.resetHidden" data-i18n-title="index.toolbar.controls.resetHiddenTitle">Reset Hidden</button>
+                        <button class="control-btn" data-control="reset-titles" type="button" title="Restore all job titles to their original values" data-i18n="index.toolbar.controls.resetTitles" data-i18n-title="index.toolbar.controls.resetTitlesTitle">Reset Titles</button>
+                        <button class="control-btn" data-control="reset-departments" type="button" title="Restore all departments to their original values" data-i18n="index.toolbar.controls.resetDepartments" data-i18n-title="index.toolbar.controls.resetDepartmentsTitle">Reset Departments</button>
                         <button class="control-btn" data-control="print" type="button" data-i18n="index.toolbar.controls.print">Print</button>
                         <button class="control-btn control-btn--violet" data-control="export-visible-svg" type="button" data-i18n="index.toolbar.controls.exportVisibleSvg">Export Visible (SVG)</button>
                         <button class="control-btn control-btn--teal" data-control="export-visible-png" type="button" data-i18n="index.toolbar.controls.exportVisiblePng">Export Visible (PNG)</button>
@@ -134,5 +136,46 @@
     <script src="{{ url_for('static', filename='i18n.js') }}" defer></script>
     <script src="{{ url_for('static', filename='identity-visibility.js') }}" defer></script>
     <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+
+    <div id="titleEditModalBackdrop" class="modal-backdrop is-hidden" aria-hidden="true"></div>
+    <div id="titleEditModal" class="title-edit-modal is-hidden" role="dialog" aria-modal="true" aria-labelledby="titleEditModalLabel" tabindex="-1">
+        <div class="title-edit-modal__card">
+            <button class="title-edit-modal__close" type="button" data-action="close-title" aria-label="Close" data-i18n-aria-label="index.titleEdit.cancel">×</button>
+            <form class="title-edit-form">
+                <div class="title-edit-modal__header">
+                    <h2 id="titleEditModalLabel" data-i18n="index.titleEdit.heading">Edit Job Title</h2>
+                    <p class="title-edit-modal__helper" data-role="title-edit-helper" data-i18n="index.titleEdit.instructions">Set a temporary title for this session. Leave blank to restore the original.</p>
+                </div>
+                <div class="title-edit-modal__body">
+                    <div class="title-edit-modal__field">
+                        <span class="title-edit-modal__label" data-i18n="index.titleEdit.employeeLabel">Employee</span>
+                        <span class="title-edit-modal__value" data-role="title-edit-name"></span>
+                    </div>
+                    <div class="title-edit-modal__field">
+                        <span class="title-edit-modal__label" data-i18n="index.titleEdit.originalLabel">Original title</span>
+                        <span class="title-edit-modal__value" data-role="title-edit-original"></span>
+                    </div>
+                    <div class="title-edit-modal__field">
+                        <label class="title-edit-modal__label" for="titleEditInput" data-i18n="index.titleEdit.overrideLabel">Custom title</label>
+                        <input id="titleEditInput" class="title-edit-modal__input" type="text" maxlength="120" autocomplete="off" placeholder="" data-i18n-placeholder="index.titleEdit.overridePlaceholder">
+                    </div>
+                    <div class="title-edit-modal__field">
+                        <span class="title-edit-modal__label" data-i18n="index.titleEdit.originalDepartmentLabel">Original department</span>
+                        <span class="title-edit-modal__value" data-role="department-edit-original"></span>
+                    </div>
+                    <div class="title-edit-modal__field">
+                        <label class="title-edit-modal__label" for="departmentEditInput" data-i18n="index.titleEdit.overrideDepartmentLabel">Custom department</label>
+                        <input id="departmentEditInput" class="title-edit-modal__input" type="text" maxlength="120" autocomplete="off" placeholder="" data-i18n-placeholder="index.titleEdit.overrideDepartmentPlaceholder">
+                    </div>
+                </div>
+                <div class="title-edit-modal__actions">
+                    <button class="modal-btn modal-btn--primary" data-action="save-title" type="submit" data-i18n="index.titleEdit.save">Save Title</button>
+                    <button class="modal-btn modal-btn--ghost" data-action="clear-title" type="button" data-i18n="index.titleEdit.clear">Clear Custom Title</button>
+                    <button class="modal-btn modal-btn--ghost" data-action="clear-department" type="button" data-i18n="index.titleEdit.clearDepartment">Clear Custom Department</button>
+                    <button class="modal-btn" data-action="cancel-title" type="button" data-i18n="index.titleEdit.cancel">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </body>
 </html>
