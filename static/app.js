@@ -145,6 +145,21 @@ function normalizeOverrideValue(value) {
     return typeof value === 'string' ? value.trim() : '';
 }
 
+function setResetButtonVisibility(button, available) {
+    if (!button) return;
+    if (available) {
+        button.classList.remove('is-hidden');
+        button.removeAttribute('aria-hidden');
+        button.removeAttribute('tabindex');
+        button.disabled = false;
+    } else {
+        button.classList.add('is-hidden');
+        button.setAttribute('aria-hidden', 'true');
+        button.setAttribute('tabindex', '-1');
+        button.disabled = true;
+    }
+}
+
 function setTitleOverride(employeeId, value) {
     if (!employeeId) return;
     const trimmed = normalizeOverrideValue(value);
@@ -192,9 +207,7 @@ function pruneTitleOverrides(validIds = []) {
 
 function updateTitleResetButtonState() {
     const resetButton = document.querySelector('[data-control="reset-titles"]');
-    if (resetButton) {
-        resetButton.disabled = titleOverrides.size === 0;
-    }
+    setResetButtonVisibility(resetButton, titleOverrides.size > 0);
 }
 
 function setDepartmentOverride(employeeId, value) {
@@ -244,14 +257,18 @@ function pruneDepartmentOverrides(validIds = []) {
 
 function updateDepartmentResetButtonState() {
     const resetButton = document.querySelector('[data-control="reset-departments"]');
-    if (resetButton) {
-        resetButton.disabled = departmentOverrides.size === 0;
-    }
+    setResetButtonVisibility(resetButton, departmentOverrides.size > 0);
+}
+
+function updateHiddenResetButtonState() {
+    const resetButton = document.querySelector('[data-control="reset-hidden"]');
+    setResetButtonVisibility(resetButton, hiddenNodeIds.size > 0);
 }
 
 function updateOverrideResetButtons() {
     updateTitleResetButtonState();
     updateDepartmentResetButtonState();
+    updateHiddenResetButtonState();
 }
 
 function refreshAfterOverrideChange() {
@@ -637,6 +654,7 @@ function toggleHideNode(d) {
         hiddenNodeIds.add(d.data.id);
     }
     persistHiddenIds();
+    updateHiddenResetButtonState();
     update(d);
 }
 
@@ -644,6 +662,7 @@ function resetHiddenSubtrees() {
     if (hiddenNodeIds.size === 0) return;
     hiddenNodeIds.clear();
     persistHiddenIds();
+    updateHiddenResetButtonState();
     update(root);
 }
 
@@ -1117,8 +1136,9 @@ async function applySettings() {
     logo.style.display = '';
 
     if (appSettings.updateTime) {
+        const timeZone = appSettings.updateTimezone || 'UTC';
         const timeText = appSettings.autoUpdateEnabled
-            ? t('index.header.autoUpdate.enabled', { time: appSettings.updateTime })
+            ? t('index.header.autoUpdate.enabled', { time: appSettings.updateTime, timeZone })
             : t('index.header.autoUpdate.disabled');
         const headerP = document.querySelector('.header-text p');
         if (headerP) headerP.textContent = timeText;
@@ -1236,7 +1256,7 @@ function adjustColor(color, amount) {
     return '#' + ((r << 16) | (g << 8) | b).toString(16).padStart(6, '0');
 }
 
-// No conversion needed; we display and store updateTime in 24-hour HH:MM
+// No conversion needed; we display and store updateTime in 24-hour HH:MM alongside timezone info
 
 function setLayoutOrientation(orientation) {
     currentLayout = orientation;

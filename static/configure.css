@@ -669,8 +669,41 @@ input[id$="ColorHex"] {
     padding: 0;
 }
 
+.timezone-select {
+    width: 100%;
+    min-width: 220px;
+}
+
 .config-controls--spaced {
     margin-top: 12px;
+}
+
+.timezone-picker {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 12px;
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    padding: 8px 14px;
+    flex: 0 0 100%;
+    max-width: 420px;
+    margin-top: 8px;
+}
+
+.timezone-picker .label-prefix {
+    margin: 0;
+}
+
+.timezone-picker .timezone-select {
+    border: none;
+    background: transparent;
+    padding: 0;
+    min-width: 200px;
+}
+
+.timezone-picker .timezone-select:focus {
+    box-shadow: none;
 }
 
 .label-prefix {

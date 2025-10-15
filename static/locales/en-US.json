@@ -14,7 +14,7 @@
 			"title": "Organization Chart",
 			"subtitle": "Updates daily @ 8:00 PM",
 			"autoUpdate": {
-				"enabled": "Updates daily @ {time}",
+				"enabled": "Updates daily @ {time} ({timeZone})",
 				"disabled": "Auto-update disabled"
 			}
 		},
@@ -227,8 +227,9 @@
 		"behavior": {
 			"autoUpdate": {
 				"label": "Auto-Update Schedule",
-				"description": "Set the time for daily automatic data updates",
-				"enable": "Enable Auto-Update"
+				"description": "Set the time zone and daily schedule for automatic data updates",
+				"enable": "Enable Auto-Update",
+				"timezoneLabel": "Time zone"
 			},
 			"collapseLevel": {
 				"label": "Initial Collapse Level",

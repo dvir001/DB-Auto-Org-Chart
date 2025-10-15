@@ -40,6 +40,8 @@ let pendingFaviconReset = false;
 let isInitializing = true;
 let beforeUnloadBound = false;
 const unsavedReasons = new Set();
+const DEFAULT_UPDATE_TIME = '20:00';
+const DEFAULT_UPDATE_TIMEZONE = 'UTC';
 
 function getTranslation(key, fallbackText) {
     try {
@@ -605,9 +607,58 @@ function initTimePicker() {
     }
     hourSel.addEventListener('change', syncHidden);
     minSel.addEventListener('change', syncHidden);
-    if (!hourSel.value) hourSel.value = '20';
-    if (!minSel.value) minSel.value = '00';
+    const [defaultHour, defaultMinute] = DEFAULT_UPDATE_TIME.split(':');
+    if (!hourSel.value) hourSel.value = defaultHour;
+    if (!minSel.value) minSel.value = defaultMinute;
     syncHidden();
+}
+
+function initTimezonePicker() {
+    const tzSelect = document.getElementById('updateTimezone');
+    if (!tzSelect) {
+        return;
+    }
+
+    let zones = [];
+    if (typeof Intl !== 'undefined' && typeof Intl.supportedValuesOf === 'function') {
+        try {
+            zones = Intl.supportedValuesOf('timeZone');
+        } catch (error) {
+            console.warn('Failed to enumerate time zones via Intl.supportedValuesOf', error);
+        }
+    }
+
+    if (!zones || zones.length === 0) {
+        zones = [
+            'UTC',
+            'America/New_York',
+            'America/Chicago',
+            'America/Denver',
+            'America/Los_Angeles',
+            'Europe/London',
+            'Europe/Berlin',
+            'Asia/Tokyo',
+            'Australia/Sydney'
+        ];
+    }
+
+    const fragment = document.createDocumentFragment();
+    zones.forEach(zone => {
+        const option = document.createElement('option');
+        option.value = zone;
+        option.textContent = zone;
+        fragment.appendChild(option);
+    });
+
+    tzSelect.innerHTML = '';
+    tzSelect.appendChild(fragment);
+
+    const desired = DEFAULT_UPDATE_TIMEZONE;
+    if (zones.includes(desired)) {
+        tzSelect.value = desired;
+    } else if (zones.length) {
+        tzSelect.value = zones[0];
+    }
 }
 
 function applySettings(settings) {
@@ -663,6 +714,18 @@ function applySettings(settings) {
         }
         const hidden = document.getElementById('updateTime');
         if (hidden) hidden.value = `${h.padStart(2, '0')}:${m.padStart(2, '0')}`;
+    }
+
+    const timezoneSelect = document.getElementById('updateTimezone');
+    if (timezoneSelect) {
+        const desiredTimezone = settings.updateTimezone || DEFAULT_UPDATE_TIMEZONE;
+        if (!Array.from(timezoneSelect.options).some(option => option.value === desiredTimezone)) {
+            const option = document.createElement('option');
+            option.value = desiredTimezone;
+            option.textContent = desiredTimezone;
+            timezoneSelect.appendChild(option);
+        }
+        timezoneSelect.value = desiredTimezone;
     }
 
     if (settings.collapseLevel) {
@@ -1058,10 +1121,15 @@ function resetNodeColors() {
 function resetUpdateTime() {
     const hourSel = document.getElementById('updateHour');
     const minSel = document.getElementById('updateMinute');
-    if (hourSel) hourSel.value = '20';
-    if (minSel) minSel.value = '00';
+    const [defaultHour, defaultMinute] = DEFAULT_UPDATE_TIME.split(':');
+    if (hourSel) hourSel.value = defaultHour;
+    if (minSel) minSel.value = defaultMinute;
     const hidden = document.getElementById('updateTime');
-    if (hidden) hidden.value = '20:00';
+    if (hidden) hidden.value = DEFAULT_UPDATE_TIME;
+    const tzSelect = document.getElementById('updateTimezone');
+    if (tzSelect) {
+        tzSelect.value = DEFAULT_UPDATE_TIMEZONE;
+    }
     document.getElementById('autoUpdateEnabled').checked = true;
     markUnsavedChange();
 }
@@ -1180,6 +1248,7 @@ async function saveAllSettings() {
         },
         autoUpdateEnabled: document.getElementById('autoUpdateEnabled').checked,
         updateTime: document.getElementById('updateTime').value,
+    updateTimezone: document.getElementById('updateTimezone').value,
         collapseLevel: document.getElementById('collapseLevel').value,
         searchAutoExpand: document.getElementById('searchAutoExpand').checked,
         searchHighlight: document.getElementById('searchHighlight').checked,
@@ -1317,6 +1386,7 @@ function registerConfigActions() {
 
 document.addEventListener('DOMContentLoaded', async () => {
     initTimePicker();
+    initTimezonePicker();
     registerConfigActions();
     attachUnsavedListeners();
     registerNavigationGuards();

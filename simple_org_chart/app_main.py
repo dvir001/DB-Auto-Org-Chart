@@ -1125,7 +1125,7 @@ def handle_settings():
             current_settings.update(new_settings)
             
             if save_settings(current_settings):
-                if ('updateTime' in new_settings or 'autoUpdateEnabled' in new_settings):
+                if ('updateTime' in new_settings or 'autoUpdateEnabled' in new_settings or 'updateTimezone' in new_settings):
                     threading.Thread(target=restart_scheduler).start()
                 
                 return jsonify({'success': True})

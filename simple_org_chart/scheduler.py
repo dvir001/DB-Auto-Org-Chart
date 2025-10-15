@@ -6,10 +6,15 @@ import logging
 import os
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timedelta, time as dt_time, timezone
 from typing import Callable, Optional
 
 import schedule
+
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:  # pragma: no cover - Python < 3.9 not officially supported but guard anyway
+    ZoneInfo = None  # type: ignore[assignment]
 
 from simple_org_chart.settings import load_settings
 
@@ -19,6 +24,42 @@ _scheduler_running = False
 _scheduler_lock = threading.Lock()
 _scheduler_thread: Optional[threading.Thread] = None
 _update_callback: Optional[Callable[[], None]] = None
+
+DEFAULT_TIME_STRING = "20:00"
+DEFAULT_TIMEZONE = "UTC"
+
+
+def _resolve_timezone(tz_name: Optional[str]) -> timezone:
+    if ZoneInfo is None:
+        logger.warning("ZoneInfo module unavailable; falling back to server local timezone")
+        return datetime.now().astimezone().tzinfo or timezone.utc
+
+    if tz_name:
+        try:
+            return ZoneInfo(tz_name)
+        except Exception:  # noqa: BLE001 - log and fall back
+            logger.warning("Invalid timezone '%s'; defaulting to UTC", tz_name)
+    return ZoneInfo(DEFAULT_TIMEZONE)
+
+
+def _parse_time_string(value: Optional[str]) -> dt_time:
+    candidate = (value or DEFAULT_TIME_STRING).strip()
+    try:
+        hour_str, minute_str = candidate.split(":", 1)
+        hour = max(0, min(23, int(hour_str)))
+        minute = max(0, min(59, int(minute_str)))
+        return dt_time(hour=hour, minute=minute)
+    except Exception:
+        logger.warning("Invalid update time '%s'; defaulting to %s", value, DEFAULT_TIME_STRING)
+        return dt_time(hour=20, minute=0)
+
+
+def _compute_next_run(update_time: dt_time, tz: timezone) -> datetime:
+    tz_now = datetime.now(tz)
+    candidate = tz_now.replace(hour=update_time.hour, minute=update_time.minute, second=0, microsecond=0)
+    if candidate <= tz_now:
+        candidate += timedelta(days=1)
+    return candidate.astimezone(timezone.utc)
 
 
 def configure_scheduler(update_callback: Callable[[], None]) -> None:
@@ -55,16 +96,44 @@ def _schedule_loop() -> None:
         logger.info("[%s] Running initial employee data update on startup...", datetime.now())
         update_callback()
 
+    update_time = _parse_time_string(settings.get("updateTime"))
+    tz = _resolve_timezone(settings.get("updateTimezone"))
+    next_run_utc: Optional[datetime]
     if settings.get("autoUpdateEnabled", True):
-        update_time = settings.get("updateTime", "20:00")
-        schedule.every().day.at(update_time).do(update_callback)
-        logger.info("Scheduled daily updates at %s", update_time)
+        next_run_utc = _compute_next_run(update_time, tz)
+        logger.info(
+            "Scheduled daily updates for %s (%s); next run at %s",
+            update_time.strftime("%H:%M"),
+            getattr(tz, "key", str(tz)),
+            next_run_utc.astimezone(tz).strftime("%Y-%m-%d %H:%M %Z"),
+        )
     else:
+        next_run_utc = None
         logger.info("Automatic updates are disabled; skipping daily schedule")
 
     while _scheduler_running:
-        schedule.run_pending()
-        time.sleep(60)
+        if next_run_utc is not None and datetime.now(timezone.utc) >= next_run_utc:
+            logger.info("Executing scheduled update at %s", datetime.now(tz).strftime("%Y-%m-%d %H:%M %Z"))
+            try:
+                update_callback()
+            except Exception as exc:  # noqa: BLE001 - log and continue running loop
+                logger.exception("Scheduled update callback failed: %s", exc)
+
+            settings = load_settings()
+            update_time = _parse_time_string(settings.get("updateTime"))
+            tz = _resolve_timezone(settings.get("updateTimezone"))
+
+            if settings.get("autoUpdateEnabled", True):
+                next_run_utc = _compute_next_run(update_time, tz)
+                logger.info(
+                    "Next scheduled update at %s",
+                    next_run_utc.astimezone(tz).strftime("%Y-%m-%d %H:%M %Z"),
+                )
+            else:
+                next_run_utc = None
+                logger.info("Automatic updates disabled; halting further scheduling")
+
+        time.sleep(30)
 
 
 def start_scheduler() -> None:
