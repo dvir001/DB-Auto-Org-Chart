@@ -58,7 +58,6 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
         "manager": "show",
     },
     "topUserEmail": TOP_LEVEL_USER_EMAIL.strip(),
-    "highlightNewEmployees": True,
     "newEmployeeMonths": 3,
     "multiLineChildrenEnabled": True,
     "multiLineChildrenThreshold": 20,
@@ -108,6 +107,7 @@ def load_settings() -> Dict[str, Any]:
             if isinstance(stored_node_colors, dict):
                 default_node_colors.update(stored_node_colors)
             merged["nodeColors"] = default_node_colors
+            merged.pop("highlightNewEmployees", None)
             return _apply_environment_overrides(merged)
 
     return _apply_environment_overrides(DEFAULT_SETTINGS)
@@ -125,6 +125,7 @@ def save_settings(settings: Dict[str, Any]) -> bool:
     if isinstance(provided_node_colors, dict):
         default_node_colors.update(provided_node_colors)
     persisted["nodeColors"] = default_node_colors
+    persisted.pop("highlightNewEmployees", None)
 
     logger.info("Attempting to save settings to: %s", SETTINGS_FILE)
     try:

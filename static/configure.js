@@ -740,10 +740,6 @@ function applySettings(settings) {
         document.getElementById('searchHighlight').checked = settings.searchHighlight;
     }
 
-    if (settings.highlightNewEmployees !== undefined) {
-        document.getElementById('highlightNewEmployees').checked = settings.highlightNewEmployees;
-    }
-
     if (settings.newEmployeeMonths !== undefined) {
         document.getElementById('newEmployeeMonths').value = settings.newEmployeeMonths;
     }
@@ -1187,7 +1183,6 @@ async function resetAllSettings() {
         resetCollapseLevel();
         document.getElementById('searchAutoExpand').checked = true;
         document.getElementById('searchHighlight').checked = true;
-        document.getElementById('highlightNewEmployees').checked = true;
         document.getElementById('newEmployeeMonths').value = '3';
     document.getElementById('hideDisabledUsers').checked = true;
     document.getElementById('hideGuestUsers').checked = true;
@@ -1256,7 +1251,6 @@ async function saveAllSettings() {
         collapseLevel: document.getElementById('collapseLevel').value,
         searchAutoExpand: document.getElementById('searchAutoExpand').checked,
         searchHighlight: document.getElementById('searchHighlight').checked,
-        highlightNewEmployees: document.getElementById('highlightNewEmployees').checked,
         newEmployeeMonths: parseInt(document.getElementById('newEmployeeMonths').value, 10),
         hideDisabledUsers: document.getElementById('hideDisabledUsers').checked,
         hideGuestUsers: document.getElementById('hideGuestUsers').checked,

@@ -28,6 +28,8 @@ let serverShowJobTitles = null;
 const SHOW_NAMES_PREFERENCE_KEY = 'orgChart.showNames';
 let userShowNamesPreference = null;
 let serverShowNames = null;
+const HIGHLIGHT_NEW_EMPLOYEES_SESSION_KEY = 'orgChart.highlightNewEmployees';
+let sessionHighlightNewEmployeesPreference = null;
 let currentDetailEmployeeId = null;
 const TITLE_OVERRIDE_SESSION_KEY = 'orgChart.sessionTitleOverrides';
 const DEPARTMENT_OVERRIDE_SESSION_KEY = 'orgChart.sessionDepartmentOverrides';
@@ -421,6 +423,55 @@ function getEffectiveEmployeeCountEnabled() {
         return userShowEmployeeCountPreference;
     }
     return serverEnabled;
+}
+
+function loadSessionHighlightPreference() {
+    sessionHighlightNewEmployeesPreference = null;
+    try {
+        if (!window.sessionStorage) {
+            return;
+        }
+        const stored = window.sessionStorage.getItem(HIGHLIGHT_NEW_EMPLOYEES_SESSION_KEY);
+        if (stored === 'true') {
+            sessionHighlightNewEmployeesPreference = true;
+        } else if (stored === 'false') {
+            sessionHighlightNewEmployeesPreference = false;
+        }
+    } catch (error) {
+        console.warn('Unable to access highlight preference storage:', error);
+        sessionHighlightNewEmployeesPreference = null;
+    }
+}
+
+function storeSessionHighlightPreference(value) {
+    sessionHighlightNewEmployeesPreference = value;
+    try {
+        if (!window.sessionStorage) {
+            return;
+        }
+        window.sessionStorage.setItem(HIGHLIGHT_NEW_EMPLOYEES_SESSION_KEY, String(value));
+    } catch (error) {
+        console.warn('Unable to persist highlight preference:', error);
+    }
+}
+
+function clearSessionHighlightPreference() {
+    sessionHighlightNewEmployeesPreference = null;
+    try {
+        if (!window.sessionStorage) {
+            return;
+        }
+        window.sessionStorage.removeItem(HIGHLIGHT_NEW_EMPLOYEES_SESSION_KEY);
+    } catch (error) {
+        console.warn('Unable to clear highlight preference storage:', error);
+    }
+}
+
+function getEffectiveHighlightNewEmployees() {
+    if (sessionHighlightNewEmployeesPreference !== null) {
+        return sessionHighlightNewEmployeesPreference;
+    }
+    return false;
 }
 
 function loadStoredDepartmentPreference() {
@@ -974,6 +1025,11 @@ function setupStaticEventListeners() {
         employeeCountBtn.addEventListener('click', toggleEmployeeCountVisibility);
     }
 
+    const highlightBtn = document.getElementById('highlightNewEmployeesToggleBtn');
+    if (highlightBtn) {
+        highlightBtn.addEventListener('click', toggleHighlightNewEmployees);
+    }
+
     const profileBtn = document.getElementById('profileImageToggleBtn');
     if (profileBtn) {
         profileBtn.addEventListener('click', toggleProfileImages);
@@ -1191,6 +1247,19 @@ async function applySettings() {
         employeeCountBtn.setAttribute('aria-label', countTitle);
     }
 
+    const highlightNewEmployeesEnabled = getEffectiveHighlightNewEmployees();
+    appSettings.highlightNewEmployees = highlightNewEmployeesEnabled;
+    const highlightBtn = document.getElementById('highlightNewEmployeesToggleBtn');
+    if (highlightBtn) {
+        highlightBtn.classList.toggle('active', highlightNewEmployeesEnabled);
+        highlightBtn.setAttribute('aria-pressed', String(highlightNewEmployeesEnabled));
+        const highlightHide = t('index.toolbar.layout.newEmployeeHighlightHide', { defaultValue: 'Hide new employee highlights' });
+        const highlightShow = t('index.toolbar.layout.newEmployeeHighlightShow', { defaultValue: 'Show new employee highlights' });
+        const highlightTitle = highlightNewEmployeesEnabled ? highlightHide : highlightShow;
+        highlightBtn.title = highlightTitle;
+        highlightBtn.setAttribute('aria-label', highlightTitle);
+    }
+
     const showProfileImages = getEffectiveProfileImagesEnabled();
     appSettings.showProfileImages = showProfileImages;
     const profileBtn = document.getElementById('profileImageToggleBtn');
@@ -1332,6 +1401,18 @@ async function updateAuthDependentUI() {
         employeeCountBtn.setAttribute('aria-label', countTitle);
     }
 
+    const highlightBtn = document.getElementById('highlightNewEmployeesToggleBtn');
+    if (highlightBtn) {
+        const highlightEnabled = getEffectiveHighlightNewEmployees();
+        highlightBtn.classList.toggle('active', highlightEnabled);
+        highlightBtn.setAttribute('aria-pressed', String(highlightEnabled));
+        const highlightHide = t('index.toolbar.layout.newEmployeeHighlightHide', { defaultValue: 'Hide new employee highlights' });
+        const highlightShow = t('index.toolbar.layout.newEmployeeHighlightShow', { defaultValue: 'Show new employee highlights' });
+        const highlightTitle = highlightEnabled ? highlightHide : highlightShow;
+        highlightBtn.title = highlightTitle;
+        highlightBtn.setAttribute('aria-label', highlightTitle);
+    }
+
     const profileBtn = document.getElementById('profileImageToggleBtn');
     if (profileBtn) {
         const showImages = getEffectiveProfileImagesEnabled();
@@ -1408,6 +1489,7 @@ async function init() {
         loadStoredNamePreference();
         loadStoredDepartmentPreference();
         loadStoredJobTitlePreference();
+        loadSessionHighlightPreference();
 
         await waitForTranslations();
         htmlElement.classList.remove('i18n-loading');
@@ -1555,6 +1637,41 @@ async function toggleEmployeeCountVisibility() {
         const countTitle = newValue ? countHide : countShow;
         btn.title = countTitle;
         btn.setAttribute('aria-label', countTitle);
+    }
+
+    if (root) {
+        update(root);
+    }
+
+    await updateAuthDependentUI();
+}
+
+async function toggleHighlightNewEmployees() {
+    await waitForTranslations();
+    const btn = document.getElementById('highlightNewEmployeesToggleBtn');
+    const currentValue = getEffectiveHighlightNewEmployees();
+    const newValue = !currentValue;
+
+    if (!appSettings) {
+        appSettings = {};
+    }
+
+    appSettings.highlightNewEmployees = newValue;
+
+    if (newValue) {
+        storeSessionHighlightPreference(true);
+    } else {
+        clearSessionHighlightPreference();
+    }
+
+    if (btn) {
+        btn.classList.toggle('active', newValue);
+        btn.setAttribute('aria-pressed', String(newValue));
+        const highlightHide = t('index.toolbar.layout.newEmployeeHighlightHide', { defaultValue: 'Hide new employee highlights' });
+        const highlightShow = t('index.toolbar.layout.newEmployeeHighlightShow', { defaultValue: 'Show new employee highlights' });
+        const highlightTitle = newValue ? highlightHide : highlightShow;
+        btn.title = highlightTitle;
+        btn.setAttribute('aria-label', highlightTitle);
     }
 
     if (root) {
@@ -2230,6 +2347,7 @@ function update(source) {
     const treeData = treeLayout(root);
     const nodes = treeData.descendants();
     const links = treeData.links();
+    const highlightEnabled = !!appSettings.highlightNewEmployees;
 
     // Swap x and y coordinates for horizontal layout
     if (currentLayout === 'horizontal') {
@@ -2357,7 +2475,7 @@ function update(source) {
     nodeEnter.append('rect')
         .attr('class', d => {
             let classes = 'node-rect';
-            if (appSettings.highlightNewEmployees !== false && d.data.isNewEmployee) {
+            if (highlightEnabled && d.data.isNewEmployee) {
                 classes += ' new-employee';
             }
             return classes;
@@ -2381,7 +2499,7 @@ function update(source) {
             }
         })
         .style('stroke', d => {
-            if (appSettings.highlightNewEmployees !== false && d.data.isNewEmployee) {
+            if (highlightEnabled && d.data.isNewEmployee) {
                 return null;
             }
             const nodeColors = appSettings.nodeColors || {};
@@ -2504,30 +2622,53 @@ function update(source) {
         .append('title')
         .text(d => hiddenNodeIds.has(d.data.id) ? t('index.tree.toggleShow') : t('index.tree.toggleHide'));
 
-    if (appSettings.highlightNewEmployees !== false) {
-        const newBadgeGroup = nodeEnter.append('g')
-            .attr('class', 'new-employee-badge')
-            .style('display', d => d.data.isNewEmployee ? 'block' : 'none');
+    const newBadgeGroup = nodeEnter.append('g')
+        .attr('class', 'new-employee-badge')
+        .style('display', d => (highlightEnabled && d.data.isNewEmployee) ? 'block' : 'none');
 
-        newBadgeGroup.append('rect')
-            .attr('class', 'new-badge')
-            .attr('x', nodeWidth/2 - 45)
-            .attr('y', -nodeHeight/2 - 10)
-            .attr('width', 35)
-            .attr('height', 18)
-            .attr('rx', 9)
-            .attr('ry', 9);
+    newBadgeGroup.append('rect')
+        .attr('class', 'new-badge')
+        .attr('x', nodeWidth/2 - 45)
+        .attr('y', -nodeHeight/2 - 10)
+        .attr('width', 35)
+        .attr('height', 18)
+        .attr('rx', 9)
+        .attr('ry', 9);
 
-        newBadgeGroup.append('text')
-            .attr('class', 'new-badge-text')
-            .attr('x', nodeWidth/2 - 27)
-            .attr('y', -nodeHeight/2 + 2)
-            .attr('text-anchor', 'middle')
-            .text(t('index.badges.new'));
-    }
+    newBadgeGroup.append('text')
+        .attr('class', 'new-badge-text')
+        .attr('x', nodeWidth/2 - 27)
+        .attr('y', -nodeHeight/2 + 2)
+        .attr('text-anchor', 'middle')
+        .text(t('index.badges.new'));
 
 
     const nodeMerge = node.merge(nodeEnter);
+
+    nodeMerge.selectAll('rect.node-rect')
+        .classed('new-employee', d => highlightEnabled && d.data.isNewEmployee)
+        .style('stroke', d => {
+            if (highlightEnabled && d.data.isNewEmployee) {
+                return null;
+            }
+            const nodeColors = appSettings.nodeColors || {};
+            let fillColor;
+            switch (d.depth) {
+                case 0: fillColor = nodeColors.level0 || '#90EE90'; break;
+                case 1: fillColor = nodeColors.level1 || '#FFFFE0'; break;
+                case 2: fillColor = nodeColors.level2 || '#E0F2FF'; break;
+                case 3: fillColor = nodeColors.level3 || '#FFE4E1'; break;
+                case 4: fillColor = nodeColors.level4 || '#E8DFF5'; break;
+                case 5: fillColor = nodeColors.level5 || '#FFEAA7'; break;
+                case 6: fillColor = nodeColors.level6 || '#FAD7FF'; break;
+                case 7: fillColor = nodeColors.level7 || '#D7F8FF'; break;
+                default: fillColor = '#F0F0F0';
+            }
+            return adjustColor(fillColor, -50);
+        });
+
+    nodeMerge.selectAll('.new-employee-badge')
+        .style('display', d => (highlightEnabled && d.data.isNewEmployee) ? 'block' : 'none');
 
     const nodeUpdate = nodeMerge
         .attr('class', d => {
