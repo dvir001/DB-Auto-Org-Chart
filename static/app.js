@@ -4047,15 +4047,6 @@ function showEmployeeDetail(employee) {
         ` + infoHTML;
     }
 
-    if (isDepartmentVisible()) {
-        infoHTML = `
-        <div class="info-item">
-            <div class="info-label">${departmentLabel}</div>
-            <div class="info-value">${escapeHtml(departmentDisplay)}</div>
-        </div>
-        ` + infoHTML;
-    }
-
     if (detailEmployee.managerId && window.currentOrgData) {
         const manager = findManagerById(window.currentOrgData, detailEmployee.managerId);
         if (manager) {
