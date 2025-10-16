@@ -53,12 +53,14 @@ from simple_org_chart.msgraph import (
     fetch_employee_photo,
     get_access_token,
     parse_graph_datetime,
+    _enrich_mailbox_metadata,
 )
 from simple_org_chart.reports import (
     ReportCacheManager,
     apply_disabled_filters,
     apply_filtered_user_filters,
     apply_last_login_filters,
+    apply_missing_manager_filters,
     load_disabled_users_data,
     load_filtered_license_data,
     load_filtered_user_data,
@@ -432,7 +434,14 @@ def collect_missing_manager_records(employees, hierarchy_root=None, settings=Non
                 'businessPhone': emp.get('businessPhone'),
                 'location': emp.get('location') or emp.get('officeLocation') or '',
                 'managerName': manager_name,
-                'reason': reason
+                'reason': reason,
+                'accountEnabled': emp.get('accountEnabled', True),
+                'userType': (emp.get('userType') or '').lower(),
+                'licenseCount': emp.get('licenseCount') or 0,
+                'licenseSkus': list(emp.get('licenseSkus') or []),
+                'licenseSkuIds': list(emp.get('licenseSkuIds') or []),
+                'mailboxType': emp.get('mailboxType'),
+                'isSharedMailbox': emp.get('isSharedMailbox'),
             })
 
     missing_records.sort(key=lambda item: (item.get('department') or '', item.get('name') or ''))
@@ -509,6 +518,13 @@ def update_employee_data():
 
             hierarchy = build_org_hierarchy(employees, settings=settings)
             missing_records = collect_missing_manager_records(employees, hierarchy, settings)
+
+            if missing_records:
+                enrichment_headers = {
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                }
+                _enrich_mailbox_metadata(enrichment_headers, missing_records, max_lookups=0)
 
             if hierarchy:
                 def update_new_status(node):
@@ -1638,16 +1654,50 @@ def _get_disabled_records_from_request(*, force_refresh=False, apply_filters=Tru
 @require_auth
 def get_missing_manager_report():
     try:
-        refresh = request.args.get('refresh', 'false').lower() == 'true'
+        refresh = _parse_bool_arg(request.args.get('refresh'), default=False)
+
+        include_user_mailboxes = _parse_bool_arg(request.args.get('includeUserMailboxes'), default=True)
+        include_shared_mailboxes = _parse_bool_arg(request.args.get('includeSharedMailboxes'), default=True)
+        include_room_equipment_mailboxes = _parse_bool_arg(request.args.get('includeRoomEquipmentMailboxes'), default=True)
+        include_enabled = _parse_bool_arg(request.args.get('includeEnabled'), default=True)
+        include_disabled = _parse_bool_arg(request.args.get('includeDisabled'), default=True)
+        include_licensed = _parse_bool_arg(request.args.get('includeLicensed'), default=True)
+        include_unlicensed = _parse_bool_arg(request.args.get('includeUnlicensed'), default=True)
+        include_members = _parse_bool_arg(request.args.get('includeMembers'), default=True)
+        include_guests = _parse_bool_arg(request.args.get('includeGuests'), default=True)
+
         records = load_missing_manager_data(report_cache, force_refresh=refresh)
+        filtered_records = apply_missing_manager_filters(
+            records,
+            include_user_mailboxes=include_user_mailboxes,
+            include_shared_mailboxes=include_shared_mailboxes,
+            include_room_equipment_mailboxes=include_room_equipment_mailboxes,
+            include_enabled=include_enabled,
+            include_disabled=include_disabled,
+            include_licensed=include_licensed,
+            include_unlicensed=include_unlicensed,
+            include_members=include_members,
+            include_guests=include_guests,
+        )
         generated_at = None
         if os.path.exists(MISSING_MANAGER_FILE):
             generated_at = datetime.fromtimestamp(os.path.getmtime(MISSING_MANAGER_FILE)).isoformat()
 
         return jsonify({
-            'records': records,
-            'count': len(records),
-            'generatedAt': generated_at
+            'records': filtered_records,
+            'count': len(filtered_records),
+            'generatedAt': generated_at,
+            'appliedFilters': {
+                'includeUserMailboxes': include_user_mailboxes,
+                'includeSharedMailboxes': include_shared_mailboxes,
+                'includeRoomEquipmentMailboxes': include_room_equipment_mailboxes,
+                'includeEnabled': include_enabled,
+                'includeDisabled': include_disabled,
+                'includeLicensed': include_licensed,
+                'includeUnlicensed': include_unlicensed,
+                'includeMembers': include_members,
+                'includeGuests': include_guests,
+            }
         })
     except Exception as e:
         logger.error(f"Error loading missing manager report: {e}")
@@ -1661,8 +1711,31 @@ def export_missing_manager_report():
         return jsonify({'error': 'XLSX export not available - openpyxl not installed'}), 500
 
     try:
-        refresh = request.args.get('refresh', 'false').lower() == 'true'
+        refresh = _parse_bool_arg(request.args.get('refresh'), default=False)
+
+        include_user_mailboxes = _parse_bool_arg(request.args.get('includeUserMailboxes'), default=True)
+        include_shared_mailboxes = _parse_bool_arg(request.args.get('includeSharedMailboxes'), default=True)
+        include_room_equipment_mailboxes = _parse_bool_arg(request.args.get('includeRoomEquipmentMailboxes'), default=True)
+        include_enabled = _parse_bool_arg(request.args.get('includeEnabled'), default=True)
+        include_disabled = _parse_bool_arg(request.args.get('includeDisabled'), default=True)
+        include_licensed = _parse_bool_arg(request.args.get('includeLicensed'), default=True)
+        include_unlicensed = _parse_bool_arg(request.args.get('includeUnlicensed'), default=True)
+        include_members = _parse_bool_arg(request.args.get('includeMembers'), default=True)
+        include_guests = _parse_bool_arg(request.args.get('includeGuests'), default=True)
+
         records = load_missing_manager_data(report_cache, force_refresh=refresh)
+        filtered_records = apply_missing_manager_filters(
+            records,
+            include_user_mailboxes=include_user_mailboxes,
+            include_shared_mailboxes=include_shared_mailboxes,
+            include_room_equipment_mailboxes=include_room_equipment_mailboxes,
+            include_enabled=include_enabled,
+            include_disabled=include_disabled,
+            include_licensed=include_licensed,
+            include_unlicensed=include_unlicensed,
+            include_members=include_members,
+            include_guests=include_guests,
+        )
 
         wb = Workbook()
         ws = wb.active
@@ -1691,7 +1764,7 @@ def export_missing_manager_report():
             cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
             cell.alignment = Alignment(horizontal="center")
 
-        for row_index, record in enumerate(records, start=2):
+        for row_index, record in enumerate(filtered_records, start=2):
             for column_index, (key, _) in enumerate(headers, 1):
                 value = record.get(key)
                 if key == 'reason':

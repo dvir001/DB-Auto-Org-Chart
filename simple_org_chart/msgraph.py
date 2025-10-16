@@ -470,6 +470,11 @@ def fetch_all_employees(
                             "accountEnabled": user.get("accountEnabled", True),
                             "userType": user.get("userType") or "",
                             "usageLocation": user.get("usageLocation") or "",
+                            "licenseCount": len(license_sku_ids),
+                            "licenseSkus": list(license_labels),
+                            "licenseSkuIds": list(license_sku_ids),
+                            "mailboxType": None,
+                            "isSharedMailbox": None,
                         }
                     )
             users_url = data.get("@odata.nextLink")

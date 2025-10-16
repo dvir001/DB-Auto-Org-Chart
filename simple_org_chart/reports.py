@@ -359,11 +359,39 @@ def apply_filtered_user_filters(
     return filtered
 
 
+def apply_missing_manager_filters(
+    records: Optional[Sequence[dict]],
+    *,
+    include_user_mailboxes: bool = True,
+    include_shared_mailboxes: bool = True,
+    include_room_equipment_mailboxes: bool = True,
+    include_enabled: bool = True,
+    include_disabled: bool = True,
+    include_licensed: bool = True,
+    include_unlicensed: bool = True,
+    include_members: bool = True,
+    include_guests: bool = True,
+):
+    return apply_filtered_user_filters(
+        records,
+        include_user_mailboxes=include_user_mailboxes,
+        include_shared_mailboxes=include_shared_mailboxes,
+        include_room_equipment_mailboxes=include_room_equipment_mailboxes,
+        include_enabled=include_enabled,
+        include_disabled=include_disabled,
+        include_licensed=include_licensed,
+        include_unlicensed=include_unlicensed,
+        include_members=include_members,
+        include_guests=include_guests,
+    )
+
+
 __all__ = [
     "ReportCacheManager",
     "apply_disabled_filters",
     "apply_filtered_user_filters",
     "apply_last_login_filters",
+    "apply_missing_manager_filters",
     "calculate_license_totals",
     "load_disabled_license_data",
     "load_disabled_users_data",
