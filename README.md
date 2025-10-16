@@ -39,6 +39,7 @@ SimpleOrgChart is a Flask application backed by Azure Active Directory (Entra ID
    - `User.Read.All`
    - `LicenseAssignment.Read.All` *(required for licensing insights and admin reports)*
    - `AuditLog.Read.All` *(required for last sign-in metrics and disabled-user audit timestamps)*
+   - `MailboxSettings.Read` *(enables mailbox-type metadata used by last sign-in filters; without it, all mailboxes are treated as standard users)*
    - Grant admin consent for the tenant.
 
 3. **Create a Client Secret**

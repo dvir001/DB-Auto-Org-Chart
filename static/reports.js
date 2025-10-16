@@ -45,10 +45,39 @@ const REPORT_CONFIGS = {
         filters: [
             {
                 type: 'toggle',
+                key: 'includeUserMailboxes',
+                labelKey: 'reports.filters.includeUserMailboxes.label',
+                queryParam: 'includeUserMailboxes',
+                default: true,
+                groupId: 'mailboxTypes',
+                groupLabelKey: 'reports.filters.groups.mailboxTypes',
+            },
+            {
+                type: 'toggle',
+                key: 'includeSharedMailboxes',
+                labelKey: 'reports.filters.includeSharedMailboxes.label',
+                queryParam: 'includeSharedMailboxes',
+                default: true,
+                groupId: 'mailboxTypes',
+                groupLabelKey: 'reports.filters.groups.mailboxTypes',
+            },
+            {
+                type: 'toggle',
+                key: 'includeRoomEquipmentMailboxes',
+                labelKey: 'reports.filters.includeRoomEquipmentMailboxes.label',
+                queryParam: 'includeRoomEquipmentMailboxes',
+                default: true,
+                groupId: 'mailboxTypes',
+                groupLabelKey: 'reports.filters.groups.mailboxTypes',
+            },
+            {
+                type: 'toggle',
                 key: 'includeEnabled',
                 labelKey: 'reports.filters.includeEnabled.label',
                 queryParam: 'includeEnabled',
                 default: true,
+                groupId: 'accountStatus',
+                groupLabelKey: 'reports.filters.groups.accountStatus',
             },
             {
                 type: 'toggle',
@@ -56,6 +85,8 @@ const REPORT_CONFIGS = {
                 labelKey: 'reports.filters.includeDisabled.label',
                 queryParam: 'includeDisabled',
                 default: true,
+                groupId: 'accountStatus',
+                groupLabelKey: 'reports.filters.groups.accountStatus',
             },
             {
                 type: 'toggle',
@@ -63,6 +94,8 @@ const REPORT_CONFIGS = {
                 labelKey: 'reports.filters.includeLicensed.label',
                 queryParam: 'includeLicensed',
                 default: true,
+                groupId: 'licenseStatus',
+                groupLabelKey: 'reports.filters.groups.licenseStatus',
             },
             {
                 type: 'toggle',
@@ -70,6 +103,8 @@ const REPORT_CONFIGS = {
                 labelKey: 'reports.filters.includeUnlicensed.label',
                 queryParam: 'includeUnlicensed',
                 default: true,
+                groupId: 'licenseStatus',
+                groupLabelKey: 'reports.filters.groups.licenseStatus',
             },
             {
                 type: 'toggle',
@@ -77,6 +112,8 @@ const REPORT_CONFIGS = {
                 labelKey: 'reports.filters.includeMembers.label',
                 queryParam: 'includeMembers',
                 default: true,
+                groupId: 'userScope',
+                groupLabelKey: 'reports.filters.groups.userScope',
             },
             {
                 type: 'toggle',
@@ -84,6 +121,8 @@ const REPORT_CONFIGS = {
                 labelKey: 'reports.filters.includeGuests.label',
                 queryParam: 'includeGuests',
                 default: true,
+                groupId: 'userScope',
+                groupLabelKey: 'reports.filters.groups.userScope',
             },
             {
                 type: 'segmented',
@@ -202,10 +241,39 @@ const REPORT_CONFIGS = {
         filters: [
             {
                 type: 'toggle',
+                key: 'includeUserMailboxes',
+                labelKey: 'reports.filters.includeUserMailboxes.label',
+                queryParam: 'includeUserMailboxes',
+                default: true,
+                groupId: 'mailboxTypes',
+                groupLabelKey: 'reports.filters.groups.mailboxTypes',
+            },
+            {
+                type: 'toggle',
+                key: 'includeSharedMailboxes',
+                labelKey: 'reports.filters.includeSharedMailboxes.label',
+                queryParam: 'includeSharedMailboxes',
+                default: true,
+                groupId: 'mailboxTypes',
+                groupLabelKey: 'reports.filters.groups.mailboxTypes',
+            },
+            {
+                type: 'toggle',
+                key: 'includeRoomEquipmentMailboxes',
+                labelKey: 'reports.filters.includeRoomEquipmentMailboxes.label',
+                queryParam: 'includeRoomEquipmentMailboxes',
+                default: true,
+                groupId: 'mailboxTypes',
+                groupLabelKey: 'reports.filters.groups.mailboxTypes',
+            },
+            {
+                type: 'toggle',
                 key: 'includeEnabled',
                 labelKey: 'reports.filters.includeEnabled.label',
                 queryParam: 'includeEnabled',
                 default: true,
+                groupId: 'accountStatus',
+                groupLabelKey: 'reports.filters.groups.accountStatus',
             },
             {
                 type: 'toggle',
@@ -213,6 +281,8 @@ const REPORT_CONFIGS = {
                 labelKey: 'reports.filters.includeDisabled.label',
                 queryParam: 'includeDisabled',
                 default: true,
+                groupId: 'accountStatus',
+                groupLabelKey: 'reports.filters.groups.accountStatus',
             },
             {
                 type: 'toggle',
@@ -220,6 +290,8 @@ const REPORT_CONFIGS = {
                 labelKey: 'reports.filters.includeLicensed.label',
                 queryParam: 'includeLicensed',
                 default: true,
+                groupId: 'licenseStatus',
+                groupLabelKey: 'reports.filters.groups.licenseStatus',
             },
             {
                 type: 'toggle',
@@ -227,6 +299,8 @@ const REPORT_CONFIGS = {
                 labelKey: 'reports.filters.includeUnlicensed.label',
                 queryParam: 'includeUnlicensed',
                 default: true,
+                groupId: 'licenseStatus',
+                groupLabelKey: 'reports.filters.groups.licenseStatus',
             },
             {
                 type: 'toggle',
@@ -234,6 +308,8 @@ const REPORT_CONFIGS = {
                 labelKey: 'reports.filters.includeMembers.label',
                 queryParam: 'includeMembers',
                 default: true,
+                groupId: 'userScope',
+                groupLabelKey: 'reports.filters.groups.userScope',
             },
             {
                 type: 'toggle',
@@ -241,6 +317,8 @@ const REPORT_CONFIGS = {
                 labelKey: 'reports.filters.includeGuests.label',
                 queryParam: 'includeGuests',
                 default: true,
+                groupId: 'userScope',
+                groupLabelKey: 'reports.filters.groups.userScope',
             },
         ],
         buildStatusParams: (records) => ({
@@ -269,26 +347,45 @@ const REPORT_CONFIGS = {
 
 const reportFiltersState = {};
 
+function resolveFilterDefault(filter) {
+    if (filter.type === 'toggle') {
+        return Boolean(filter.default);
+    }
+    if (filter.type === 'segmented') {
+        return filter.default ?? null;
+    }
+    return filter.default;
+}
+
 function buildDefaultFilters(config) {
     const defaults = {};
     (config.filters || []).forEach((filter) => {
-        if (filter.type === 'toggle') {
-            defaults[filter.key] = Boolean(filter.default);
-        } else if (filter.type === 'segmented') {
-            defaults[filter.key] = filter.default ?? null;
-        } else {
-            defaults[filter.key] = filter.default;
-        }
+        defaults[filter.key] = resolveFilterDefault(filter);
     });
     return defaults;
 }
 
 function ensureFilterState(reportKey) {
-    if (!reportFiltersState[reportKey]) {
-        const config = REPORT_CONFIGS[reportKey];
-        reportFiltersState[reportKey] = config ? buildDefaultFilters(config) : {};
+    const config = REPORT_CONFIGS[reportKey];
+    const existing = reportFiltersState[reportKey];
+
+    if (!config) {
+        return existing || {};
     }
-    return reportFiltersState[reportKey];
+
+    if (!existing) {
+        const defaults = buildDefaultFilters(config);
+        reportFiltersState[reportKey] = defaults;
+        return defaults;
+    }
+
+    (config.filters || []).forEach((filter) => {
+        if (!Object.prototype.hasOwnProperty.call(existing, filter.key)) {
+            existing[filter.key] = resolveFilterDefault(filter);
+        }
+    });
+
+    return existing;
 }
 
 function normalizeFilterValue(filter, value) {
@@ -382,28 +479,37 @@ function renderFilters(config, reportKey) {
 
     const state = ensureFilterState(reportKey);
 
+    const groups = [];
     filters.forEach((filter) => {
-        const group = document.createElement('div');
-        group.className = 'filter-group';
+        const groupId = filter.groupId || filter.key;
+        let group = groups.find((entry) => entry.id === groupId);
+        if (!group) {
+            group = {
+                id: groupId,
+                labelKey: filter.groupLabelKey || null,
+                filters: [],
+            };
+            groups.push(group);
+        } else if (!group.labelKey && filter.groupLabelKey) {
+            group.labelKey = filter.groupLabelKey;
+        }
+        group.filters.push(filter);
+    });
 
-        if (filter.type === 'toggle') {
-            const isActive = Boolean(state[filter.key]);
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.className = `filter-chip${isActive ? ' filter-chip--active' : ''}`;
-            button.textContent = t(filter.labelKey);
-            button.setAttribute('aria-pressed', String(isActive));
-            button.addEventListener('click', () => {
-                updateFilterValue(reportKey, filter, !isActive);
-            });
-            group.appendChild(button);
-        } else if (filter.type === 'segmented') {
+    groups.forEach((group) => {
+        if (group.filters.length === 1 && group.filters[0].type === 'segmented') {
+            const filter = group.filters[0];
+            const groupElement = document.createElement('div');
+            groupElement.className = 'filter-group filter-group--segmented';
+
             const label = document.createElement('span');
             label.className = 'filter-group__label';
             label.textContent = t(filter.labelKey);
-            group.appendChild(label);
+            groupElement.appendChild(label);
 
-            const currentValue = state[filter.key] ?? null;
+            const currentValue = Object.prototype.hasOwnProperty.call(state, filter.key)
+                ? state[filter.key]
+                : resolveFilterDefault(filter);
             (filter.options || []).forEach((option) => {
                 const optionValue = option.value ?? null;
                 const isSelected = currentValue === optionValue;
@@ -415,11 +521,44 @@ function renderFilters(config, reportKey) {
                 button.addEventListener('click', () => {
                     updateFilterValue(reportKey, filter, optionValue);
                 });
-                group.appendChild(button);
+                groupElement.appendChild(button);
             });
+
+            container.appendChild(groupElement);
+            return;
         }
 
-        container.appendChild(group);
+        const groupElement = document.createElement('div');
+        groupElement.className = 'filter-group';
+
+        if (group.labelKey) {
+            const label = document.createElement('span');
+            label.className = 'filter-group__label';
+            label.textContent = t(group.labelKey);
+            groupElement.appendChild(label);
+        }
+
+        group.filters.forEach((filter) => {
+            if (filter.type !== 'toggle') {
+                return;
+            }
+
+            const rawValue = Object.prototype.hasOwnProperty.call(state, filter.key)
+                ? state[filter.key]
+                : resolveFilterDefault(filter);
+            const isActive = Boolean(rawValue);
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = `filter-chip${isActive ? ' filter-chip--active' : ''}`;
+            button.textContent = t(filter.labelKey);
+            button.setAttribute('aria-pressed', String(isActive));
+            button.addEventListener('click', () => {
+                updateFilterValue(reportKey, filter, !isActive);
+            });
+            groupElement.appendChild(button);
+        });
+
+        container.appendChild(groupElement);
     });
 }
 
@@ -433,7 +572,9 @@ function applyFiltersToUrl(url, config, reportKey) {
 
     filters.forEach((filter) => {
         const paramName = filter.queryParam || filter.key;
-        const value = state[filter.key];
+        const value = Object.prototype.hasOwnProperty.call(state, filter.key)
+            ? state[filter.key]
+            : resolveFilterDefault(filter);
 
         if (filter.type === 'toggle') {
             if (value) {

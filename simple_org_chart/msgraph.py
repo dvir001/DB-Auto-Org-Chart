@@ -20,6 +20,7 @@ from simple_org_chart.settings import (
     parse_ignored_titles,
 )
 
+
 logger = logging.getLogger(__name__)
 
 GRAPH_API_ENDPOINT = "https://graph.microsoft.com/v1.0"
@@ -27,6 +28,84 @@ GRAPH_API_BETA_ENDPOINT = "https://graph.microsoft.com/beta"
 
 EmployeeTriple = Tuple[list[dict], list[dict], list[dict]]
 FallbackLoader = Callable[[], EmployeeTriple]
+
+
+def _enrich_mailbox_metadata(
+    headers: dict,
+    records: Iterable[dict],
+    *,
+    max_lookups: Optional[int] = 200,
+) -> None:
+    record_map: dict[str, list[dict]] = {}
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+        user_id = record.get("id")
+        if not user_id:
+            continue
+        record_map.setdefault(str(user_id), []).append(record)
+
+    if not record_map:
+        return
+
+    effective_limit = None if max_lookups is None or max_lookups <= 0 else max_lookups
+    lookups_performed = 0
+
+    for user_id, record_group in record_map.items():
+        if any((rec.get("mailboxType") or "").strip() for rec in record_group):
+            continue
+        if effective_limit is not None and lookups_performed >= effective_limit:
+            break
+
+        lookup_url = (
+            f"{GRAPH_API_BETA_ENDPOINT}/users/{user_id}/mailboxSettings"
+            "?$select=userPurpose"
+        )
+
+        if "ConsistencyLevel" in headers:
+            enrichment_headers = headers
+        else:
+            enrichment_headers = dict(headers)
+            enrichment_headers["ConsistencyLevel"] = "eventual"
+
+        try:
+            response = requests.get(lookup_url, headers=enrichment_headers, timeout=10)
+        except requests.RequestException as exc:
+            logger.debug("Failed to enrich mailbox settings for %s: %s", user_id, exc)
+            continue
+
+        if response.status_code in {401, 403}:
+            logger.info(
+                "Skipping mailbox enrichment; permission denied (status %s)",
+                response.status_code,
+            )
+            break
+
+        if response.status_code == 404:
+            continue
+
+        try:
+            response.raise_for_status()
+        except requests.HTTPError as exc:
+            logger.debug("Mailbox settings lookup failed for %s: %s", user_id, exc)
+            continue
+
+        payload = response.json() or {}
+        mailbox_purpose_raw = (payload.get("userPurpose") or "").strip()
+        if not mailbox_purpose_raw:
+            continue
+
+        mailbox_purpose = mailbox_purpose_raw.lower()
+        is_shared_mailbox = mailbox_purpose.startswith("shared") if mailbox_purpose else None
+
+        for record in record_group:
+            record["mailboxType"] = mailbox_purpose_raw
+            record["isSharedMailbox"] = is_shared_mailbox
+
+        lookups_performed += 1
+
+    if lookups_performed:
+        logger.info("Enriched mailbox metadata for %s users", lookups_performed)
 
 
 def parse_graph_datetime(value: object) -> Optional[datetime]:
@@ -324,6 +403,8 @@ def fetch_all_employees(
                         "licenseCount": len(license_sku_ids),
                         "licenseSkus": license_labels,
                         "licenseSkuIds": license_sku_ids,
+                        "mailboxType": None,
+                        "isSharedMailbox": None,
                     }
                     filtered_users.append(base_record)
                     if license_sku_ids:
@@ -429,6 +510,29 @@ def fetch_all_employees(
         elif fetch_failed:
             logger.warning("Graph fetch failed and no cached employee data is available")
 
+    if filtered_users:
+        _enrich_mailbox_metadata(headers, filtered_users, max_lookups=0)
+        if filtered_with_license:
+            mailbox_lookup: dict[str, tuple[Optional[str], Optional[bool]]] = {}
+            for record in filtered_users:
+                user_id = record.get("id")
+                if not user_id:
+                    continue
+                mailbox_lookup[str(user_id)] = (
+                    record.get("mailboxType"),
+                    record.get("isSharedMailbox"),
+                )
+
+            for record in filtered_with_license:
+                user_id = record.get("id")
+                if not user_id:
+                    continue
+                mailbox_type, shared_flag = mailbox_lookup.get(str(user_id), (None, None))
+                if mailbox_type is not None:
+                    record["mailboxType"] = mailbox_type
+                if shared_flag is not None or "isSharedMailbox" in record:
+                    record["isSharedMailbox"] = shared_flag
+
     return employees, filtered_with_license, filtered_users
 
 
@@ -446,11 +550,15 @@ def collect_last_login_records(*, token: Optional[str] = None) -> list[dict]:
         "ConsistencyLevel": "eventual",
     }
 
-    fields = (
+    base_fields = (
         "id,displayName,jobTitle,department,mail,userPrincipalName,"
         "signInActivity,accountEnabled,userType,assignedLicenses"
     )
-    users_url = f"{GRAPH_API_BETA_ENDPOINT}/users?$select={fields}&$top=999"
+
+    def build_users_url(select_fields: str) -> str:
+        return f"{GRAPH_API_BETA_ENDPOINT}/users?$select={select_fields}&$top=999"
+
+    users_url = build_users_url(base_fields)
 
     now_utc = datetime.now(timezone.utc)
     records: list[dict] = []
@@ -531,8 +639,17 @@ def collect_last_login_records(*, token: Optional[str] = None) -> list[dict]:
 
             sku_ids, license_labels = _map_licenses(user.get("assignedLicenses"))
 
+            mailbox_settings = user.get("mailboxSettings") or {}
+            mailbox_purpose_raw = (mailbox_settings.get("userPurpose") or "").strip()
+            mailbox_purpose = mailbox_purpose_raw.lower()
+            is_shared_mailbox = None
+            if mailbox_purpose:
+                is_shared_mailbox = mailbox_purpose.startswith("shared")
+
+            user_id = user.get("id")
+
             record = {
-                "id": user.get("id"),
+                "id": user_id,
                 "name": user.get("displayName") or "Unknown",
                 "title": user.get("jobTitle") or "No Title",
                 "department": user.get("department") or "No Department",
@@ -542,6 +659,8 @@ def collect_last_login_records(*, token: Optional[str] = None) -> list[dict]:
                 "licenseCount": len(sku_ids),
                 "licenseSkus": license_labels,
                 "licenseSkuIds": sku_ids,
+                "mailboxType": mailbox_purpose_raw or None,
+                "isSharedMailbox": is_shared_mailbox,
                 "lastActivityDate": _format_datetime(most_recent),
                 "daysSinceLastActivity": int((now_utc - most_recent).days) if most_recent else None,
                 "lastInteractiveSignIn": _format_datetime(last_interactive),
@@ -553,6 +672,9 @@ def collect_last_login_records(*, token: Optional[str] = None) -> list[dict]:
             records.append(record)
 
         users_url = payload.get("@odata.nextLink")
+
+    if records:
+        _enrich_mailbox_metadata(headers, records)
 
     logger.info("Collected %s last sign-in records", len(records))
     return records

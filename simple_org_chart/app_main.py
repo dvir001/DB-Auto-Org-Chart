@@ -2047,6 +2047,9 @@ def get_last_logins_report():
         include_members = _parse_bool_arg(request.args.get('includeMembers'), default=True)
         include_guests = _parse_bool_arg(request.args.get('includeGuests'), default=True)
         include_never_signed_in = _parse_bool_arg(request.args.get('includeNeverSignedIn'), default=True)
+        include_user_mailboxes = _parse_bool_arg(request.args.get('includeUserMailboxes'), default=True)
+        include_shared_mailboxes = _parse_bool_arg(request.args.get('includeSharedMailboxes'), default=True)
+        include_room_equipment_mailboxes = _parse_bool_arg(request.args.get('includeRoomEquipmentMailboxes'), default=True)
 
         inactive_days_raw = request.args.get('inactiveDays')
         inactive_days = None
@@ -2068,6 +2071,9 @@ def get_last_logins_report():
             include_members=include_members,
             include_guests=include_guests,
             include_never_signed_in=include_never_signed_in,
+            include_user_mailboxes=include_user_mailboxes,
+            include_shared_mailboxes=include_shared_mailboxes,
+            include_room_equipment_mailboxes=include_room_equipment_mailboxes,
             inactive_days=inactive_days,
             inactive_days_max=inactive_days_max
         )
@@ -2089,6 +2095,9 @@ def get_last_logins_report():
                 'includeMembers': include_members,
                 'includeGuests': include_guests,
                 'includeNeverSignedIn': include_never_signed_in,
+                'includeUserMailboxes': include_user_mailboxes,
+                'includeSharedMailboxes': include_shared_mailboxes,
+                'includeRoomEquipmentMailboxes': include_room_equipment_mailboxes,
                 'inactiveDays': inactive_days,
                 'inactiveDaysMax': inactive_days_max
             }
@@ -2114,6 +2123,9 @@ def export_last_logins_report():
         include_members = _parse_bool_arg(request.args.get('includeMembers'), default=True)
         include_guests = _parse_bool_arg(request.args.get('includeGuests'), default=True)
         include_never_signed_in = _parse_bool_arg(request.args.get('includeNeverSignedIn'), default=True)
+        include_user_mailboxes = _parse_bool_arg(request.args.get('includeUserMailboxes'), default=True)
+        include_shared_mailboxes = _parse_bool_arg(request.args.get('includeSharedMailboxes'), default=True)
+        include_room_equipment_mailboxes = _parse_bool_arg(request.args.get('includeRoomEquipmentMailboxes'), default=True)
         inactive_days_raw = request.args.get('inactiveDays')
         inactive_days = None
         if inactive_days_raw not in (None, '', 'null', 'None'):
@@ -2134,6 +2146,9 @@ def export_last_logins_report():
             include_members=include_members,
             include_guests=include_guests,
             include_never_signed_in=include_never_signed_in,
+            include_user_mailboxes=include_user_mailboxes,
+            include_shared_mailboxes=include_shared_mailboxes,
+            include_room_equipment_mailboxes=include_room_equipment_mailboxes,
             inactive_days=inactive_days,
             inactive_days_max=inactive_days_max
         )
@@ -2318,6 +2333,9 @@ def get_filtered_users_report():
         include_unlicensed = _parse_bool_arg(request.args.get('includeUnlicensed'), default=True)
         include_members = _parse_bool_arg(request.args.get('includeMembers'), default=True)
         include_guests = _parse_bool_arg(request.args.get('includeGuests'), default=True)
+        include_user_mailboxes = _parse_bool_arg(request.args.get('includeUserMailboxes'), default=True)
+        include_shared_mailboxes = _parse_bool_arg(request.args.get('includeSharedMailboxes'), default=True)
+        include_room_equipment_mailboxes = _parse_bool_arg(request.args.get('includeRoomEquipmentMailboxes'), default=True)
 
         if 'licensedOnly' in request.args:
             legacy_licensed_only = _parse_bool_arg(request.args.get('licensedOnly'), default=True)
@@ -2329,6 +2347,9 @@ def get_filtered_users_report():
         records = load_filtered_user_data(report_cache, force_refresh=refresh)
         filtered_records = apply_filtered_user_filters(
             records,
+            include_user_mailboxes=include_user_mailboxes,
+            include_shared_mailboxes=include_shared_mailboxes,
+            include_room_equipment_mailboxes=include_room_equipment_mailboxes,
             include_enabled=include_enabled,
             include_disabled=include_disabled,
             include_licensed=include_licensed,
@@ -2351,7 +2372,10 @@ def get_filtered_users_report():
                 'includeLicensed': include_licensed,
                 'includeUnlicensed': include_unlicensed,
                 'includeMembers': include_members,
-                'includeGuests': include_guests
+                'includeGuests': include_guests,
+                'includeUserMailboxes': include_user_mailboxes,
+                'includeSharedMailboxes': include_shared_mailboxes,
+                'includeRoomEquipmentMailboxes': include_room_equipment_mailboxes,
             }
         })
     except Exception as error:
@@ -2374,6 +2398,9 @@ def export_filtered_users_report():
         include_unlicensed = _parse_bool_arg(request.args.get('includeUnlicensed'), default=True)
         include_members = _parse_bool_arg(request.args.get('includeMembers'), default=True)
         include_guests = _parse_bool_arg(request.args.get('includeGuests'), default=True)
+        include_user_mailboxes = _parse_bool_arg(request.args.get('includeUserMailboxes'), default=True)
+        include_shared_mailboxes = _parse_bool_arg(request.args.get('includeSharedMailboxes'), default=True)
+        include_room_equipment_mailboxes = _parse_bool_arg(request.args.get('includeRoomEquipmentMailboxes'), default=True)
 
         if 'licensedOnly' in request.args:
             legacy_licensed_only = _parse_bool_arg(request.args.get('licensedOnly'), default=True)
@@ -2385,6 +2412,9 @@ def export_filtered_users_report():
         records = load_filtered_user_data(report_cache, force_refresh=refresh)
         filtered_records = apply_filtered_user_filters(
             records,
+            include_user_mailboxes=include_user_mailboxes,
+            include_shared_mailboxes=include_shared_mailboxes,
+            include_room_equipment_mailboxes=include_room_equipment_mailboxes,
             include_enabled=include_enabled,
             include_disabled=include_disabled,
             include_licensed=include_licensed,

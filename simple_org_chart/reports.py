@@ -184,9 +184,45 @@ def calculate_license_totals(records: Optional[Iterable[dict]]):
     return sum((record.get("licenseCount") or 0) for record in records or [])
 
 
+def _resolve_mailbox_categories(record: dict) -> tuple[bool, bool, bool]:
+    mailbox_type_raw = record.get("mailboxType")
+    mailbox_type_value = str(mailbox_type_raw).strip().lower() if mailbox_type_raw is not None else ""
+
+    shared_flag = record.get("isSharedMailbox")
+    if isinstance(shared_flag, str):
+        lowered_flag = shared_flag.strip().lower()
+        if lowered_flag in {"true", "1", "yes", "on"}:
+            shared_flag = True
+        elif lowered_flag in {"false", "0", "no", "off"}:
+            shared_flag = False
+
+    is_shared_mailbox = False
+    if isinstance(shared_flag, bool):
+        is_shared_mailbox = shared_flag
+    elif shared_flag:
+        is_shared_mailbox = True
+
+    if not is_shared_mailbox and mailbox_type_value.startswith("shared"):
+        is_shared_mailbox = True
+
+    is_room_equipment_mailbox = False
+    if not is_shared_mailbox and mailbox_type_value:
+        if mailbox_type_value in {"room", "equipment"}:
+            is_room_equipment_mailbox = True
+        elif any(mailbox_type_value.startswith(prefix) for prefix in ("room", "equipment")):
+            is_room_equipment_mailbox = True
+
+    is_user_mailbox = not is_shared_mailbox and not is_room_equipment_mailbox
+
+    return is_user_mailbox, is_shared_mailbox, is_room_equipment_mailbox
+
+
 def apply_last_login_filters(
     records: Optional[Sequence[dict]],
     *,
+    include_user_mailboxes: bool = True,
+    include_shared_mailboxes: bool = True,
+    include_room_equipment_mailboxes: bool = True,
     include_enabled: bool = True,
     include_disabled: bool = True,
     include_licensed: bool = True,
@@ -222,6 +258,15 @@ def apply_last_login_filters(
     filtered: List[dict] = []
 
     for record in records:
+        is_user_mailbox, is_shared_mailbox, is_room_equipment_mailbox = _resolve_mailbox_categories(record)
+
+        if is_user_mailbox and not include_user_mailboxes:
+            continue
+        if is_shared_mailbox and not include_shared_mailboxes:
+            continue
+        if is_room_equipment_mailbox and not include_room_equipment_mailboxes:
+            continue
+
         account_enabled = record.get("accountEnabled", True)
         if account_enabled and not include_enabled:
             continue
@@ -234,11 +279,12 @@ def apply_last_login_filters(
         if license_count == 0 and not include_unlicensed:
             continue
 
-        user_type = (record.get("userType") or "").lower()
-        if user_type == "member" and not include_members:
-            continue
-        if user_type == "guest" and not include_guests:
-            continue
+        if is_user_mailbox:
+            user_type = (record.get("userType") or "").lower()
+            if user_type == "member" and not include_members:
+                continue
+            if user_type == "guest" and not include_guests:
+                continue
 
         never_signed_in = bool(record.get("neverSignedIn"))
         if never_signed_in and not include_never_signed_in:
@@ -264,6 +310,9 @@ def apply_last_login_filters(
 def apply_filtered_user_filters(
     records: Optional[Sequence[dict]],
     *,
+    include_user_mailboxes: bool = True,
+    include_shared_mailboxes: bool = True,
+    include_room_equipment_mailboxes: bool = True,
     include_enabled: bool = True,
     include_disabled: bool = True,
     include_licensed: bool = True,
@@ -277,6 +326,15 @@ def apply_filtered_user_filters(
     filtered: List[dict] = []
 
     for record in records:
+        is_user_mailbox, is_shared_mailbox, is_room_equipment_mailbox = _resolve_mailbox_categories(record)
+
+        if is_user_mailbox and not include_user_mailboxes:
+            continue
+        if is_shared_mailbox and not include_shared_mailboxes:
+            continue
+        if is_room_equipment_mailbox and not include_room_equipment_mailboxes:
+            continue
+
         account_enabled = record.get("accountEnabled", True)
         if account_enabled and not include_enabled:
             continue

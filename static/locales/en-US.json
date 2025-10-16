@@ -358,6 +358,21 @@
 		},
 		"filters": {
 			"title": "Filters",
+			"groups": {
+				"mailboxTypes": "Mailbox type",
+				"accountStatus": "Account status",
+				"licenseStatus": "License status",
+				"userScope": "User type"
+			},
+			"includeUserMailboxes": {
+				"label": "User"
+			},
+			"includeSharedMailboxes": {
+				"label": "Shared"
+			},
+			"includeRoomEquipmentMailboxes": {
+				"label": "Room/Equipment"
+			},
 			"includeEnabled": {
 				"label": "Enabled"
 			},
@@ -456,7 +471,7 @@
 				"summaryLabel": "Users by last sign-in activity",
 				"tableTitle": "Users by last sign-in activity",
 				"empty": "All monitored users have signed in within the selected period.",
-				"countSummary": "Showing {count} users matching the inactivity criteria"
+				"countSummary": "Showing {count} users matching the report criteria"
 			},
 			"hiredThisYear": {
 				"summaryLabel": "Employees hired in the last 365 days",
