@@ -462,6 +462,7 @@
 				"no_manager": "No manager",
 				"manager_not_found": "Manager not found",
 				"detached": "Detached hierarchy",
+				"filtered": "Filtered",
 				"unknown": "Unknown reason"
 			},
 			"neverSignedIn": "Never signed in"

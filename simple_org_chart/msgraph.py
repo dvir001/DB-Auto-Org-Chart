@@ -297,27 +297,15 @@ def fetch_all_employees(
 
     sku_map = fetch_subscribed_sku_map(token)
 
-    api_filters: list[str] = []
-    if hide_disabled_users:
-        api_filters.append("accountEnabled eq true")
-    if hide_guest_users:
-        api_filters.append("userType eq 'Member'")
-    filter_string = " and ".join(api_filters) if api_filters else ""
     select_fields = (
         "id,displayName,jobTitle,department,mail,userPrincipalName,mobilePhone,"
         "businessPhones,officeLocation,city,state,country,usageLocation,streetAddress,"
         "postalCode,employeeHireDate,accountEnabled,userType,assignedLicenses"
     )
-    if filter_string:
-        users_url = (
-            f"{GRAPH_API_ENDPOINT}/users?$select={select_fields}"
-            f"&$expand=manager($select=id,displayName)&$filter={filter_string}"
-        )
-    else:
-        users_url = (
-            f"{GRAPH_API_ENDPOINT}/users?$select={select_fields}"
-            f"&$expand=manager($select=id,displayName)"
-        )
+    users_url = (
+        f"{GRAPH_API_ENDPOINT}/users?$select={select_fields}"
+        f"&$expand=manager($select=id,displayName)"
+    )
 
     while users_url:
         try:
@@ -405,6 +393,8 @@ def fetch_all_employees(
                         "licenseSkuIds": license_sku_ids,
                         "mailboxType": None,
                         "isSharedMailbox": None,
+                        "managerId": user.get("manager", {}).get("id") if user.get("manager") else None,
+                        "children": [],
                     }
                     filtered_users.append(base_record)
                     if license_sku_ids:

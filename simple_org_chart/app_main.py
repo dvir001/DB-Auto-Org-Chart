@@ -424,6 +424,11 @@ def collect_missing_manager_records(employees, hierarchy_root=None, settings=Non
             reason = 'detached'
 
         if reason:
+            filter_reasons = list(emp.get('filterReasons') or [])
+            effective_reason = reason
+            if filter_reasons:
+                effective_reason = 'filtered'
+
             missing_records.append({
                 'id': emp_id,
                 'name': emp.get('name'),
@@ -434,7 +439,9 @@ def collect_missing_manager_records(employees, hierarchy_root=None, settings=Non
                 'businessPhone': emp.get('businessPhone'),
                 'location': emp.get('location') or emp.get('officeLocation') or '',
                 'managerName': manager_name,
-                'reason': reason,
+                'reason': effective_reason,
+                'missingReason': reason,
+                'filterReasons': filter_reasons,
                 'accountEnabled': emp.get('accountEnabled', True),
                 'userType': (emp.get('userType') or '').lower(),
                 'licenseCount': emp.get('licenseCount') or 0,
@@ -517,7 +524,28 @@ def update_employee_data():
                 logger.error(f"Failed to write employee cache: {cache_error}")
 
             hierarchy = build_org_hierarchy(employees, settings=settings)
-            missing_records = collect_missing_manager_records(employees, hierarchy, settings)
+
+            if filtered_users:
+                combined_by_id: dict[str, dict] = {}
+                for record in employees:
+                    record_id = record.get('id')
+                    if record_id:
+                        combined_by_id[str(record_id)] = record
+                    else:
+                        combined_by_id[f'anon-emp-{id(record)}'] = record
+                for record in filtered_users:
+                    candidate = dict(record)
+                    candidate.setdefault('children', [])
+                    record_id = candidate.get('id')
+                    if record_id:
+                        combined_by_id[str(record_id)] = candidate
+                    else:
+                        combined_by_id[f'anon-filtered-{id(record)}'] = candidate
+                missing_source_records = list(combined_by_id.values())
+            else:
+                missing_source_records = employees
+
+            missing_records = collect_missing_manager_records(missing_source_records, hierarchy, settings)
 
             if missing_records:
                 enrichment_headers = {
@@ -1655,16 +1683,15 @@ def _get_disabled_records_from_request(*, force_refresh=False, apply_filters=Tru
 def get_missing_manager_report():
     try:
         refresh = _parse_bool_arg(request.args.get('refresh'), default=False)
-
         include_user_mailboxes = _parse_bool_arg(request.args.get('includeUserMailboxes'), default=True)
-        include_shared_mailboxes = _parse_bool_arg(request.args.get('includeSharedMailboxes'), default=True)
-        include_room_equipment_mailboxes = _parse_bool_arg(request.args.get('includeRoomEquipmentMailboxes'), default=True)
+        include_shared_mailboxes = _parse_bool_arg(request.args.get('includeSharedMailboxes'), default=False)
+        include_room_equipment_mailboxes = _parse_bool_arg(request.args.get('includeRoomEquipmentMailboxes'), default=False)
         include_enabled = _parse_bool_arg(request.args.get('includeEnabled'), default=True)
-        include_disabled = _parse_bool_arg(request.args.get('includeDisabled'), default=True)
+        include_disabled = _parse_bool_arg(request.args.get('includeDisabled'), default=False)
         include_licensed = _parse_bool_arg(request.args.get('includeLicensed'), default=True)
         include_unlicensed = _parse_bool_arg(request.args.get('includeUnlicensed'), default=True)
         include_members = _parse_bool_arg(request.args.get('includeMembers'), default=True)
-        include_guests = _parse_bool_arg(request.args.get('includeGuests'), default=True)
+        include_guests = _parse_bool_arg(request.args.get('includeGuests'), default=False)
 
         records = load_missing_manager_data(report_cache, force_refresh=refresh)
         filtered_records = apply_missing_manager_filters(
@@ -1712,16 +1739,15 @@ def export_missing_manager_report():
 
     try:
         refresh = _parse_bool_arg(request.args.get('refresh'), default=False)
-
         include_user_mailboxes = _parse_bool_arg(request.args.get('includeUserMailboxes'), default=True)
-        include_shared_mailboxes = _parse_bool_arg(request.args.get('includeSharedMailboxes'), default=True)
-        include_room_equipment_mailboxes = _parse_bool_arg(request.args.get('includeRoomEquipmentMailboxes'), default=True)
+        include_shared_mailboxes = _parse_bool_arg(request.args.get('includeSharedMailboxes'), default=False)
+        include_room_equipment_mailboxes = _parse_bool_arg(request.args.get('includeRoomEquipmentMailboxes'), default=False)
         include_enabled = _parse_bool_arg(request.args.get('includeEnabled'), default=True)
-        include_disabled = _parse_bool_arg(request.args.get('includeDisabled'), default=True)
+        include_disabled = _parse_bool_arg(request.args.get('includeDisabled'), default=False)
         include_licensed = _parse_bool_arg(request.args.get('includeLicensed'), default=True)
         include_unlicensed = _parse_bool_arg(request.args.get('includeUnlicensed'), default=True)
         include_members = _parse_bool_arg(request.args.get('includeMembers'), default=True)
-        include_guests = _parse_bool_arg(request.args.get('includeGuests'), default=True)
+        include_guests = _parse_bool_arg(request.args.get('includeGuests'), default=False)
 
         records = load_missing_manager_data(report_cache, force_refresh=refresh)
         filtered_records = apply_missing_manager_filters(
@@ -1755,7 +1781,8 @@ def export_missing_manager_report():
         reason_labels = {
             'no_manager': 'No manager assigned',
             'manager_not_found': 'Manager not found in data',
-            'detached': 'Detached from hierarchy'
+            'detached': 'Detached from hierarchy',
+            'filtered': 'Filtered'
         }
 
         for column_index, (_, header_text) in enumerate(headers, 1):

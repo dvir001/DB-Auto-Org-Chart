@@ -35,7 +35,7 @@ const REPORT_CONFIGS = {
                 key: 'includeSharedMailboxes',
                 labelKey: 'reports.filters.includeSharedMailboxes.label',
                 queryParam: 'includeSharedMailboxes',
-                default: true,
+                default: false,
                 groupId: 'mailboxTypes',
                 groupLabelKey: 'reports.filters.groups.mailboxTypes',
             },
@@ -44,7 +44,7 @@ const REPORT_CONFIGS = {
                 key: 'includeRoomEquipmentMailboxes',
                 labelKey: 'reports.filters.includeRoomEquipmentMailboxes.label',
                 queryParam: 'includeRoomEquipmentMailboxes',
-                default: true,
+                default: false,
                 groupId: 'mailboxTypes',
                 groupLabelKey: 'reports.filters.groups.mailboxTypes',
             },
@@ -62,7 +62,7 @@ const REPORT_CONFIGS = {
                 key: 'includeDisabled',
                 labelKey: 'reports.filters.includeDisabled.label',
                 queryParam: 'includeDisabled',
-                default: true,
+                default: false,
                 groupId: 'accountStatus',
                 groupLabelKey: 'reports.filters.groups.accountStatus',
             },
@@ -98,7 +98,7 @@ const REPORT_CONFIGS = {
                 key: 'includeGuests',
                 labelKey: 'reports.filters.includeGuests.label',
                 queryParam: 'includeGuests',
-                default: true,
+                default: false,
                 groupId: 'userScope',
                 groupLabelKey: 'reports.filters.groups.userScope',
             },
@@ -883,6 +883,8 @@ function reasonBadgeClass(reason) {
             return 'badge badge--danger';
         case 'detached':
             return 'badge badge--info';
+        case 'filtered':
+            return 'badge badge--neutral';
         default:
             return 'badge badge--warning';
     }
@@ -895,6 +897,7 @@ function createReasonBadge(reason, t) {
         no_manager: 'reports.table.reasonLabels.no_manager',
         manager_not_found: 'reports.table.reasonLabels.manager_not_found',
         detached: 'reports.table.reasonLabels.detached',
+        filtered: 'reports.table.reasonLabels.filtered',
     };
     const labelKey = labels[reason] || 'reports.table.reasonLabels.unknown';
     badge.textContent = t(labelKey);
