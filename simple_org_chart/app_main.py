@@ -2053,6 +2053,11 @@ def get_last_logins_report():
         if inactive_days_raw not in (None, '', 'null', 'None'):
             inactive_days = inactive_days_raw
 
+        inactive_days_max_raw = request.args.get('inactiveDaysMax')
+        inactive_days_max = None
+        if inactive_days_max_raw not in (None, '', 'null', 'None'):
+            inactive_days_max = inactive_days_max_raw
+
         records = load_last_login_data(report_cache, force_refresh=refresh)
         filtered_records = apply_last_login_filters(
             records,
@@ -2063,7 +2068,8 @@ def get_last_logins_report():
             include_members=include_members,
             include_guests=include_guests,
             include_never_signed_in=include_never_signed_in,
-            inactive_days=inactive_days
+            inactive_days=inactive_days,
+            inactive_days_max=inactive_days_max
         )
 
         generated_at = None
@@ -2083,7 +2089,8 @@ def get_last_logins_report():
                 'includeMembers': include_members,
                 'includeGuests': include_guests,
                 'includeNeverSignedIn': include_never_signed_in,
-                'inactiveDays': inactive_days
+                'inactiveDays': inactive_days,
+                'inactiveDaysMax': inactive_days_max
             }
         })
     except Exception as error:
@@ -2112,6 +2119,11 @@ def export_last_logins_report():
         if inactive_days_raw not in (None, '', 'null', 'None'):
             inactive_days = inactive_days_raw
 
+        inactive_days_max_raw = request.args.get('inactiveDaysMax')
+        inactive_days_max = None
+        if inactive_days_max_raw not in (None, '', 'null', 'None'):
+            inactive_days_max = inactive_days_max_raw
+
         records = load_last_login_data(report_cache, force_refresh=refresh)
         filtered_records = apply_last_login_filters(
             records,
@@ -2122,7 +2134,8 @@ def export_last_logins_report():
             include_members=include_members,
             include_guests=include_guests,
             include_never_signed_in=include_never_signed_in,
-            inactive_days=inactive_days
+            inactive_days=inactive_days,
+            inactive_days_max=inactive_days_max
         )
 
         wb = Workbook()

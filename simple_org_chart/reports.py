@@ -195,12 +195,14 @@ def apply_last_login_filters(
     include_guests: bool = True,
     include_never_signed_in: bool = True,
     inactive_days: Optional[str] = None,
+    inactive_days_max: Optional[str] = None,
 ):
     if not records:
         return []
 
     inactive_threshold = None
     require_never_signed_in = False
+    inactive_max_threshold = None
 
     if inactive_days not in (None, "", "none"):
         if isinstance(inactive_days, str) and inactive_days.lower() == "never":
@@ -210,6 +212,12 @@ def apply_last_login_filters(
                 inactive_threshold = int(inactive_days)  # type: ignore[arg-type]
             except (TypeError, ValueError):
                 inactive_threshold = None
+
+    if inactive_days_max not in (None, "", "none"):
+        try:
+            inactive_max_threshold = int(inactive_days_max)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            inactive_max_threshold = None
 
     filtered: List[dict] = []
 
@@ -241,6 +249,11 @@ def apply_last_login_filters(
         if inactive_threshold is not None:
             days_since = record.get("daysSinceLastActivity")
             if days_since is None or days_since < inactive_threshold:
+                continue
+
+        if inactive_max_threshold is not None:
+            days_since = record.get("daysSinceLastActivity")
+            if days_since is None or days_since > inactive_max_threshold:
                 continue
 
         filtered.append(record)

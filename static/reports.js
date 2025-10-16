@@ -101,6 +101,23 @@ const REPORT_CONFIGS = {
                     { value: 'never', labelKey: 'reports.filters.inactiveDays.options.never' },
                 ],
             },
+            {
+                type: 'segmented',
+                key: 'inactiveDaysMax',
+                labelKey: 'reports.filters.inactiveDaysMax.label',
+                queryParam: 'inactiveDaysMax',
+                default: null,
+                options: [
+                    { value: null, labelKey: 'reports.filters.inactiveDaysMax.options.noLimit' },
+                    { value: 30, labelKey: 'reports.filters.inactiveDaysMax.options.thirty' },
+                    { value: 60, labelKey: 'reports.filters.inactiveDaysMax.options.sixty' },
+                    { value: 90, labelKey: 'reports.filters.inactiveDaysMax.options.ninety' },
+                    { value: 180, labelKey: 'reports.filters.inactiveDaysMax.options.oneEighty' },
+                    { value: 365, labelKey: 'reports.filters.inactiveDaysMax.options.year' },
+                    { value: 730, labelKey: 'reports.filters.inactiveDaysMax.options.twoYears' },
+                    { value: 1095, labelKey: 'reports.filters.inactiveDaysMax.options.threeYears' },
+                ],
+            },
         ],
         buildStatusParams: (records) => ({
             count: records.length,

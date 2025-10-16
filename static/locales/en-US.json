@@ -388,6 +388,19 @@
 					"never": "Never signed in"
 				}
 			},
+			"inactiveDaysMax": {
+				"label": "Inactive for at most",
+				"options": {
+					"noLimit": "No limit",
+					"thirty": "30 days",
+					"sixty": "60 days",
+					"ninety": "90 days",
+					"oneEighty": "180 days",
+					"year": "365 days",
+					"twoYears": "730 days",
+					"threeYears": "1095 days"
+				}
+			},
 			"includeGuests": {
 				"label": "Guest"
 			},
