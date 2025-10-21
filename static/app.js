@@ -832,18 +832,26 @@ function getLabelAnchor() {
 }
 
 function getNameFontSizePx(name) {
-    const maxLength = appSettings.showProfileImages !== false ? 25 : 30;
-    return calculateFontSize(name, 14, maxLength) + 'px';
+    const showImages = appSettings.showProfileImages !== false;
+    const maxLength = showImages ? 25 : 32;
+    const baseSize = showImages ? 14 : 16;
+    return calculateFontSize(name, baseSize, maxLength) + 'px';
 }
 
 function getTitleFontSizePx(title) {
-    const maxLength = appSettings.showProfileImages !== false ? 25 : 30;
-    return calculateFontSize(title, 11, maxLength, 8) + 'px';
+    const showImages = appSettings.showProfileImages !== false;
+    const maxLength = showImages ? 25 : 32;
+    const baseSize = showImages ? 11 : 13;
+    const minSize = showImages ? 8 : 10;
+    return calculateFontSize(title, baseSize, maxLength, minSize) + 'px';
 }
 
 function getDepartmentFontSizePx(dept) {
-    const maxLength = appSettings.showProfileImages !== false ? 25 : 35;
-    return calculateFontSize(dept, 9, maxLength, 7) + 'px';
+    const showImages = appSettings.showProfileImages !== false;
+    const maxLength = showImages ? 25 : 38;
+    const baseSize = showImages ? 9 : 11;
+    const minSize = showImages ? 7 : 9;
+    return calculateFontSize(dept, baseSize, maxLength, minSize) + 'px';
 }
 
 function getTrimmedTitle(title = '') {
@@ -2535,10 +2543,10 @@ function update(source) {
     const namesInitiallyVisible = isNameVisible();
     const titlesInitiallyVisible = isJobTitleVisible();
     const departmentsInitiallyVisible = isDepartmentVisible();
-    const initialTitleY = namesInitiallyVisible ? 5 : -10;
+    const initialTitleY = namesInitiallyVisible ? 3 : -12;
     const initialDepartmentY = namesInitiallyVisible
-        ? (titlesInitiallyVisible ? 18 : 5)
-        : (titlesInitiallyVisible ? 5 : -10);
+        ? (titlesInitiallyVisible ? 21 : 6)
+        : (titlesInitiallyVisible ? 6 : -10);
 
     nodeEnter.append('text')
         .attr('class', 'node-text')
@@ -2733,10 +2741,10 @@ function update(source) {
     const namesVisible = isNameVisible();
     const titlesVisible = isJobTitleVisible();
     const departmentsVisible = isDepartmentVisible();
-    const titleY = namesVisible ? 5 : -10;
+    const titleY = namesVisible ? 3 : -12;
     const departmentY = namesVisible
-        ? (titlesVisible ? 18 : 5)
-        : (titlesVisible ? 5 : -10);
+        ? (titlesVisible ? 21 : 6)
+        : (titlesVisible ? 6 : -10);
 
     nodeMerge.select('.node-text')
         .attr('x', getLabelOffsetX())
@@ -3473,7 +3481,7 @@ async function createExportSVG(exportFullChart = false) {
     // No extra compaction
     
     // Calculate bounds
-    const padding = 50;
+    const padding = 10;
     const minX = d3.min(nodesToExport, d => d.x) - nodeWidth/2 - padding;
     const maxX = d3.max(nodesToExport, d => d.x) + nodeWidth/2 + padding;
     const minY = d3.min(nodesToExport, d => d.y) - nodeHeight/2 - padding;
@@ -3481,6 +3489,11 @@ async function createExportSVG(exportFullChart = false) {
     const width = maxX - minX;
     const height = maxY - minY;
     
+    const showImages = appSettings.showProfileImages !== false;
+    const baseNameFontSize = showImages ? '14px' : '16px';
+    const baseTitleFontSize = showImages ? '11px' : '13px';
+    const baseDepartmentFontSize = showImages ? '9px' : '11px';
+
     // Create SVG element
     const exportSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     Object.assign(exportSvg.style, { fontFamily: 'Arial, sans-serif' });
@@ -3495,9 +3508,9 @@ async function createExportSVG(exportFullChart = false) {
     style.textContent = `
         .link { fill: none; stroke: #999; stroke-width: 2px; }
         .node-rect { rx: 4; ry: 4; }
-        .node-text { font-size: 14px; fill: #333; font-weight: 600; }
-        .node-title { font-size: 11px; fill: #555; }
-        .node-department { font-size: 9px; fill: #666; font-style: italic; }
+        .node-text { font-size: ${baseNameFontSize}; fill: #333; font-weight: 600; }
+        .node-title { font-size: ${baseTitleFontSize}; fill: #555; }
+        .node-department { font-size: ${baseDepartmentFontSize}; fill: #666; font-style: italic; }
     `;
     exportSvg.appendChild(style);
 
@@ -3669,9 +3682,13 @@ async function createExportSVG(exportFullChart = false) {
             nodeG.appendChild(image);
         }
 
-        const textX = appSettings.showProfileImages !== false ? -nodeWidth/2 + 50 : 0;
-        const textAnchor = appSettings.showProfileImages !== false ? 'start' : 'middle';
-        const textWidth = appSettings.showProfileImages !== false ? nodeWidth - 58 : nodeWidth - 20;
+        const textX = showImages ? -nodeWidth/2 + 50 : 0;
+        const textAnchor = showImages ? 'start' : 'middle';
+        const textWidth = showImages ? nodeWidth - 58 : nodeWidth - 20;
+        const titleBaseY = namesVisible ? 3 : -12;
+        const fallbackDepartmentBase = namesVisible ? 6 : -10;
+        let renderedTitleLines = 0;
+        let titleFontSizeValue = showImages ? 11 : 13;
         
         // Name
         if (namesVisible) {
@@ -3680,7 +3697,9 @@ async function createExportSVG(exportFullChart = false) {
             nameText.setAttribute('x', textX);
             nameText.setAttribute('y', -10);
             nameText.setAttribute('text-anchor', textAnchor);
-            nameText.textContent = getVisibleNameText(d.data, { includeFallback: true });
+            const nameValue = getVisibleNameText(d.data, { includeFallback: true });
+            nameText.textContent = nameValue;
+            nameText.setAttribute('font-size', getNameFontSizePx(nameValue));
             nodeG.appendChild(nameText);
         }
         
@@ -3690,8 +3709,11 @@ async function createExportSVG(exportFullChart = false) {
             const titleElement = document.createElementNS('http://www.w3.org/2000/svg', 'text');
             titleElement.setAttribute('class', 'node-title');
             titleElement.setAttribute('x', textX);
-            titleElement.setAttribute('y', namesVisible ? 5 : -10);
+            titleElement.setAttribute('y', titleBaseY);
             titleElement.setAttribute('text-anchor', textAnchor);
+            const titleFontSize = getTitleFontSizePx(titleText);
+            titleElement.setAttribute('font-size', titleFontSize);
+            titleFontSizeValue = parseFloat(titleFontSize) || titleFontSizeValue;
 
             const words = titleText.split(/\s+/).filter(Boolean);
             let currentLine = '';
@@ -3704,6 +3726,7 @@ async function createExportSVG(exportFullChart = false) {
                 tspan.setAttribute('x', textX);
                 tspan.textContent = titleText;
                 titleElement.appendChild(tspan);
+                lineCount = 1;
             } else {
                 for (const word of words) {
                     const testLine = currentLine ? `${currentLine} ${word}` : word;
@@ -3726,8 +3749,10 @@ async function createExportSVG(exportFullChart = false) {
                     lastTspan.setAttribute('dy', `${lineCount === 0 ? 0 : 1.2}em`);
                     lastTspan.textContent = currentLine;
                     titleElement.appendChild(lastTspan);
+                    lineCount++;
                 }
             }
+            renderedTitleLines = Math.max(lineCount, 1);
 
             nodeG.appendChild(titleElement);
         }
@@ -3738,12 +3763,19 @@ async function createExportSVG(exportFullChart = false) {
             const deptText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
             deptText.setAttribute('class', 'node-department');
             deptText.setAttribute('x', textX);
-            const departmentY = namesVisible
-                ? (titlesVisible && titleText ? 28 : 5)
-                : (titlesVisible && titleText ? 5 : -10);
+            let departmentY;
+            if (titlesVisible && titleText) {
+                const additionalLines = Math.max(renderedTitleLines - 1, 0);
+                const lineSpacing = titleFontSizeValue * 1.2;
+                const baseGap = namesVisible ? 18 : 18;
+                departmentY = titleBaseY + baseGap + additionalLines * lineSpacing;
+            } else {
+                departmentY = fallbackDepartmentBase;
+            }
             deptText.setAttribute('y', departmentY);
             deptText.setAttribute('text-anchor', textAnchor);
             deptText.textContent = departmentText;
+            deptText.setAttribute('font-size', getDepartmentFontSizePx(departmentText));
             nodeG.appendChild(deptText);
         }
         
