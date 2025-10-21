@@ -720,7 +720,16 @@ function resetHiddenSubtrees() {
 const API_BASE_URL = window.location.origin;
 const nodeWidth = 220;
 const nodeHeight = 80;
-const levelHeight = 130; // slightly taller to afford multi-line rows
+const levelHeight = 102;
+const HORIZONTAL_LEVEL_HEIGHT = 130;
+const VERTICAL_NODE_SPACING = nodeWidth + 8;
+const HORIZONTAL_NODE_SPACING = nodeWidth + 26;
+const VERTICAL_MULTILINE_SPACING = nodeWidth + 10;
+const HORIZONTAL_MULTILINE_SPACING = nodeWidth + 36;
+const VERTICAL_COMPACT_HORIZONTAL = nodeWidth + 11;
+const HORIZONTAL_COMPACT_HORIZONTAL = nodeWidth + 40;
+const VERTICAL_COMPACT_VERTICAL = levelHeight + 6;
+const HORIZONTAL_COMPACT_VERTICAL = HORIZONTAL_LEVEL_HEIGHT + 20;
 
 // Zoom tracking and helpers
 let userAdjustedZoom = false;
@@ -761,8 +770,8 @@ function updateSvgSize() {
 function createTreeLayout() {
     const layout = d3.tree()
         .nodeSize(currentLayout === 'vertical'
-            ? [nodeWidth + 26, levelHeight]
-            : [levelHeight, nodeWidth + 26])
+            ? [VERTICAL_NODE_SPACING, levelHeight]
+            : [HORIZONTAL_LEVEL_HEIGHT, HORIZONTAL_NODE_SPACING])
         .separation((a, b) => {
             const sameParent = a.parent && b.parent && a.parent === b.parent;
             // Keep siblings at full spacing to avoid overlap even for large teams
@@ -2847,7 +2856,7 @@ function applyMultiLineChildrenLayout(nodes) {
     nodes.forEach(parent => {
         const kids = parent.children || [];
         if (!kids.length) return;
-    if (kids.length < threshold) return;
+        if (kids.length < threshold) return;
 
         // Determine row/column layout and minimize empty slots in last row
         // Preserve D3's left-to-right ordering to reduce crossing
@@ -2856,14 +2865,14 @@ function applyMultiLineChildrenLayout(nodes) {
         let columns = Math.ceil(Math.sqrt(n));
         let rows = Math.ceil(n / columns);
         columns = Math.ceil(n / rows); // refine to reduce underfill
-        const hSpacing = nodeWidth + 36;
-        const vSpacing = levelHeight; // keep consistent per-level spacing
+        const hSpacing = currentLayout === 'horizontal' ? HORIZONTAL_MULTILINE_SPACING : VERTICAL_MULTILINE_SPACING;
+        const vSpacing = currentLayout === 'horizontal' ? HORIZONTAL_LEVEL_HEIGHT : levelHeight; // keep consistent per-level spacing
         const totalHeight = (rows - 1) * vSpacing;
         const horizontalBaseOffset = currentLayout === 'horizontal'
-            ? (appSettings.multiLineHorizontalBaseOffset ?? Math.max(nodeWidth * 0.5, vSpacing * 0.45))
+            ? (appSettings.multiLineHorizontalBaseOffset ?? Math.max(nodeWidth * 0.5, HORIZONTAL_LEVEL_HEIGHT * 0.45))
             : 0;
         const horizontalRowOffset = currentLayout === 'horizontal'
-            ? (appSettings.multiLineHorizontalRowOffset ?? Math.min(vSpacing * 0.10, nodeWidth * 0.15))
+            ? (appSettings.multiLineHorizontalRowOffset ?? Math.min(HORIZONTAL_LEVEL_HEIGHT * 0.10, nodeWidth * 0.15))
             : 0;
 
         orderedKids.forEach((child, idx) => {
@@ -2898,7 +2907,10 @@ function applyMultiLineChildrenLayout(nodes) {
     });
 
     // Pass 2: Compress ancestors around multi-lined groups, do not alter the group itself
-    const gapBetweenSubtrees = (appSettings.multiLineCompactGap ?? 36); // edge-to-edge gap
+    const configuredGap = appSettings.multiLineCompactGap;
+    const gapBetweenSubtrees = (typeof configuredGap === 'number')
+        ? configuredGap
+        : (currentLayout === 'horizontal' ? 36 : 10); // edge-to-edge gap
     // Identify multi-lined parents (where wrapping occurred)
     const mlParents = nodes.filter(p => (p.children || []).length >= threshold);
     const ancestorSet = new Set();
@@ -3756,8 +3768,12 @@ function applyCompactLayout(nodes) {
             if (children) {
                 const columns = Math.ceil(Math.sqrt(children.length));
                 
-                const horizontalSpacing = nodeWidth + 40;
-                const verticalSpacing = levelHeight + 20;
+                const horizontalSpacing = currentLayout === 'horizontal'
+                    ? HORIZONTAL_COMPACT_HORIZONTAL
+                    : VERTICAL_COMPACT_HORIZONTAL;
+                const verticalSpacing = currentLayout === 'horizontal'
+                    ? HORIZONTAL_COMPACT_VERTICAL
+                    : VERTICAL_COMPACT_VERTICAL;
 
                 const totalWidth = (columns - 1) * horizontalSpacing;
 
